@@ -98,6 +98,7 @@ const MOCK_ENTRIES = [
 // ─── STORAGE ─────────────────────────────────────────────────────
 const SK_ENTRIES     = 'exec_entries_v1';
 const SK_AUDIT       = 'exec_audit_v1';
+const SK_USER        = 'exec_user_v1';    // persists display name across sessions
 const SCHEMA_VERSION = 1;
 const APP_VERSION    = 'v1.5.0';
 const APP_BUILD_DATE = 'April 22, 2026';
@@ -116,40 +117,40 @@ async function storageSet(key, value) {
 
 // ─── SHARED UI ATOMS ─────────────────────────────────────────────
 const Sec = ({ label, count }) => (
-  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, marginTop:24 }}>
-    <span style={{ fontSize:11, fontWeight:700, color:C.rose, textTransform:'uppercase', letterSpacing:'0.14em', whiteSpace:'nowrap' }}>{label}</span>
+  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, marginTop:30 }}>
+    <span style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase', letterSpacing:'0.14em', whiteSpace:'nowrap' }}>{label}</span>
     {count != null && (
-      <span style={{ fontSize:11, color:C.dim, background:C.elevated, borderRadius:10,
-        padding:'2px 8px', boxShadow:SH.subtle }}>{count}</span>
+      <span style={{ fontSize:14, color:C.dim, background:C.elevated, borderRadius:10,
+        padding:'3px 10px', boxShadow:SH.subtle }}>{count}</span>
     )}
     <div style={{ flex:1, height:'1px', background:C.border }} />
   </div>
 );
 
 const Badge = ({ label, color }) => (
-  <span style={{ fontSize:11, fontWeight:700, color, background:color+'28', borderRadius:20,
-    padding:'3px 10px', textTransform:'capitalize', letterSpacing:'0.02em', flexShrink:0,
+  <span style={{ fontSize:14, fontWeight:700, color, background:color+'28', borderRadius:20,
+    padding:'4px 12px', textTransform:'capitalize', letterSpacing:'0.02em', flexShrink:0,
     border:`1px solid ${color}30` }}>{label}</span>
 );
 
 const Tog = ({ on, onChange }) => (
   <button onClick={() => onChange(!on)}
-    style={{ width:50, height:28, borderRadius:14, background:on?C.rose:C.elevated,
+    style={{ width:56, height:32, borderRadius:16, background:on?C.rose:C.elevated,
       border:`1.5px solid ${on?C.rose:C.border}`,
       cursor:'pointer', position:'relative', flexShrink:0, padding:0,
       transition:'background 0.2s, border-color 0.2s', boxShadow:SH.subtle }}>
-    <div style={{ position:'absolute', top:3, left:on?25:3, width:20, height:20,
-      borderRadius:10, background:on?'#fff':C.muted,
+    <div style={{ position:'absolute', top:4, left:on?28:4, width:22, height:22,
+      borderRadius:11, background:on?'#fff':C.muted,
       boxShadow:'0 1px 4px rgba(0,0,0,0.15)', transition:'left 0.18s' }} />
   </button>
 );
 
 // P3-17: SS and SR at module level — never recreated on SettingsTab renders
 const SS = ({ title, children }) => (
-  <div style={{ marginBottom:12 }}>
-    <p style={{ fontSize:11, fontWeight:700, color:C.rose, textTransform:'uppercase',
-      letterSpacing:'0.14em', margin:'24px 0 8px' }}>{title}</p>
-    <div style={{ background:C.card, borderRadius:20, overflow:'hidden',
+  <div style={{ marginBottom:14 }}>
+    <p style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase',
+      letterSpacing:'0.14em', margin:'28px 0 10px' }}>{title}</p>
+    <div style={{ background:C.card, borderRadius:22, overflow:'hidden',
       boxShadow:SH.card, border:`1px solid ${C.border}` }}>
       {children}
     </div>
@@ -157,11 +158,11 @@ const SS = ({ title, children }) => (
 );
 
 const SR = ({ label, sub, right, noBorder }) => (
-  <div style={{ display:'flex', alignItems:'center', padding:'16px 18px',
-    borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:12 }}>
+  <div style={{ display:'flex', alignItems:'center', padding:'18px 20px',
+    borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:14 }}>
     <div style={{ flex:1 }}>
-      <p style={{ margin:0, fontSize:15, color:C.text, fontWeight:500 }}>{label}</p>
-      {sub && <p style={{ margin:0, fontSize:13, color:C.dim, marginTop:2 }}>{sub}</p>}
+      <p style={{ margin:0, fontSize:17, color:C.text, fontWeight:500 }}>{label}</p>
+      {sub && <p style={{ margin:0, fontSize:15, color:C.dim, marginTop:3 }}>{sub}</p>}
     </div>
     {right}
   </div>
@@ -187,18 +188,18 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
   const pill = (bg, fg, border) => ({
     background: bg, color: fg,
     border: `1px solid ${border}`,
-    borderRadius: 20, padding: '4px 13px',
-    fontSize: 12, fontWeight: 700,
+    borderRadius: 22, padding: '8px 18px',
+    fontSize: 14, fontWeight: 700,
     cursor: 'pointer', fontFamily: 'inherit',
     whiteSpace: 'nowrap', flexShrink: 0,
   });
 
   return (
-    <div style={{ display:'flex', gap:14, padding:'16px 0',
+    <div style={{ display:'flex', gap:14, padding:'20px 0',
       borderBottom:`1px solid ${C.border}` }}>
 
       {/* Left colour stripe */}
-      <div style={{ width:4, minHeight:24, borderRadius:4,
+      <div style={{ width:5, minHeight:24, borderRadius:4,
         background: col+'90', flexShrink:0, marginTop:4 }} />
 
       <div style={{ flex:1, minWidth:0 }}>
@@ -206,17 +207,17 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
         <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
           {e.type === 'task' && (
             <button onClick={() => onToggle && onToggle(e.id)}
-              style={{ width:22, height:22, borderRadius:6,
+              style={{ width:26, height:26, borderRadius:7,
                 border:`2px solid ${e.done ? C.T : C.border}`,
                 background: e.done ? C.T+'22' : 'transparent',
                 cursor:'pointer', flexShrink:0, marginTop:1,
                 display:'flex', alignItems:'center', justifyContent:'center',
-                color:C.T, fontSize:13, padding:0,
+                color:C.T, fontSize:15, padding:0,
                 transition:'background 0.15s, border-color 0.15s' }}>
               {e.done ? '✓' : ''}
             </button>
           )}
-          <span style={{ fontSize:15, fontWeight:600,
+          <span style={{ fontSize:17, fontWeight:600,
             color: e.done ? C.muted : C.text,
             textDecoration: e.done ? 'line-through' : 'none',
             lineHeight:'1.4', flex:1, minWidth:0 }}>
@@ -224,7 +225,7 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
           </span>
           {e.priority && <Badge label={e.priority} color={PC[e.priority]} />}
           {e.type === 'flight' && (
-            <span style={{ fontSize:13, fontWeight:700, color:dcol,
+            <span style={{ fontSize:15, fontWeight:700, color:dcol,
               letterSpacing:'0.04em', flexShrink:0 }}>
               {e.depCity}→{e.arrCity}
             </span>
@@ -235,22 +236,22 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
         {!open ? (
           /* META STATE — normal view with subtle ··· trigger at the end */
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
-            {e.time      && <span style={{ fontSize:13, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
-            {e.location  && <span style={{ fontSize:13, color:C.dim }}>📍 {e.location}</span>}
-            {e.flightNum && <span style={{ fontSize:13, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
-            {e.tags      && <span style={{ fontSize:13, color:C.dim }}>🏷 {e.tags}</span>}
-            {e.message   && <span style={{ fontSize:13, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
+            {e.time      && <span style={{ fontSize:15, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
+            {e.location  && <span style={{ fontSize:15, color:C.dim }}>📍 {e.location}</span>}
+            {e.flightNum && <span style={{ fontSize:15, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
+            {e.tags      && <span style={{ fontSize:15, color:C.dim }}>🏷 {e.tags}</span>}
+            {e.message   && <span style={{ fontSize:15, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
             {e.visibility==='shared' && (
-              <span style={{ fontSize:12, color:C.rose,
+              <span style={{ fontSize:14, color:C.rose,
                 background:C.rose+'15', borderRadius:10, padding:'1px 8px' }}>
                 ◯ Shared
               </span>
             )}
             {/* Subtle trigger — sits naturally at end of meta content */}
             <button onClick={openMenu}
-              style={{ marginLeft:'auto', fontSize:13, color:C.muted,
+              style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                 background:'transparent', border:`1px solid ${C.border}`,
-                borderRadius:12, padding:'2px 9px', cursor:'pointer',
+                borderRadius:14, padding:'6px 13px', cursor:'pointer',
                 letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>
               ···
             </button>
@@ -276,7 +277,7 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
         ) : (
           /* CONFIRM STATE — "Remove?" with Cancel + confirm */
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontSize:13, color:C.dim, flex:1, fontStyle:'italic' }}>
+            <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>
               Remove this entry?
             </span>
             <button onClick={closeMenu}
@@ -295,7 +296,7 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
 }
 
 // ─── HOME TAB ────────────────────────────────────────────────────
-function HomeTab({ entries, onToggle, onEdit, onDelete }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
   const now      = new Date();
   const todayStr = fd(now);
 
@@ -328,13 +329,12 @@ function HomeTab({ entries, onToggle, onEdit, onDelete }) {
 
       {/* Greeting */}
       <div style={{ paddingTop:14, marginBottom:20 }}>
-        <p style={{ fontSize:13, color:C.dim, margin:'0 0 3px', fontStyle:'italic' }}>{greet}</p>
-        <h1 style={{ fontSize:30, fontFamily:'Cormorant Garamond,Georgia,serif',
+        <p style={{ fontSize:15, color:C.dim, margin:'0 0 3px', fontStyle:'italic' }}>{greet}</p>
+        <h1 style={{ fontSize:36, fontFamily:'Cormorant Garamond,Georgia,serif',
           fontWeight:600, color:C.text, margin:0, lineHeight:1.2 }}>
-          Marcus{' '}
-          <span style={{ color:C.rose }}>Harrington</span>
+          <span style={{ color:C.rose }}>{userName || 'Welcome'}</span>
         </h1>
-        <p style={{ fontSize:14, color:C.dim, margin:'5px 0 0' }}>
+        <p style={{ fontSize:16, color:C.dim, margin:'5px 0 0' }}>
           {DAY[now.getDay()]}, {MFULL[now.getMonth()]} {now.getDate()} · {todayEs.length} items today
         </p>
       </div>
@@ -342,11 +342,11 @@ function HomeTab({ entries, onToggle, onEdit, onDelete }) {
       {/* Stats strip */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:6 }}>
         {[[todayEs.length,'Today',C.M],[openTasks,'Open Tasks',C.T],[next48,'Next 48h',C.E]].map(([v,l,c]) => (
-          <div key={l} style={{ background:C.card, borderRadius:18, padding:'16px 10px',
+          <div key={l} style={{ background:C.card, borderRadius:18, padding:'20px 10px',
             textAlign:'center', boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            <div style={{ fontSize:26, fontWeight:700,
+            <div style={{ fontSize:32, fontWeight:700,
               fontFamily:'Cormorant Garamond,serif', color:c, lineHeight:1 }}>{v}</div>
-            <div style={{ fontSize:12, color:C.dim, marginTop:4 }}>{l}</div>
+            <div style={{ fontSize:14, color:C.dim, marginTop:6 }}>{l}</div>
           </div>
         ))}
       </div>
@@ -364,25 +364,25 @@ function HomeTab({ entries, onToggle, onEdit, onDelete }) {
             pointerEvents:'none' }} />
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
             <div style={{ flex:1 }}>
-              <p style={{ fontSize:12, color:DTC.flight, fontWeight:700, margin:'0 0 5px',
+              <p style={{ fontSize:14, color:DTC.flight, fontWeight:700, margin:'0 0 5px',
                 textTransform:'uppercase', letterSpacing:'0.1em' }}>
                 {nextFlight.airline} · {nextFlight.flightNum}
               </p>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontSize:32, fontWeight:600, color:C.text,
+                <span style={{ fontSize:36, fontWeight:600, color:C.text,
                   fontFamily:'Cormorant Garamond,serif' }}>{nextFlight.depCity}</span>
                 <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
                   <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight}60,transparent)` }} />
-                  <span style={{ fontSize:14, color:DTC.flight }}>✈</span>
+                  <span style={{ fontSize:16, color:DTC.flight }}>✈</span>
                   <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight}60,transparent)` }} />
                 </div>
-                <span style={{ fontSize:32, fontWeight:600, color:C.text,
+                <span style={{ fontSize:36, fontWeight:600, color:C.text,
                   fontFamily:'Cormorant Garamond,serif' }}>{nextFlight.arrCity}</span>
               </div>
             </div>
             <div style={{ textAlign:'right', paddingLeft:14 }}>
-              <p style={{ fontSize:17, fontWeight:600, color:C.text, margin:0 }}>{pt(nextFlight.time)}</p>
-              <p style={{ fontSize:13, color:C.dim, margin:'4px 0 0' }}>
+              <p style={{ fontSize:19, fontWeight:600, color:C.text, margin:0 }}>{pt(nextFlight.time)}</p>
+              <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
                 {nextFlight.date===todayStr ? 'Today'
                   : nextFlight.date===fd(ad(new Date(),1)) ? 'Tomorrow'
                   : nextFlight.date}
@@ -395,8 +395,8 @@ function HomeTab({ entries, onToggle, onEdit, onDelete }) {
               <div key={k} style={{ background:'#ffffff60', borderRadius:12,
                 padding:'7px 12px', backdropFilter:'blur(4px)',
                 border:`1px solid ${C.F}25` }}>
-                <p style={{ fontSize:10, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
-                <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
+                <p style={{ fontSize:12, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
+                <p style={{ fontSize:17, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
               </div>
             ))}
           </div>
@@ -415,7 +415,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete }) {
       {/* Today's Schedule */}
       <Sec label="Today's Schedule" count={todayEs.length} />
       {todayEs.length === 0
-        ? <p style={{ color:C.muted, fontSize:14, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
+        ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
             Nothing scheduled for today
           </p>
         : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
@@ -451,13 +451,13 @@ function AgendaView({ entries, onToggle, onEdit, onDelete }) {
                 boxShadow: isT ? `0 4px 16px ${C.rose}35` : SH.subtle,
                 border: isT ? 'none' : `1px solid ${C.border}`,
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ fontSize:9, fontWeight:700, color:isT?'#fff':C.dim,
+                <span style={{ fontSize:11, fontWeight:700, color:isT?'#fff':C.dim,
                   lineHeight:1, textTransform:'uppercase' }}>{DAY[dt.getDay()]}</span>
-                <span style={{ fontSize:18, fontWeight:700, color:isT?'#fff':C.text, lineHeight:1.2 }}>
+                <span style={{ fontSize:20, fontWeight:700, color:isT?'#fff':C.text, lineHeight:1.2 }}>
                   {dt.getDate()}
                 </span>
               </div>
-              <span style={{ fontSize:14, color:isT?C.rose:C.dim, fontStyle:isT?'italic':'normal' }}>
+              <span style={{ fontSize:16, color:isT?C.rose:C.dim, fontStyle:isT?'italic':'normal' }}>
                 {isT ? 'Today — ' : ''}{MFULL[dt.getMonth()]} {dt.getFullYear()}
               </span>
             </div>
@@ -481,7 +481,7 @@ function DayView({ entries, selDate, setSelDate }) {
   const NavBtn = ({ children, onClick }) => (
     <button onClick={onClick} style={{ background:C.card, border:`1px solid ${C.border}`,
       color:C.text, borderRadius:12, padding:'7px 16px', cursor:'pointer',
-      fontSize:18, boxShadow:SH.subtle }}>{children}</button>
+      fontSize:20, boxShadow:SH.subtle }}>{children}</button>
   );
 
   return (
@@ -490,11 +490,11 @@ function DayView({ entries, selDate, setSelDate }) {
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-1); setSelDate(fd(d)); }}>‹</NavBtn>
         <div style={{ flex:1, textAlign:'center' }}>
-          <p style={{ margin:0, fontSize:15, fontWeight:600, color:C.text }}>
+          <p style={{ margin:0, fontSize:17, fontWeight:600, color:C.text }}>
             {DAY[dt.getDay()]}, {MFULL[dt.getMonth()]} {dt.getDate()}
           </p>
           {selDate===fd(new Date()) && (
-            <p style={{ margin:0, fontSize:12, color:C.rose, fontStyle:'italic' }}>Today</p>
+            <p style={{ margin:0, fontSize:14, color:C.rose, fontStyle:'italic' }}>Today</p>
           )}
         </div>
         <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+1); setSelDate(fd(d)); }}>›</NavBtn>
@@ -505,15 +505,15 @@ function DayView({ entries, selDate, setSelDate }) {
           return (
             <div key={h} style={{ display:'flex', gap:12, minHeight:52 }}>
               <div style={{ width:50, paddingTop:10, flexShrink:0 }}>
-                <span style={{ fontSize:12, color:C.muted }}>{ft(h)}</span>
+                <span style={{ fontSize:14, color:C.muted }}>{ft(h)}</span>
               </div>
               <div style={{ flex:1, borderTop:`1px solid ${C.border}`, paddingTop:6, paddingBottom:6 }}>
                 {hEs.map(e => (
                   <div key={e.id} style={{ background:TC[e.type]+'20',
                     borderLeft:`3px solid ${TC[e.type]}`,
                     borderRadius:'0 12px 12px 0', padding:'9px 14px', marginBottom:6 }}>
-                    <p style={{ margin:0, fontSize:14, fontWeight:600, color:C.text }}>{e.title}</p>
-                    <p style={{ margin:'2px 0 0', fontSize:12, color:C.dim }}>
+                    <p style={{ margin:0, fontSize:16, fontWeight:600, color:C.text }}>{e.title}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:14, color:C.dim }}>
                       {pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}{e.location?` · ${e.location}`:''}
                     </p>
                   </div>
@@ -541,13 +541,13 @@ function WeekView({ entries, selDate, setSelDate }) {
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-7); setSelDate(fd(d)); }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>‹</button>
-        <span style={{ flex:1, textAlign:'center', fontSize:14, color:C.dim, fontWeight:600 }}>
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
+        <span style={{ flex:1, textAlign:'center', fontSize:16, color:C.dim, fontWeight:600 }}>
           {MON[weekStart.getMonth()]} {weekStart.getDate()} – {MON[days[6].getMonth()]} {days[6].getDate()}
         </span>
         <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+7); setSelDate(fd(d)); }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>›</button>
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
       {/* Day header row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
@@ -559,7 +559,7 @@ function WeekView({ entries, selDate, setSelDate }) {
             <button key={ds} onClick={() => setSelDate(ds)}
               style={{ background:'transparent', border:'none', cursor:'pointer',
                 padding:'8px 2px', textAlign:'center' }}>
-              <div style={{ fontSize:10, color:isT?C.rose:C.dim,
+              <div style={{ fontSize:12, color:isT?C.rose:C.dim,
                 marginBottom:3, textTransform:'uppercase', letterSpacing:'0.06em' }}>
                 {DAY[d.getDay()]}
               </div>
@@ -567,7 +567,7 @@ function WeekView({ entries, selDate, setSelDate }) {
                 background: isSel?C.rose : isT?C.rose+'22':'transparent',
                 boxShadow: isSel?`0 2px 10px ${C.rose}40`:'none',
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ fontSize:14, fontWeight:isSel?700:400,
+                <span style={{ fontSize:16, fontWeight:isSel?700:400,
                   color:isSel?'#fff':isT?C.rose:C.text }}>{d.getDate()}</span>
               </div>
             </button>
@@ -587,9 +587,9 @@ function WeekView({ entries, selDate, setSelDate }) {
                   <div key={e.id} style={{ background:TC[e.type]+'25',
                     borderLeft:`2px solid ${TC[e.type]}`,
                     borderRadius:'0 6px 6px 0', padding:'4px 5px', marginBottom:3 }}>
-                    <p style={{ margin:0, fontSize:11, fontWeight:600, color:C.text,
+                    <p style={{ margin:0, fontSize:13, fontWeight:600, color:C.text,
                       overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.title}</p>
-                    {e.time && <p style={{ margin:0, fontSize:10, color:C.dim }}>{pt(e.time)}</p>}
+                    {e.time && <p style={{ margin:0, fontSize:12, color:C.dim }}>{pt(e.time)}</p>}
                   </div>
                 ))}
               </div>
@@ -618,20 +618,20 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete })
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => setVm(p => p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1})}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>‹</button>
-        <span style={{ flex:1, textAlign:'center', fontSize:17, fontWeight:600,
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
+        <span style={{ flex:1, textAlign:'center', fontSize:19, fontWeight:600,
           color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
           {MFULL[vm.m]} {vm.y}
         </span>
         <button onClick={() => setVm(p => p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1})}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>›</button>
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
       {/* Weekday labels */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
         padding:'6px 6px 0', flexShrink:0, background:C.card }}>
         {['M','T','W','T','F','S','S'].map((d,i) => (
-          <div key={i} style={{ textAlign:'center', fontSize:12, color:C.muted, fontWeight:600, padding:'3px 0' }}>{d}</div>
+          <div key={i} style={{ textAlign:'center', fontSize:14, color:C.muted, fontWeight:600, padding:'3px 0' }}>{d}</div>
         ))}
       </div>
       {/* Day grid */}
@@ -651,7 +651,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete })
                   border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
                   boxShadow: isSel?`0 2px 12px ${C.rose}35`:'none',
                   display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <span style={{ fontSize:14, fontWeight:isSel?700:400,
+                  <span style={{ fontSize:16, fontWeight:isSel?700:400,
                     color: isSel?'#fff' : isT?C.rose:C.text }}>{day}</span>
                 </div>
                 <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:5 }}>
@@ -667,12 +667,12 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete })
       {/* Selected day entries */}
       <div style={{ flex:1, overflowY:'auto', padding:'0 18px 80px',
         borderTop:`1px solid ${C.border}`, marginTop:8, boxSizing:'border-box' }}>
-        <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
+        <p style={{ fontSize:14, color:C.dim, margin:'10px 0 8px',
           textTransform:'uppercase', letterSpacing:'0.1em', fontWeight:700 }}>
           {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
         </p>
         {selDayEs.length===0
-          ? <p style={{ color:C.muted, fontSize:14, textAlign:'center', padding:'24px 0', fontStyle:'italic' }}>
+          ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'24px 0', fontStyle:'italic' }}>
               Nothing on this day
             </p>
           : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
@@ -699,7 +699,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete }) {
             style={{ flex:1, padding:'9px 2px', borderRadius:12, border:'none', cursor:'pointer',
               background: view===v ? C.rose : C.elevated,
               color: view===v ? '#fff' : C.dim,
-              fontSize:13, fontWeight:view===v?600:400, textTransform:'capitalize',
+              fontSize:15, fontWeight:view===v?600:400, textTransform:'capitalize',
               boxShadow: view===v?`0 2px 10px ${C.rose}35`:SH.subtle,
               transition:'background 0.15s' }}>
             {v}
@@ -751,14 +751,14 @@ function SearchTab({ entries, onToggle, onEdit, onDelete }) {
         <div style={{ display:'flex', alignItems:'center', gap:10, background:C.elevated,
           borderRadius:16, padding:'11px 16px', border:`1px solid ${C.border}`,
           boxShadow:SH.subtle }}>
-          <span style={{ color:C.muted, fontSize:17 }}>🔍</span>
+          <span style={{ color:C.muted, fontSize:19 }}>🔍</span>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search all entries…"
             style={{ flex:1, background:'transparent', border:'none', outline:'none',
-              color:C.text, fontSize:15, fontFamily:'inherit' }} />
+              color:C.text, fontSize:17, fontFamily:'inherit' }} />
           {q && (
             <button onClick={() => setQ('')}
               style={{ background:'transparent', border:'none', color:C.muted,
-                cursor:'pointer', fontSize:16, padding:0 }}>✕</button>
+                cursor:'pointer', fontSize:18, padding:0 }}>✕</button>
           )}
         </div>
         {/* Quick filters */}
@@ -769,7 +769,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete }) {
                 border:`1px solid ${quickF===qf.k ? C.rose : C.border}`,
                 color: quickF===qf.k ? '#fff' : C.dim,
                 borderRadius:20, padding:'5px 14px',
-                fontSize:13, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
+                fontSize:15, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
                 boxShadow: quickF===qf.k?`0 2px 10px ${C.rose}35`:SH.subtle,
                 transition:'background 0.15s' }}>
               {qf.l}
@@ -783,7 +783,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete }) {
               style={{ background: typeF===t ? (t==='all'?C.rose:TC[t]+'28') : C.elevated,
                 border:`1px solid ${typeF===t ? (t==='all'?C.rose:TC[t]) : C.border}`,
                 color: typeF===t ? (t==='all'?'#fff':DTC[t]||TC[t]) : C.dim,
-                borderRadius:20, padding:'4px 13px', fontSize:12, fontWeight:600,
+                borderRadius:20, padding:'4px 13px', fontSize:14, fontWeight:600,
                 cursor:'pointer', whiteSpace:'nowrap', textTransform:'capitalize',
                 transition:'background 0.15s' }}>
               {t==='all'?'All':TL[t]||t}
@@ -792,11 +792,11 @@ function SearchTab({ entries, onToggle, onEdit, onDelete }) {
         </div>
       </div>
       <div style={{ flex:1, overflowY:'auto', padding:'0 18px 100px', boxSizing:'border-box' }}>
-        <p style={{ fontSize:13, color:C.muted, margin:'12px 0 6px', fontStyle:'italic' }}>
+        <p style={{ fontSize:15, color:C.muted, margin:'12px 0 6px', fontStyle:'italic' }}>
           {results.length} result{results.length!==1?'s':''}
         </p>
         {results.length===0
-          ? <p style={{ color:C.muted, fontSize:14, textAlign:'center', padding:'50px 0', fontStyle:'italic' }}>
+          ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'50px 0', fontStyle:'italic' }}>
               Nothing found
             </p>
           : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
@@ -816,32 +816,32 @@ function ResetSection({ onReset }) {
   const [confirming, setConfirming] = useState(false);
   return (
     <div style={{ marginBottom:40 }}>
-      <p style={{ fontSize:11, fontWeight:700, color:'#C46A14', textTransform:'uppercase',
+      <p style={{ fontSize:13, fontWeight:700, color:'#C46A14', textTransform:'uppercase',
         letterSpacing:'0.14em', margin:'24px 0 8px' }}>Danger Zone</p>
       <div style={{ background:C.card, borderRadius:20, overflow:'hidden',
         boxShadow:SH.card, border:`1px solid ${'#C46A14'}40` }}>
         {!confirming ? (
           <div style={{ display:'flex', alignItems:'center', padding:'16px 18px', gap:12 }}>
             <div style={{ flex:1 }}>
-              <p style={{ margin:0, fontSize:15, color:C.text, fontWeight:500 }}>Reset App Data</p>
-              <p style={{ margin:0, fontSize:13, color:C.dim, marginTop:2 }}>
+              <p style={{ margin:0, fontSize:17, color:C.text, fontWeight:500 }}>Reset App Data</p>
+              <p style={{ margin:0, fontSize:15, color:C.dim, marginTop:2 }}>
                 Wipe all entries, audit log and storage. Cannot be undone.
               </p>
             </div>
             <button onClick={() => setConfirming(true)}
               style={{ background:'transparent', border:`1.5px solid ${'#C46A14'}`,
                 color:'#C46A14', borderRadius:12, padding:'8px 16px',
-                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+                fontSize:15, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap' }}>
               Reset…
             </button>
           </div>
         ) : (
           <div style={{ padding:'18px 18px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:700, color:'#A04E08' }}>
+            <p style={{ margin:'0 0 6px', fontSize:17, fontWeight:700, color:'#A04E08' }}>
               Are you sure?
             </p>
-            <p style={{ margin:'0 0 16px', fontSize:13, color:C.dim, lineHeight:1.5 }}>
+            <p style={{ margin:'0 0 16px', fontSize:15, color:C.dim, lineHeight:1.5 }}>
               This permanently erases every entry, flight, reminder and activity log record.
               Your next sync will start with a completely blank database.
             </p>
@@ -849,13 +849,13 @@ function ResetSection({ onReset }) {
               <button onClick={() => setConfirming(false)}
                 style={{ flex:1, background:C.elevated, border:`1px solid ${C.border}`,
                   color:C.dim, borderRadius:12, padding:'11px 0',
-                  fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                  fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
                 Cancel
               </button>
               <button onClick={() => { setConfirming(false); onReset(); }}
                 style={{ flex:1, background:'#A04E08', border:'none',
                   color:'#fff', borderRadius:12, padding:'11px 0',
-                  fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                  fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                   boxShadow:`0 4px 16px ${'#A04E08'}40` }}>
                 Yes, Wipe Everything
               </button>
@@ -895,9 +895,9 @@ function InviteModal({ onClose }) {
         border:`1px solid ${C.border}`, padding:'20px 22px 44px',
         boxShadow:SH.float }}>
         <div style={{ width:40, height:5, borderRadius:3, background:C.border, margin:'0 auto 18px' }} />
-        <h3 style={{ margin:'0 0 4px', fontSize:19, fontWeight:600, color:C.text,
+        <h3 style={{ margin:'0 0 4px', fontSize:21, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif' }}>Invite to Kizuna 絆</h3>
-        <p style={{ margin:'0 0 20px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
+        <p style={{ margin:'0 0 20px', fontSize:15, color:C.dim, fontStyle:'italic' }}>
           Share the link or scan the QR code
         </p>
         {/* QR code */}
@@ -912,17 +912,17 @@ function InviteModal({ onClose }) {
         <div style={{ display:'flex', gap:8, alignItems:'center',
           background:C.elevated, borderRadius:12, padding:'10px 14px',
           border:`1px solid ${C.border}`, marginBottom:14 }}>
-          <span style={{ flex:1, fontSize:12, color:C.dim, overflow:'hidden',
+          <span style={{ flex:1, fontSize:14, color:C.dim, overflow:'hidden',
             textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
           <button onClick={copy}
             style={{ background:copied?C.T:C.rose, border:'none', color:'#fff',
-              borderRadius:8, padding:'6px 14px', fontSize:12, fontWeight:700,
+              borderRadius:8, padding:'6px 14px', fontSize:14, fontWeight:700,
               cursor:'pointer', fontFamily:'inherit', flexShrink:0,
               transition:'background 0.2s' }}>
             {copied ? '✓ Copied!' : 'Copy Link'}
           </button>
         </div>
-        <p style={{ margin:0, fontSize:12, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
+        <p style={{ margin:0, fontSize:14, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
           Members open the link in Safari → Share → Add to Home Screen
         </p>
       </div>
@@ -938,9 +938,9 @@ function InviteModal({ onClose }) {
         border:`1px solid ${C.border}`, padding:'20px 22px 44px',
         boxShadow:SH.float }}>
         <div style={{ width:40, height:5, borderRadius:3, background:C.border, margin:'0 auto 18px' }} />
-        <h3 style={{ margin:'0 0 4px', fontSize:19, fontWeight:600, color:C.text,
+        <h3 style={{ margin:'0 0 4px', fontSize:21, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif' }}>Invite to Kizuna 絆</h3>
-        <p style={{ margin:'0 0 20px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
+        <p style={{ margin:'0 0 20px', fontSize:15, color:C.dim, fontStyle:'italic' }}>
           Share the link or scan the QR code
         </p>
         {/* QR code */}
@@ -955,17 +955,17 @@ function InviteModal({ onClose }) {
         <div style={{ display:'flex', gap:8, alignItems:'center',
           background:C.elevated, borderRadius:12, padding:'10px 14px',
           border:`1px solid ${C.border}`, marginBottom:14 }}>
-          <span style={{ flex:1, fontSize:12, color:C.dim, overflow:'hidden',
+          <span style={{ flex:1, fontSize:14, color:C.dim, overflow:'hidden',
             textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
           <button onClick={copy}
             style={{ background:copied?C.T:C.rose, border:'none', color:'#fff',
-              borderRadius:8, padding:'6px 14px', fontSize:12, fontWeight:700,
+              borderRadius:8, padding:'6px 14px', fontSize:14, fontWeight:700,
               cursor:'pointer', fontFamily:'inherit', flexShrink:0,
               transition:'background 0.2s' }}>
             {copied ? '✓ Copied' : 'Copy'}
           </button>
         </div>
-        <p style={{ margin:0, fontSize:12, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
+        <p style={{ margin:0, fontSize:14, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
           Members open the link in Safari → Share → Add to Home Screen
         </p>
       </div>
@@ -974,7 +974,7 @@ function InviteModal({ onClose }) {
 }
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset, isAdmin = true }) {
+function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userInitials = '?', onChangeName }) {
   const [notifs,     setNotifs]     = useState({ digest:true, preEvent:true, flights:true, shared:true });
   const [digestTime, setDigestTime] = useState('06:30');
   const [dndStart,   setDndStart]   = useState('22:00');
@@ -1003,7 +1003,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
     display:'block', marginTop:6, width:'100%', boxSizing:'border-box',
     background:C.elevated, border:`1px solid ${C.border}`,
     borderRadius:12, padding:'10px 13px', color:C.text,
-    fontSize:15, fontFamily:'inherit', outline:'none',
+    fontSize:17, fontFamily:'inherit', outline:'none',
     boxShadow:SH.subtle,
   };
 
@@ -1021,15 +1021,22 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
             boxShadow:`0 4px 16px ${C.rose}35` }}>
-            <span style={{ fontSize:22, fontWeight:700, color:'#fff' }}>MH</span>
+            <span style={{ fontSize:22, fontWeight:700, color:'#fff' }}>{userInitials}</span>
           </div>
-          <div>
-            <p style={{ margin:0, fontSize:19, fontWeight:600, color:C.text,
-              fontFamily:'Cormorant Garamond,serif' }}>Marcus Harrington</p>
-            <p style={{ margin:'4px 0 0', fontSize:12, color:C.rose,
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ margin:0, fontSize:21, fontWeight:600, color:C.text,
+              fontFamily:'Cormorant Garamond,serif', overflow:'hidden',
+              textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName || 'Your Name'}</p>
+            <p style={{ margin:'4px 0 0', fontSize:14, color:C.rose,
               background:C.rose+'15', display:'inline-block',
               borderRadius:10, padding:'2px 10px' }}>◯ Workspace Admin</p>
           </div>
+          <button onClick={onChangeName}
+            style={{ background:C.elevated, border:`1px solid ${C.border}`,
+              borderRadius:12, padding:'8px 14px', fontSize:14, color:C.dim,
+              cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+            Edit
+          </button>
         </div>
       </div>
 
@@ -1039,7 +1046,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
           sub={`${members.length} members · You are Admin`}
           right={<Badge label="Admin" color={C.rose} />} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
-          <p style={{ fontSize:11, color:C.muted, margin:'10px 0 6px',
+          <p style={{ fontSize:13, color:C.muted, margin:'10px 0 6px',
             fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>Members</p>
           {members.map(m => (
             <div key={m.id} style={{ display:'flex', alignItems:'center',
@@ -1049,17 +1056,17 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
               <div style={{ width:32, height:32, borderRadius:16, background:C.elevated,
                 border:`1px solid ${C.border}`, flexShrink:0,
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ fontSize:13, color:C.dim }}>{m.name[0]}</span>
+                <span style={{ fontSize:15, color:C.dim }}>{m.name[0]}</span>
               </div>
               {/* Name */}
-              <span style={{ flex:1, fontSize:14, color:C.text }}>{m.name}</span>
+              <span style={{ flex:1, fontSize:16, color:C.text }}>{m.name}</span>
               {/* Delete — admin only */}
               {isAdmin && (
                 <button onClick={() => removeMember(m.id)}
                   style={{ background:'transparent', border:`1px solid ${C.border}`,
                     borderRadius:8, width:28, height:28, cursor:'pointer',
                     display:'flex', alignItems:'center', justifyContent:'center',
-                    color:C.muted, fontSize:14, flexShrink:0,
+                    color:C.muted, fontSize:16, flexShrink:0,
                     transition:'border-color 0.15s, color 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor='#C46A14'; e.currentTarget.style.color='#C46A14'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}>
@@ -1069,7 +1076,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
             </div>
           ))}
           {members.length === 0 && (
-            <p style={{ fontSize:13, color:C.muted, textAlign:'center',
+            <p style={{ fontSize:15, color:C.muted, textAlign:'center',
               padding:'16px 0', fontStyle:'italic' }}>No members yet</p>
           )}
           {/* Invite button */}
@@ -1077,7 +1084,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
             style={{ marginTop:14, background:'transparent',
               border:`1.5px dashed ${C.rose}60`,
               borderRadius:12, padding:'10px 14px', color:C.rose,
-              fontSize:14, cursor:'pointer', width:'100%',
+              fontSize:16, cursor:'pointer', width:'100%',
               fontFamily:'inherit', transition:'border-color 0.15s',
               display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
             🌸 Invite via Link or QR Code
@@ -1091,7 +1098,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
           right={<Tog on={notifs.digest} onChange={v => setNotifs(p=>({...p,digest:v}))} />} />
         {notifs.digest && (
           <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}` }}>
-            <label style={{ fontSize:13, color:C.dim }}>Digest time</label>
+            <label style={{ fontSize:15, color:C.dim }}>Digest time</label>
             <input type="time" value={digestTime} onChange={e=>setDigestTime(e.target.value)}
               style={InputStyle} />
           </div>
@@ -1107,13 +1114,13 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
       {/* Do Not Disturb */}
       <SS title="Do Not Disturb">
         <SR label="DND Window" sub={`${pt(dndStart)} – ${pt(dndEnd)} · No notifications`}
-          right={<span style={{ fontSize:13, color:C.T, background:C.T+'20',
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'20',
             borderRadius:10, padding:'2px 10px' }}>● Active</span>} />
         <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
           display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           {[['Start',dndStart,setDndStart],['End',dndEnd,setDndEnd]].map(([l,v,sv]) => (
             <div key={l}>
-              <label style={{ fontSize:13, color:C.dim }}>{l}</label>
+              <label style={{ fontSize:15, color:C.dim }}>{l}</label>
               <input type="time" value={v} onChange={e=>sv(e.target.value)}
                 style={InputStyle} />
             </div>
@@ -1126,8 +1133,8 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
         {recentLog.length === 0 ? (
           <div style={{ padding:'32px 18px', textAlign:'center' }}>
             <p style={{ margin:0, fontSize:28, opacity:0.35 }}>◎</p>
-            <p style={{ margin:'8px 0 3px', fontSize:15, color:C.dim, fontWeight:600 }}>No activity yet</p>
-            <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic' }}>
+            <p style={{ margin:'8px 0 3px', fontSize:17, color:C.dim, fontWeight:600 }}>No activity yet</p>
+            <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
               Create or complete entries to start tracking
             </p>
           </div>
@@ -1146,12 +1153,12 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
                     background:`linear-gradient(135deg,${C.rose}30,${C.roseL}20)`,
                     border:`1.5px solid ${C.rose}40`,
                     display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:C.rose }}>{initials}</span>
+                    <span style={{ fontSize:15, fontWeight:700, color:C.rose }}>{initials}</span>
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
-                      <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{log.actor}</span>
-                      <span style={{ fontSize:11, fontWeight:700, color:actionColor,
+                      <span style={{ fontSize:16, fontWeight:600, color:C.text }}>{log.actor}</span>
+                      <span style={{ fontSize:13, fontWeight:700, color:actionColor,
                         background:actionColor+'20', borderRadius:20,
                         padding:'2px 9px', textTransform:'capitalize', flexShrink:0,
                         border:`1px solid ${actionColor}30` }}>
@@ -1161,11 +1168,11 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5, minWidth:0 }}>
                       <div style={{ width:8, height:8, borderRadius:4,
                         background:TC[log.entryType]||C.dim, flexShrink:0 }} />
-                      <span style={{ fontSize:14, color:C.text,
+                      <span style={{ fontSize:16, color:C.text,
                         overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
                         {log.entryTitle}
                       </span>
-                      <span style={{ fontSize:12, color:C.dim, flexShrink:0,
+                      <span style={{ fontSize:14, color:C.dim, flexShrink:0,
                         textTransform:'capitalize', background:C.elevated,
                         borderRadius:8, padding:'2px 8px', border:`1px solid ${C.border}` }}>
                         {log.entryType}
@@ -1175,7 +1182,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
                       <div style={{ background:C.elevated, borderRadius:10,
                         padding:'7px 10px', marginBottom:5, border:`1px solid ${C.border}` }}>
                         {log.changes.map((ch, ci) => (
-                          <div key={ci} style={{ fontSize:12, color:C.dim, lineHeight:1.8 }}>
+                          <div key={ci} style={{ fontSize:14, color:C.dim, lineHeight:1.8 }}>
                             <span style={{ color:C.text, fontWeight:600 }}>{ch.field}: </span>
                             <span style={{ color:'#C46A14', textDecoration:'line-through' }}>{String(ch.from ?? '—')}</span>
                             <span style={{ color:C.muted }}> → </span>
@@ -1184,13 +1191,13 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
                         ))}
                       </div>
                     )}
-                    <span style={{ fontSize:12, color:C.muted, fontStyle:'italic' }}>{relTime(log.timestamp)}</span>
+                    <span style={{ fontSize:14, color:C.muted, fontStyle:'italic' }}>{relTime(log.timestamp)}</span>
                   </div>
                 </div>
               );
             })}
             <div style={{ padding:'12px 18px', borderTop:`1px solid ${C.border}` }}>
-              <p style={{ margin:0, fontSize:13, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
+              <p style={{ margin:0, fontSize:15, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
                 Showing {recentLog.length} of {auditLog.length} events · Append-only
               </p>
             </div>
@@ -1204,7 +1211,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
           {Object.entries(TL).map(([t,l]) => (
             <div key={t} style={{ display:'flex', alignItems:'center', gap:10 }}>
               <div style={{ width:12, height:12, borderRadius:4, background:TC[t]+'90', flexShrink:0 }} />
-              <span style={{ fontSize:14, color:C.text }}>{l}</span>
+              <span style={{ fontSize:16, color:C.text }}>{l}</span>
             </div>
           ))}
         </div>
@@ -1213,13 +1220,13 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
       {/* Data & Privacy */}
       <SS title="Data & Privacy">
         <SR label="End-to-End Encryption" sub="All entries encrypted at rest"
-          right={<span style={{ fontSize:13, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
         <SR label="GDPR Compliance" sub="Data stored per EU regulations"
-          right={<span style={{ fontSize:13, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
         <SR label="Persistent Storage" sub={`Schema v${SCHEMA_VERSION} · Auto-saves on every change`}
-          right={<span style={{ fontSize:13, color:C.rose, background:C.rose+'18', borderRadius:10, padding:'2px 10px' }}>◯ Live</span>} />
+          right={<span style={{ fontSize:15, color:C.rose, background:C.rose+'18', borderRadius:10, padding:'2px 10px' }}>◯ Live</span>} />
         <SR label="Audit Trail" sub="All changes tracked · Append-only" noBorder
-          right={<span style={{ fontSize:13, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ On</span>} />
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ On</span>} />
       </SS>
 
       {/* About */}
@@ -1227,13 +1234,13 @@ function SettingsTab({ auditLog, onReset, isAdmin = true }) {
         <SR label="絆 Kizuna"
           sub={`${APP_VERSION} · Released ${APP_BUILD_DATE}`}
           right={
-            <span style={{ fontSize:12, color:C.dim, background:C.elevated,
+            <span style={{ fontSize:14, color:C.dim, background:C.elevated,
               borderRadius:10, padding:'3px 10px', border:`1px solid ${C.border}` }}>
               {APP_VERSION}
             </span>
           } />
         <SR label="Schema Version" sub={`Storage format v${SCHEMA_VERSION}`} noBorder
-          right={<span style={{ fontSize:13, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
+          right={<span style={{ fontSize:15, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
       </SS>
 
       {/* Reset App Data — admin only */}
@@ -1265,7 +1272,7 @@ function EForm({ form, set }) {
   const inputBase = {
     width:'100%', boxSizing:'border-box', background:C.elevated,
     border:`1px solid ${C.border}`, borderRadius:12, padding:'12px 14px',
-    color:C.text, fontSize:15, outline:'none', fontFamily:'inherit',
+    color:C.text, fontSize:17, outline:'none', fontFamily:'inherit',
     boxShadow:SH.subtle,
   };
   const FI = ({ field, ...props }) => (
@@ -1278,7 +1285,7 @@ function EForm({ form, set }) {
   );
   const FL = ({ label, children }) => (
     <div style={{ marginBottom:14 }}>
-      <label style={{ fontSize:12, color:C.dim, display:'block', marginBottom:5,
+      <label style={{ fontSize:14, color:C.dim, display:'block', marginBottom:5,
         fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</label>
       {children}
     </div>
@@ -1393,7 +1400,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
           {step===1 && !isEdit && (
             <button onClick={() => setStep(0)}
               style={{ background:'transparent', border:'none', color:C.rose,
-                fontSize:15, cursor:'pointer', padding:'0 16px 0 0', fontWeight:700 }}>
+                fontSize:17, cursor:'pointer', padding:'0 16px 0 0', fontWeight:700 }}>
               ‹ Back
             </button>
           )}
@@ -1406,7 +1413,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
               style={{ background:canSave?typeColor:C.elevated,
                 border:`1px solid ${canSave?typeColor:C.border}`,
                 color:canSave?'#fff':C.muted, borderRadius:12,
-                padding:'9px 20px', fontSize:15, fontWeight:600,
+                padding:'9px 20px', fontSize:17, fontWeight:600,
                 cursor:canSave?'pointer':'default',
                 boxShadow:canSave?`0 4px 16px ${typeColor}40`:'none',
                 fontFamily:'inherit', transition:'background 0.15s' }}>
@@ -1416,14 +1423,14 @@ function AddModal({ onClose, onSave, editEntry = null }) {
             <button onClick={onClose}
               style={{ background:C.elevated, border:`1px solid ${C.border}`,
                 color:C.dim, width:32, height:32, borderRadius:16,
-                cursor:'pointer', fontSize:16, padding:0,
+                cursor:'pointer', fontSize:18, padding:0,
                 display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
           )}
         </div>
         <div style={{ overflowY:'auto', padding:'6px 22px 44px', flex:1 }}>
           {step === 0 ? (
             <div>
-              <p style={{ fontSize:14, color:C.dim, margin:'4px 0 16px', fontStyle:'italic' }}>
+              <p style={{ fontSize:16, color:C.dim, margin:'4px 0 16px', fontStyle:'italic' }}>
                 What would you like to add?
               </p>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -1434,9 +1441,9 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                       display:'flex', flexDirection:'column', gap:6,
                       boxShadow:`0 2px 12px ${TC[t]}15`,
                       transition:'transform 0.1s' }}>
-                    <span style={{ fontSize:22 }}>{TI[t]}</span>
-                    <span style={{ fontSize:15, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
-                    <span style={{ fontSize:13, color:C.dim, lineHeight:1.4 }}>
+                    <span style={{ fontSize:24 }}>{TI[t]}</span>
+                    <span style={{ fontSize:17, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
+                    <span style={{ fontSize:15, color:C.dim, lineHeight:1.4 }}>
                       {t==='meeting'?'Schedule a meeting'
                         :t==='task'?'Add a to-do item'
                         :t==='flight'?'Log flight details'
@@ -1449,8 +1456,8 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                   borderRadius:18, padding:'18px 14px', cursor:'pointer',
                   display:'flex', flexDirection:'column', gap:6,
                   alignItems:'center', justifyContent:'center' }}>
-                  <span style={{ fontSize:22 }}>🎤</span>
-                  <span style={{ fontSize:13, color:C.muted, fontStyle:'italic' }}>Voice Input</span>
+                  <span style={{ fontSize:24 }}>🎤</span>
+                  <span style={{ fontSize:15, color:C.muted, fontStyle:'italic' }}>Voice Input</span>
                 </button>
               </div>
             </div>
@@ -1558,9 +1565,23 @@ export default function App() {
   const [entries,      setEntries]      = useState(MOCK_ENTRIES);
   const [auditLog,     setAuditLog]     = useState([]);
   const [showAdd,      setShowAdd]      = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);   // null = closed, entry = edit mode
+  const [editingEntry, setEditingEntry] = useState(null);
   const [storageReady, setStorageReady] = useState(false);
   const [syncStatus,   setSyncStatus]   = useState('loading');
+
+  // ── User identity — persisted to localStorage ──────────────────
+  const [userName,    setUserName]    = useState('');
+  const [nameInput,   setNameInput]   = useState('');
+  const [nameReady,   setNameReady]   = useState(false); // false = show setup screen
+  const userInitials = userName.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).join('').slice(0,2) || '?';
+
+  const saveUserName = () => {
+    const n = nameInput.trim();
+    if (!n) return;
+    setUserName(n);
+    localStorage.setItem(SK_USER, n);
+    setNameReady(true);
+  };
 
   // P3-14: Live clock — updates every 60 s
   const [clockTime, setClockTime] = useState(() => {
@@ -1582,11 +1603,13 @@ export default function App() {
       try {
         const se = localStorage.getItem(SK_ENTRIES);
         const sa = localStorage.getItem(SK_AUDIT);
+        const su = localStorage.getItem(SK_USER);
         if (se) {
           const parsed = parseStoredEntries(JSON.parse(se));
           if (parsed) setEntries(parsed);
         }
         if (sa) setAuditLog(JSON.parse(sa));
+        if (su) { setUserName(su); setNameInput(su); setNameReady(true); }
         setSyncStatus('synced');
       } catch {
         setSyncStatus('error');
@@ -1615,10 +1638,10 @@ export default function App() {
     setAuditLog(prev => [...prev, {
       id:         `${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
       timestamp:  new Date().toISOString(),
-      actor:      'Marcus Harrington',
+      actor:      userName || 'You',
       action, entryId: entry.id, entryType: entry.type, entryTitle: entry.title, changes,
     }]);
-  }, []);
+  }, [userName]);
 
   const addEntry = useCallback(e => {
     setEntries(prev => [...prev, e]);
@@ -1672,6 +1695,49 @@ export default function App() {
   const syncColor  = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
   const syncLabel  = syncStatus==='loading' ? '◌ Loading' : syncStatus==='synced' ? '● Saved' : '⚠ Sync Error';
 
+  // ── First-launch name setup screen ─────────────────────────────
+  if (storageReady && !nameReady) {
+    return (
+      <div style={{ width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
+        background:C.bg, display:'flex', flexDirection:'column', alignItems:'center',
+        justifyContent:'center', padding:'0 32px', boxSizing:'border-box',
+        fontFamily:`'Nunito','DM Sans',system-ui,sans-serif` }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;1,400&display=swap');`}</style>
+        {/* Sakura icon */}
+        <div style={{ marginBottom:24 }}><KizunaIcon /></div>
+        <h1 style={{ margin:'0 0 6px', fontSize:32, fontWeight:600, color:C.text,
+          fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
+          Kizuna&thinsp;絆
+        </h1>
+        <p style={{ margin:'0 0 32px', fontSize:15, color:C.dim, fontStyle:'italic',
+          fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
+          the thread that connects hearts
+        </p>
+        <p style={{ margin:'0 0 12px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
+          What's your name?
+        </p>
+        <input
+          value={nameInput}
+          onChange={e => setNameInput(e.target.value)}
+          onKeyDown={e => e.key==='Enter' && saveUserName()}
+          placeholder="Enter your full name"
+          autoFocus
+          style={{ width:'100%', boxSizing:'border-box', background:C.card,
+            border:`1.5px solid ${C.border}`, borderRadius:16, padding:'16px 18px',
+            fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
+            boxShadow:SH.card, marginBottom:16 }}
+        />
+        <button onClick={saveUserName}
+          style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            border:'none', borderRadius:16, padding:'18px',
+            fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
+            fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45` }}>
+          Enter Kizuna 🌸
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
       background:C.bg, color:C.text,
@@ -1695,8 +1761,8 @@ export default function App() {
       <div style={{ height:40, display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'0 20px', flexShrink:0, background:C.card,
         borderBottom:`1px solid ${C.border}` }}>
-        <span style={{ fontSize:14, fontWeight:700, color:C.text }}>{clockTime}</span>
-        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase',
+        <span style={{ fontSize:16, fontWeight:700, color:C.text }}>{clockTime}</span>
+        <span style={{ fontSize:13, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase',
           color:syncColor, background:syncColor+'18', borderRadius:10, padding:'2px 9px' }}>
           {syncLabel}
         </span>
@@ -1710,30 +1776,30 @@ export default function App() {
           {/* Left — name + meaning */}
           <div style={{ flex:1, minWidth:0 }}>
             {/* App name row */}
-            <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:4 }}>
-              <h1 style={{ margin:0, fontSize:22, fontWeight:600, color:C.text,
+            <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:5 }}>
+              <h1 style={{ margin:0, fontSize:26, fontWeight:600, color:C.text,
                 fontFamily:'Cormorant Garamond,serif', lineHeight:1, flexShrink:0 }}>
                 Kizuna&thinsp;絆
               </h1>
               {/* Tab label — hidden on Home (empty string) */}
               {TAB_TITLES[tab] && (
-                <span style={{ fontSize:11, fontWeight:700, color:C.rose,
+                <span style={{ fontSize:14, fontWeight:700, color:C.rose,
                   textTransform:'uppercase', letterSpacing:'0.13em', flexShrink:0 }}>
                   {TAB_TITLES[tab]}
                 </span>
               )}
             </div>
             {/* Meaning — two lines, poetic, italic */}
-            <p style={{ margin:0, fontSize:11, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
               Warmth, loyalty &amp; invisible strength —
             </p>
-            <p style={{ margin:0, fontSize:11, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
               the thread that connects hearts across time and distance
             </p>
           </div>
-          {/* Right — Enso 円相 with 絆 — Kizuna held within the eternal circle */}
+          {/* Right — Sakura icon */}
           <div style={{ marginTop:2, flexShrink:0 }}>
             <KizunaIcon />
           </div>
@@ -1742,10 +1808,10 @@ export default function App() {
 
       {/* Main content */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
+        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
-        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} />}
+        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} userInitials={userInitials} onChangeName={() => { setNameReady(false); setNameInput(userName); }} />}
 
         {/* FAB */}
         <button onClick={() => setShowAdd(true)}
@@ -1772,10 +1838,10 @@ export default function App() {
           <button key={n.key} onClick={() => setTab(n.key)}
             style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
               display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'6px 0' }}>
-            <span style={{ fontSize:21,
+            <span style={{ fontSize:23,
               color:tab===n.key ? C.rose : C.muted,
               transition:'color 0.15s' }}>{n.icon}</span>
-            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
+            <span style={{ fontSize:14, fontWeight:tab===n.key?700:400,
               color:tab===n.key ? C.rose : C.muted,
               transition:'color 0.15s' }}>
               {n.label}
