@@ -1618,6 +1618,7 @@ export default function App() {
 
   // ── Step 1: Listen for auth state changes ──────────────────────
   useEffect(() => {
+    if (!supabase) { setAuthReady(true); return; } // no client — skip to config error screen
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthReady(true);
