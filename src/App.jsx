@@ -1,6 +1,6 @@
 // Kizuna 絆 — v2.0.0 — Supabase sync across all devices
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { supabase } from './supabase.js';
+import { supabase, supabaseConfigured } from './supabase.js';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
@@ -1783,6 +1783,29 @@ export default function App() {
   };
 
   // ── Auth screens ───────────────────────────────────────────────
+
+  // Guard: show setup instructions if Supabase isn't configured
+  if (!supabaseConfigured) {
+    return (
+      <div style={sharedStyle.wrapper}>
+        <style>{sharedStyle.googleFont}</style>
+        <p style={{ fontSize:36, margin:'0 0 16px' }}>⚙️</p>
+        <h2 style={{ margin:'0 0 12px', fontSize:22, fontWeight:700, color:'#5C3020',
+          textAlign:'center', fontFamily:'Cormorant Garamond,serif' }}>
+          Supabase not configured
+        </h2>
+        <p style={{ fontSize:15, color:C.dim, textAlign:'center', lineHeight:1.7, margin:0 }}>
+          Add these two secrets to your GitHub repo:<br/>
+          <strong style={{ color:C.text }}>VITE_SUPABASE_URL</strong><br/>
+          <strong style={{ color:C.text }}>VITE_SUPABASE_ANON_KEY</strong>
+        </p>
+        <p style={{ fontSize:13, color:C.muted, textAlign:'center', marginTop:16, lineHeight:1.6 }}>
+          Settings → Secrets → Actions → New repository secret
+        </p>
+      </div>
+    );
+  }
+
   if (!authReady) {
     return (
       <div style={sharedStyle.wrapper}>
