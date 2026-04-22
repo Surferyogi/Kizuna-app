@@ -1851,7 +1851,7 @@ export default function App() {
             Sign in with your email
           </p>
           <p style={{ margin:'0 0 14px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
-            We'll send a 6-digit code — no password needed.
+            We'll send a 8-digit code — no password needed.
           </p>
           <input
             value={email}
@@ -1880,16 +1880,16 @@ export default function App() {
           </button>
         </>) : (<>
           <p style={{ margin:'0 0 6px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
-            Enter your 6-digit code
+            Enter your 8-digit code
           </p>
           <p style={{ margin:'0 0 16px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
             Sent to <strong style={{ color:C.text }}>{email}</strong>
           </p>
           <input
             value={otpCode}
-            onChange={e => setOtpCode(e.target.value.replace(/\D/g,'').slice(0,6))}
+            onChange={e => setOtpCode(e.target.value.replace(/\D/g,'').slice(0,8))}
             onKeyDown={e => e.key==='Enter' && verifyOtp()}
-            placeholder="000000"
+            placeholder="00000000"
             type="number"
             inputMode="numeric"
             autoFocus
