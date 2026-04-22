@@ -1,5 +1,6 @@
-// Kizuna 絆 — v1.6.0 — dynamic userName, no hardcoded identities
+// Kizuna 絆 — v2.0.0 — Supabase sync across all devices
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { supabase } from './supabase.js';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
@@ -96,14 +97,72 @@ const MOCK_ENTRIES = [
   { id:14, type:'reminder', title:'Wedding Anniversary',           date:fd(ad(T0,6)), time:'08:00', message:'Flowers + dinner reservation at Odette', visibility:'private' },
 ];
 
-// ─── STORAGE ─────────────────────────────────────────────────────
-const SK_ENTRIES     = 'exec_entries_v1';
-const SK_AUDIT       = 'exec_audit_v1';
-const SK_USER        = 'exec_user_v1';    // persists display name across sessions
+// ─── STORAGE + SYNC ──────────────────────────────────────────
+const SK_USER        = 'exec_user_v1';   // display name — also cached locally
 const SCHEMA_VERSION = 1;
-const APP_VERSION    = 'v1.5.0';
-const APP_BUILD_DATE = 'April 22, 2026';
+const APP_VERSION    = 'v2.0.0';
+const APP_BUILD_DATE = 'April 23, 2026';
 
+// Load all entries for signed-in user
+async function dbLoadEntries(userId) {
+  const { data, error } = await supabase
+    .from('entries').select('data').eq('user_id', userId)
+    .order('updated_at', { ascending: true });
+  if (error) throw error;
+  return data.map(r => r.data);
+}
+
+// Load audit log (last 200)
+async function dbLoadAudit(userId) {
+  const { data, error } = await supabase
+    .from('audit_log').select('data').eq('user_id', userId)
+    .order('created_at', { ascending: true }).limit(200);
+  if (error) throw error;
+  return data.map(r => r.data);
+}
+
+// Upsert a single entry
+async function dbUpsertEntry(userId, entry) {
+  const { error } = await supabase.from('entries')
+    .upsert({ id: entry.id, user_id: userId, data: entry, updated_at: new Date().toISOString() });
+  if (error) console.error('upsert entry:', error.message);
+}
+
+// Delete a single entry
+async function dbDeleteEntry(userId, entryId) {
+  const { error } = await supabase.from('entries').delete()
+    .eq('id', entryId).eq('user_id', userId);
+  if (error) console.error('delete entry:', error.message);
+}
+
+// Append audit event
+async function dbAppendAudit(userId, event) {
+  const { error } = await supabase.from('audit_log')
+    .upsert({ id: event.id, user_id: userId, data: event });
+  if (error) console.error('append audit:', error.message);
+}
+
+// Wipe all data (Reset App Data)
+async function dbResetUser(userId) {
+  await supabase.from('entries').delete().eq('user_id', userId);
+  await supabase.from('audit_log').delete().eq('user_id', userId);
+}
+
+// Display name — stored in profiles table + cached in localStorage
+async function dbSaveName(userId, name) {
+  localStorage.setItem(SK_USER, name);
+  await supabase.from('profiles')
+    .upsert({ id: userId, display_name: name, updated_at: new Date().toISOString() });
+}
+async function dbLoadName(userId) {
+  const cached = localStorage.getItem(SK_USER);
+  if (cached) return cached;
+  const { data } = await supabase.from('profiles')
+    .select('display_name').eq('id', userId).single();
+  return data?.display_name || '';
+}
+
+// Legacy helper — kept for any JSON migration
 function parseStoredEntries(raw) {
   if (!raw) return null;
   if (Array.isArray(raw)) return raw;
@@ -111,10 +170,6 @@ function parseStoredEntries(raw) {
   return raw.entries ?? raw;
 }
 
-async function storageSet(key, value) {
-  try { localStorage.setItem(key, value); return true; }
-  catch { return false; }
-}
 
 // ─── SHARED UI ATOMS ─────────────────────────────────────────────
 const Sec = ({ label, count }) => (
@@ -930,52 +985,9 @@ function InviteModal({ onClose }) {
     </div>
   );
 }
-  return (
-    <div style={{ position:'fixed', inset:0, zIndex:200,
-      display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-      <div style={{ position:'absolute', inset:0, background:'rgba(44,38,32,0.40)',
-        backdropFilter:'blur(4px)' }} onClick={onClose} />
-      <div style={{ position:'relative', background:C.card, borderRadius:'24px 24px 0 0',
-        border:`1px solid ${C.border}`, padding:'20px 22px 44px',
-        boxShadow:SH.float }}>
-        <div style={{ width:40, height:5, borderRadius:3, background:C.border, margin:'0 auto 18px' }} />
-        <h3 style={{ margin:'0 0 4px', fontSize:21, fontWeight:600, color:C.text,
-          fontFamily:'Cormorant Garamond,serif' }}>Invite to Kizuna 絆</h3>
-        <p style={{ margin:'0 0 20px', fontSize:15, color:C.dim, fontStyle:'italic' }}>
-          Share the link or scan the QR code
-        </p>
-        {/* QR code */}
-        <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
-          <div style={{ background:C.elevated, borderRadius:16, padding:14,
-            border:`1px solid ${C.border}`, boxShadow:SH.card }}>
-            <img src={qr} alt="QR Code" width="160" height="160"
-              style={{ display:'block', borderRadius:8 }} />
-          </div>
-        </div>
-        {/* URL + copy */}
-        <div style={{ display:'flex', gap:8, alignItems:'center',
-          background:C.elevated, borderRadius:12, padding:'10px 14px',
-          border:`1px solid ${C.border}`, marginBottom:14 }}>
-          <span style={{ flex:1, fontSize:14, color:C.dim, overflow:'hidden',
-            textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
-          <button onClick={copy}
-            style={{ background:copied?C.T:C.rose, border:'none', color:'#fff',
-              borderRadius:8, padding:'6px 14px', fontSize:14, fontWeight:700,
-              cursor:'pointer', fontFamily:'inherit', flexShrink:0,
-              transition:'background 0.2s' }}>
-            {copied ? '✓ Copied' : 'Copy'}
-          </button>
-        </div>
-        <p style={{ margin:0, fontSize:14, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
-          Members open the link in Safari → Share → Add to Home Screen
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userInitials = '?', onChangeName }) {
+function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userInitials = '?', onChangeName, onSignOut }) {
   const [notifs,     setNotifs]     = useState({ digest:true, preEvent:true, flights:true, shared:true });
   const [digestTime, setDigestTime] = useState('06:30');
   const [dndStart,   setDndStart]   = useState('22:00');
@@ -1037,6 +1049,12 @@ function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userIni
               borderRadius:12, padding:'8px 14px', fontSize:14, color:C.dim,
               cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
             Edit
+          </button>
+          <button onClick={onSignOut}
+            style={{ background:'transparent', border:`1px solid ${C.border}`,
+              borderRadius:12, padding:'8px 14px', fontSize:14, color:C.muted,
+              cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+            Sign Out
           </button>
         </div>
       </div>
@@ -1563,101 +1581,166 @@ const NAV = [
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
   const [tab,          setTab]          = useState('home');
-  const [entries,      setEntries]      = useState(MOCK_ENTRIES);
+  const [entries,      setEntries]      = useState([]);
   const [auditLog,     setAuditLog]     = useState([]);
   const [showAdd,      setShowAdd]      = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
-  const [storageReady, setStorageReady] = useState(false);
   const [syncStatus,   setSyncStatus]   = useState('loading');
 
-  // ── User identity — persisted to localStorage ──────────────────
-  const [userName,    setUserName]    = useState('');
-  const [nameInput,   setNameInput]   = useState('');
-  const [nameReady,   setNameReady]   = useState(false); // false = show setup screen
-  const userInitials = userName.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).join('').slice(0,2) || '?';
+  // ── Auth state ─────────────────────────────────────────────────
+  const [user,       setUser]       = useState(null);   // Supabase user object
+  const [authReady,  setAuthReady]  = useState(false);  // true once session checked
+  const [email,      setEmail]      = useState('');
+  const [authStep,   setAuthStep]   = useState('email'); // 'email' | 'sent'
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError,  setAuthError]  = useState('');
 
-  const saveUserName = () => {
-    const n = nameInput.trim();
-    if (!n) return;
-    setUserName(n);
-    localStorage.setItem(SK_USER, n);
-    setNameReady(true);
-  };
+  // ── User display name ──────────────────────────────────────────
+  const [userName,   setUserName]   = useState('');
+  const [nameInput,  setNameInput]  = useState('');
+  const [nameReady,  setNameReady]  = useState(false);
+  const userInitials = userName.split(' ').filter(Boolean)
+    .map(w=>w[0].toUpperCase()).join('').slice(0,2) || '?';
 
-  // P3-14: Live clock — updates every 60 s
+  // ── Live clock ─────────────────────────────────────────────────
   const [clockTime, setClockTime] = useState(() => {
     const n = new Date(); return ft(n.getHours(), n.getMinutes());
   });
   useEffect(() => {
     const tick = () => { const n = new Date(); setClockTime(ft(n.getHours(), n.getMinutes())); };
-    const id   = setInterval(tick, 60000);
+    const id = setInterval(tick, 60000);
     return () => clearInterval(id);
   }, []);
 
-  // Ref mirror — reads current entries synchronously in toggleDone (no stale closure)
+  // Ref mirror — synchronous read for toggleDone / updateEntry
   const entriesRef = useRef(entries);
   useEffect(() => { entriesRef.current = entries; }, [entries]);
 
-  // ── Load from storage on mount ──────────────────────────────
+  // ── Step 1: Listen for auth state changes ──────────────────────
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthReady(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // ── Step 2: Load data once user is known ───────────────────────
+  useEffect(() => {
+    if (!authReady || !user) return;
     async function load() {
+      setSyncStatus('loading');
       try {
-        const se = localStorage.getItem(SK_ENTRIES);
-        const sa = localStorage.getItem(SK_AUDIT);
-        const su = localStorage.getItem(SK_USER);
-        if (se) {
-          const parsed = parseStoredEntries(JSON.parse(se));
-          if (parsed) setEntries(parsed);
-        }
-        if (sa) setAuditLog(JSON.parse(sa));
-        if (su) { setUserName(su); setNameInput(su); setNameReady(true); }
+        const [loadedEntries, loadedAudit, loadedName] = await Promise.all([
+          dbLoadEntries(user.id),
+          dbLoadAudit(user.id),
+          dbLoadName(user.id),
+        ]);
+        setEntries(loadedEntries.length > 0 ? loadedEntries : []);
+        setAuditLog(loadedAudit);
+        if (loadedName) { setUserName(loadedName); setNameInput(loadedName); setNameReady(true); }
         setSyncStatus('synced');
-      } catch {
+      } catch (err) {
+        console.error('load:', err);
         setSyncStatus('error');
-      } finally {
-        setStorageReady(true);
       }
     }
     load();
-  }, []);
+  }, [authReady, user]);
 
-  // ── Persist entries — versioned format, 3× retry
+  // ── Step 3: Real-time subscription — sync across devices ───────
   useEffect(() => {
-    if (!storageReady) return;
-    storageSet(SK_ENTRIES, JSON.stringify({ schemaVersion: SCHEMA_VERSION, entries }))
-      .then(ok => setSyncStatus(ok ? 'synced' : 'error'));
-  }, [entries, storageReady]);
+    if (!user) return;
+    const channel = supabase
+      .channel(`kizuna-${user.id}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${user.id}` },
+        payload => {
+          if (payload.eventType === 'DELETE') {
+            setEntries(prev => prev.filter(e => e.id !== payload.old.id));
+          } else if (payload.new?.data) {
+            const incoming = payload.new.data;
+            setEntries(prev => {
+              const exists = prev.find(e => e.id === incoming.id);
+              return exists
+                ? prev.map(e => e.id === incoming.id ? incoming : e)
+                : [...prev, incoming];
+            });
+          }
+        })
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'audit_log', filter: `user_id=eq.${user.id}` },
+        payload => {
+          if (payload.new?.data) {
+            setAuditLog(prev => [...prev, payload.new.data].slice(-200));
+          }
+        })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user]);
 
-  // ── Persist audit log — capped at 200 events
-  useEffect(() => {
-    if (!storageReady) return;
-    storageSet(SK_AUDIT, JSON.stringify(auditLog.slice(-200)));
-  }, [auditLog, storageReady]);
+  // ── Auth actions ───────────────────────────────────────────────
+  const sendMagicLink = async () => {
+    if (!email.trim()) { setAuthError('Please enter your email address.'); return; }
+    setAuthLoading(true); setAuthError('');
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: 'https://surferyogi.github.io/Kizuna-app/' }
+    });
+    setAuthLoading(false);
+    if (error) { setAuthError(error.message); }
+    else       { setAuthStep('sent'); }
+  };
 
-  // ── Audit helper
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null); setEntries([]); setAuditLog([]);
+    setUserName(''); setNameReady(false);
+    localStorage.removeItem(SK_USER);
+  };
+
+  // ── Name save ──────────────────────────────────────────────────
+  const saveUserName = async () => {
+    const n = nameInput.trim();
+    if (!n || !user) return;
+    setUserName(n);
+    setNameReady(true);
+    await dbSaveName(user.id, n);
+  };
+
+  // ── Audit helper ───────────────────────────────────────────────
   const logAudit = useCallback((action, entry, changes = null) => {
-    setAuditLog(prev => [...prev, {
+    if (!user) return;
+    const event = {
       id:         `${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
       timestamp:  new Date().toISOString(),
       actor:      userName || 'You',
       action, entryId: entry.id, entryType: entry.type, entryTitle: entry.title, changes,
-    }]);
-  }, [userName]);
+    };
+    setAuditLog(prev => [...prev, event]);
+    dbAppendAudit(user.id, event);
+  }, [user, userName]);
 
+  // ── Entry mutations ────────────────────────────────────────────
   const addEntry = useCallback(e => {
     setEntries(prev => [...prev, e]);
     logAudit('created', e);
-  }, [logAudit]);
+    if (user) dbUpsertEntry(user.id, e);
+  }, [logAudit, user]);
 
   const toggleDone = useCallback(id => {
     const current = entriesRef.current.find(e => e.id === id);
     if (!current) return;
     const willComplete = !current.done;
-    setEntries(prev => prev.map(e => e.id === id ? { ...e, done: willComplete } : e));
+    const updated = { ...current, done: willComplete };
+    setEntries(prev => prev.map(e => e.id === id ? updated : e));
     logAudit(willComplete ? 'completed' : 'reopened', current);
-  }, [logAudit]);
+    if (user) dbUpsertEntry(user.id, updated);
+  }, [logAudit, user]);
 
-  // ── Update entry (from edit modal) — diffs fields, logs 'updated'
   const updateEntry = useCallback(updated => {
     const original = entriesRef.current.find(e => e.id === updated.id);
     if (!original) return;
@@ -1670,47 +1753,130 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
     logAudit('updated', updated, changes.length > 0 ? changes : null);
     setEditingEntry(null);
-  }, [logAudit]);
+    if (user) dbUpsertEntry(user.id, updated);
+  }, [logAudit, user]);
 
-  // ── Delete entry — removes from state, logs 'deleted'
   const deleteEntry = useCallback(id => {
     const current = entriesRef.current.find(e => e.id === id);
     if (!current) return;
     setEntries(prev => prev.filter(e => e.id !== id));
     logAudit('deleted', current);
-  }, [logAudit]);
+    if (user) dbDeleteEntry(user.id, id);
+  }, [logAudit, user]);
 
-  // ── Reset all data — wipes storage, state returns to empty (not mock)
   const resetData = useCallback(async () => {
-    setEntries([]);
-    setAuditLog([]);
-    await Promise.all([
-      storageSet(SK_ENTRIES, JSON.stringify({ schemaVersion: SCHEMA_VERSION, entries: [] })),
-      storageSet(SK_AUDIT,   JSON.stringify([])),
-    ]);
+    setEntries([]); setAuditLog([]);
+    if (user) await dbResetUser(user.id);
     setSyncStatus('synced');
-  }, []);
+  }, [user]);
 
   const TAB_TITLES = { home:'', calendar:'Calendar', search:'Search', settings:'Settings' };
-
   const syncColor  = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
-  const syncLabel  = syncStatus==='loading' ? '◌ Loading' : syncStatus==='synced' ? '● Saved' : '⚠ Sync Error';
+  const syncLabel  = syncStatus==='loading' ? '◌ Syncing…' : syncStatus==='synced' ? '● Synced' : '⚠ Sync Error';
 
-  // ── First-launch name setup screen ─────────────────────────────
-  if (storageReady && !nameReady) {
+  const sharedStyle = {
+    wrapper: { width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
+      background:C.bg, display:'flex', flexDirection:'column', alignItems:'center',
+      justifyContent:'center', padding:'0 32px', boxSizing:'border-box',
+      fontFamily:`'Nunito','DM Sans',system-ui,sans-serif` },
+    googleFont: `@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;1,400&display=swap');`
+  };
+
+  // ── Auth screens ───────────────────────────────────────────────
+  if (!authReady) {
     return (
-      <div style={{ width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
-        background:C.bg, display:'flex', flexDirection:'column', alignItems:'center',
-        justifyContent:'center', padding:'0 32px', boxSizing:'border-box',
-        fontFamily:`'Nunito','DM Sans',system-ui,sans-serif` }}>
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;1,400&display=swap');`}</style>
-        {/* Sakura icon */}
-        <div style={{ marginBottom:24 }}><KizunaIcon /></div>
+      <div style={sharedStyle.wrapper}>
+        <style>{sharedStyle.googleFont}</style>
+        <KizunaIcon />
+        <p style={{ marginTop:16, fontSize:15, color:C.dim, fontStyle:'italic',
+          fontFamily:'Cormorant Garamond,serif' }}>Loading…</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={sharedStyle.wrapper}>
+        <style>{sharedStyle.googleFont}</style>
+        <div style={{ marginBottom:20 }}><KizunaIcon /></div>
         <h1 style={{ margin:'0 0 6px', fontSize:32, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
           Kizuna&thinsp;絆
         </h1>
-        <p style={{ margin:'0 0 32px', fontSize:15, color:C.dim, fontStyle:'italic',
+        <p style={{ margin:'0 0 36px', fontSize:14, color:C.dim, fontStyle:'italic',
+          fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
+          the thread that connects hearts
+        </p>
+
+        {authStep === 'email' ? (<>
+          <p style={{ margin:'0 0 10px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
+            Sign in with your email
+          </p>
+          <p style={{ margin:'0 0 14px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
+            We'll send you a magic link — no password needed.
+          </p>
+          <input
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key==='Enter' && sendMagicLink()}
+            placeholder="your@email.com"
+            type="email"
+            autoFocus
+            style={{ width:'100%', boxSizing:'border-box', background:C.card,
+              border:`1.5px solid ${C.border}`, borderRadius:16, padding:'16px 18px',
+              fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
+              boxShadow:SH.card, marginBottom: authError ? 8 : 16 }}
+          />
+          {authError && (
+            <p style={{ margin:'0 0 12px', fontSize:13, color:'#C46A14', alignSelf:'flex-start' }}>
+              {authError}
+            </p>
+          )}
+          <button onClick={sendMagicLink} disabled={authLoading}
+            style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+              border:'none', borderRadius:16, padding:'18px',
+              fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
+              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
+              opacity: authLoading ? 0.7 : 1 }}>
+            {authLoading ? 'Sending…' : 'Send Magic Link 🌸'}
+          </button>
+        </>) : (
+          <div style={{ textAlign:'center' }}>
+            <p style={{ fontSize:40, margin:'0 0 16px' }}>📬</p>
+            <p style={{ fontSize:18, fontWeight:700, color:C.text, margin:'0 0 10px' }}>
+              Check your email
+            </p>
+            <p style={{ fontSize:15, color:C.dim, margin:'0 0 28px', lineHeight:1.6 }}>
+              We sent a magic link to<br/>
+              <strong style={{ color:C.text }}>{email}</strong>
+            </p>
+            <p style={{ fontSize:13, color:C.dim, fontStyle:'italic', margin:0 }}>
+              Tap the link in your email to sign in.<br/>
+              On iPhone — open the link in Safari.
+            </p>
+            <button onClick={() => setAuthStep('email')}
+              style={{ marginTop:24, background:'transparent', border:`1px solid ${C.border}`,
+                borderRadius:12, padding:'10px 24px', fontSize:14, color:C.dim,
+                cursor:'pointer', fontFamily:'inherit' }}>
+              Use a different email
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Name setup screen (first time after sign-in) ───────────────
+  if (!nameReady) {
+    return (
+      <div style={sharedStyle.wrapper}>
+        <style>{sharedStyle.googleFont}</style>
+        <div style={{ marginBottom:20 }}><KizunaIcon /></div>
+        <h1 style={{ margin:'0 0 6px', fontSize:32, fontWeight:600, color:C.text,
+          fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
+          Kizuna&thinsp;絆
+        </h1>
+        <p style={{ margin:'0 0 32px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
           the thread that connects hearts
         </p>
@@ -1812,7 +1978,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
-        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} userInitials={userInitials} onChangeName={() => { setNameReady(false); setNameInput(userName); }} />}
+        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} userInitials={userInitials} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} />}
 
         {/* FAB */}
         <button onClick={() => setShowAdd(true)}
