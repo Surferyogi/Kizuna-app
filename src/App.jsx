@@ -1,3 +1,4 @@
+// Kizuna 絆 — v1.6.0 — dynamic userName, no hardcoded identities
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 // ─── HELPERS ─────────────────────────────────────────────────────
@@ -983,10 +984,10 @@ function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userIni
 
   // Members — local state so deletions work within session
   const [members, setMembers] = useState([
-    { id:1, name:'Sarah Chen'    },
-    { id:2, name:'James Park'    },
-    { id:3, name:'Aisha Rahman'  },
-    { id:4, name:'Wei Liu'       },
+    { id:1, name:'Sarah Chen'   },
+    { id:2, name:'James Park'   },
+    { id:3, name:'Aisha Rahman' },
+    { id:4, name:'Wei Liu'      },
   ]);
   const removeMember = id => setMembers(p => p.filter(m => m.id !== id));
 
@@ -1042,7 +1043,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userIni
 
       {/* Workspace */}
       <SS title="Workspace">
-        <SR label="Harrington Corp Team"
+        <SR label="My Team"
           sub={`${members.length} members · You are Admin`}
           right={<Badge label="Admin" color={C.rose} />} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
