@@ -3,8 +3,7 @@ import react          from '@vitejs/plugin-react'
 import { VitePWA }   from 'vite-plugin-pwa'
 
 export default defineConfig({
-  // ← Change 'kizuna-app' to your actual GitHub repo name if different
-  base: '/kizuna-app/',
+  base: '/Kizuna-app/',
 
   plugins: [
     react(),
@@ -19,8 +18,8 @@ export default defineConfig({
         background_color: '#F8F5F1',
         display:          'standalone',
         orientation:      'portrait',
-        scope:            '/kizuna-app/',
-        start_url:        '/kizuna-app/',
+        scope:            '/Kizuna-app/',
+        start_url:        '/Kizuna-app/',
         icons: [
           {
             src:   'icon-192.png',
