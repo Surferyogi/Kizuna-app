@@ -867,12 +867,128 @@ function ResetSection({ onReset }) {
   );
 }
 
+// ─── INVITE MODAL ────────────────────────────────────────────────
+function InviteModal({ onClose }) {
+  const url    = 'https://surferyogi.github.io/Kizuna-app/';
+  const qr     = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=B8715C&bgcolor=FFFEFB&data=${encodeURIComponent(url)}`;
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); })
+        .catch(() => fallback());
+    } else { fallback(); }
+  };
+  const fallback = () => {
+    const el = document.createElement('textarea');
+    el.value = url; document.body.appendChild(el);
+    el.select(); document.execCommand('copy');
+    document.body.removeChild(el);
+    setCopied(true); setTimeout(() => setCopied(false), 2500);
+  };
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:200,
+      display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+      <div style={{ position:'absolute', inset:0, background:'rgba(44,38,32,0.40)',
+        backdropFilter:'blur(4px)' }} onClick={onClose} />
+      <div style={{ position:'relative', background:C.card, borderRadius:'24px 24px 0 0',
+        border:`1px solid ${C.border}`, padding:'20px 22px 44px',
+        boxShadow:SH.float }}>
+        <div style={{ width:40, height:5, borderRadius:3, background:C.border, margin:'0 auto 18px' }} />
+        <h3 style={{ margin:'0 0 4px', fontSize:19, fontWeight:600, color:C.text,
+          fontFamily:'Cormorant Garamond,serif' }}>Invite to Kizuna 絆</h3>
+        <p style={{ margin:'0 0 20px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
+          Share the link or scan the QR code
+        </p>
+        {/* QR code */}
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
+          <div style={{ background:C.elevated, borderRadius:16, padding:14,
+            border:`1px solid ${C.border}`, boxShadow:SH.card }}>
+            <img src={qr} alt="QR Code" width="160" height="160"
+              style={{ display:'block', borderRadius:8 }} />
+          </div>
+        </div>
+        {/* URL + copy */}
+        <div style={{ display:'flex', gap:8, alignItems:'center',
+          background:C.elevated, borderRadius:12, padding:'10px 14px',
+          border:`1px solid ${C.border}`, marginBottom:14 }}>
+          <span style={{ flex:1, fontSize:12, color:C.dim, overflow:'hidden',
+            textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
+          <button onClick={copy}
+            style={{ background:copied?C.T:C.rose, border:'none', color:'#fff',
+              borderRadius:8, padding:'6px 14px', fontSize:12, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit', flexShrink:0,
+              transition:'background 0.2s' }}>
+            {copied ? '✓ Copied!' : 'Copy Link'}
+          </button>
+        </div>
+        <p style={{ margin:0, fontSize:12, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
+          Members open the link in Safari → Share → Add to Home Screen
+        </p>
+      </div>
+    </div>
+  );
+}
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:200,
+      display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+      <div style={{ position:'absolute', inset:0, background:'rgba(44,38,32,0.40)',
+        backdropFilter:'blur(4px)' }} onClick={onClose} />
+      <div style={{ position:'relative', background:C.card, borderRadius:'24px 24px 0 0',
+        border:`1px solid ${C.border}`, padding:'20px 22px 44px',
+        boxShadow:SH.float }}>
+        <div style={{ width:40, height:5, borderRadius:3, background:C.border, margin:'0 auto 18px' }} />
+        <h3 style={{ margin:'0 0 4px', fontSize:19, fontWeight:600, color:C.text,
+          fontFamily:'Cormorant Garamond,serif' }}>Invite to Kizuna 絆</h3>
+        <p style={{ margin:'0 0 20px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
+          Share the link or scan the QR code
+        </p>
+        {/* QR code */}
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
+          <div style={{ background:C.elevated, borderRadius:16, padding:14,
+            border:`1px solid ${C.border}`, boxShadow:SH.card }}>
+            <img src={qr} alt="QR Code" width="160" height="160"
+              style={{ display:'block', borderRadius:8 }} />
+          </div>
+        </div>
+        {/* URL + copy */}
+        <div style={{ display:'flex', gap:8, alignItems:'center',
+          background:C.elevated, borderRadius:12, padding:'10px 14px',
+          border:`1px solid ${C.border}`, marginBottom:14 }}>
+          <span style={{ flex:1, fontSize:12, color:C.dim, overflow:'hidden',
+            textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
+          <button onClick={copy}
+            style={{ background:copied?C.T:C.rose, border:'none', color:'#fff',
+              borderRadius:8, padding:'6px 14px', fontSize:12, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit', flexShrink:0,
+              transition:'background 0.2s' }}>
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+        <p style={{ margin:0, fontSize:12, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
+          Members open the link in Safari → Share → Add to Home Screen
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset }) {
+function SettingsTab({ auditLog, onReset, isAdmin = true }) {
   const [notifs,     setNotifs]     = useState({ digest:true, preEvent:true, flights:true, shared:true });
   const [digestTime, setDigestTime] = useState('06:30');
   const [dndStart,   setDndStart]   = useState('22:00');
   const [dndEnd,     setDndEnd]     = useState('06:00');
+  const [showInvite, setShowInvite] = useState(false);
+
+  // Members — local state so deletions work within session
+  const [members, setMembers] = useState([
+    { id:1, name:'Sarah Chen'    },
+    { id:2, name:'James Park'    },
+    { id:3, name:'Aisha Rahman'  },
+    { id:4, name:'Wei Liu'       },
+  ]);
+  const removeMember = id => setMembers(p => p.filter(m => m.id !== id));
 
   // P3-15: 60 s tick keeps relTime() labels fresh in the activity log
   const [, setTick] = useState(0);
@@ -894,6 +1010,8 @@ function SettingsTab({ auditLog, onReset }) {
   return (
     <div style={{ padding:'0 18px 100px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+
       {/* Profile card */}
       <div style={{ paddingTop:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:16, padding:20,
@@ -908,7 +1026,6 @@ function SettingsTab({ auditLog, onReset }) {
           <div>
             <p style={{ margin:0, fontSize:19, fontWeight:600, color:C.text,
               fontFamily:'Cormorant Garamond,serif' }}>Marcus Harrington</p>
-            <p style={{ margin:0, fontSize:13, color:C.dim }}>Group CEO · Harrington Corp</p>
             <p style={{ margin:'4px 0 0', fontSize:12, color:C.rose,
               background:C.rose+'15', display:'inline-block',
               borderRadius:10, padding:'2px 10px' }}>◯ Workspace Admin</p>
@@ -918,26 +1035,52 @@ function SettingsTab({ auditLog, onReset }) {
 
       {/* Workspace */}
       <SS title="Workspace">
-        <SR label="Harrington Corp Team" sub="8 members · You are Admin" right={<Badge label="Admin" color={C.rose} />} />
+        <SR label="Harrington Corp Team"
+          sub={`${members.length} members · You are Admin`}
+          right={<Badge label="Admin" color={C.rose} />} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
           <p style={{ fontSize:11, color:C.muted, margin:'10px 0 6px',
             fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>Members</p>
-          {['Sarah Chen — Chief of Staff','James Park — CFO','Aisha Rahman — COO','Wei Liu — General Counsel','+ 4 others'].map((m,i) => (
-            <div key={m} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0' }}>
+          {members.map(m => (
+            <div key={m.id} style={{ display:'flex', alignItems:'center',
+              gap:10, padding:'6px 0',
+              borderBottom:`1px solid ${C.border}` }}>
+              {/* Avatar */}
               <div style={{ width:32, height:32, borderRadius:16, background:C.elevated,
-                border:`1px solid ${C.border}`,
-                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <span style={{ fontSize:13, color:C.dim }}>{m[0]}</span>
+                border:`1px solid ${C.border}`, flexShrink:0,
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <span style={{ fontSize:13, color:C.dim }}>{m.name[0]}</span>
               </div>
-              <span style={{ fontSize:14, color:i===4?C.muted:C.text }}>{m}</span>
+              {/* Name */}
+              <span style={{ flex:1, fontSize:14, color:C.text }}>{m.name}</span>
+              {/* Delete — admin only */}
+              {isAdmin && (
+                <button onClick={() => removeMember(m.id)}
+                  style={{ background:'transparent', border:`1px solid ${C.border}`,
+                    borderRadius:8, width:28, height:28, cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    color:C.muted, fontSize:14, flexShrink:0,
+                    transition:'border-color 0.15s, color 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor='#C46A14'; e.currentTarget.style.color='#C46A14'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}>
+                  ×
+                </button>
+              )}
             </div>
           ))}
-          <button style={{ marginTop:12, background:'transparent',
-            border:`1.5px dashed ${C.border}`,
-            borderRadius:12, padding:'10px 14px', color:C.dim,
-            fontSize:14, cursor:'pointer', width:'100%',
-            fontFamily:'inherit', transition:'border-color 0.15s' }}>
-            + Invite via Email or QR Code
+          {members.length === 0 && (
+            <p style={{ fontSize:13, color:C.muted, textAlign:'center',
+              padding:'16px 0', fontStyle:'italic' }}>No members yet</p>
+          )}
+          {/* Invite button */}
+          <button onClick={() => setShowInvite(true)}
+            style={{ marginTop:14, background:'transparent',
+              border:`1.5px dashed ${C.rose}60`,
+              borderRadius:12, padding:'10px 14px', color:C.rose,
+              fontSize:14, cursor:'pointer', width:'100%',
+              fontFamily:'inherit', transition:'border-color 0.15s',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            🌸 Invite via Link or QR Code
           </button>
         </div>
       </SS>
@@ -1093,8 +1236,8 @@ function SettingsTab({ auditLog, onReset }) {
           right={<span style={{ fontSize:13, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
       </SS>
 
-      {/* Reset App Data */}
-      <ResetSection onReset={onReset} />
+      {/* Reset App Data — admin only */}
+      {isAdmin && <ResetSection onReset={onReset} />}
     </div>
   );
 }
