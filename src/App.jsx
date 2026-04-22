@@ -1591,9 +1591,10 @@ export default function App() {
   const [user,       setUser]       = useState(null);   // Supabase user object
   const [authReady,  setAuthReady]  = useState(false);  // true once session checked
   const [email,      setEmail]      = useState('');
-  const [authStep,   setAuthStep]   = useState('email'); // 'email' | 'sent'
+  const [authStep,    setAuthStep]    = useState('email'); // 'email' | 'code'
   const [authLoading, setAuthLoading] = useState(false);
-  const [authError,  setAuthError]  = useState('');
+  const [authError,   setAuthError]   = useState('');
+  const [otpCode,     setOtpCode]     = useState('');
 
   // ── User display name ──────────────────────────────────────────
   const [userName,   setUserName]   = useState('');
@@ -1684,16 +1685,29 @@ export default function App() {
   }, [user]);
 
   // ── Auth actions ───────────────────────────────────────────────
-  const sendMagicLink = async () => {
+  const sendOtp = async () => {
     if (!email.trim()) { setAuthError('Please enter your email address.'); return; }
     setAuthLoading(true); setAuthError('');
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: 'https://surferyogi.github.io/Kizuna-app/' }
+      options: { shouldCreateUser: true }
     });
     setAuthLoading(false);
     if (error) { setAuthError(error.message); }
-    else       { setAuthStep('sent'); }
+    else       { setAuthStep('code'); }
+  };
+
+  const verifyOtp = async () => {
+    if (!otpCode.trim()) { setAuthError('Please enter the 6-digit code.'); return; }
+    setAuthLoading(true); setAuthError('');
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otpCode.trim(),
+      type:  'email',
+    });
+    setAuthLoading(false);
+    if (error) { setAuthError('Invalid or expired code. Please try again.'); }
+    // on success, onAuthStateChange fires → setUser → app loads
   };
 
   const signOut = async () => {
@@ -1837,12 +1851,12 @@ export default function App() {
             Sign in with your email
           </p>
           <p style={{ margin:'0 0 14px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
-            We'll send you a magic link — no password needed.
+            We'll send a 6-digit code — no password needed.
           </p>
           <input
             value={email}
             onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key==='Enter' && sendMagicLink()}
+            onKeyDown={e => e.key==='Enter' && sendOtp()}
             placeholder="your@email.com"
             type="email"
             autoFocus
@@ -1856,36 +1870,55 @@ export default function App() {
               {authError}
             </p>
           )}
-          <button onClick={sendMagicLink} disabled={authLoading}
+          <button onClick={sendOtp} disabled={authLoading}
             style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
               border:'none', borderRadius:16, padding:'18px',
               fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
               fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
               opacity: authLoading ? 0.7 : 1 }}>
-            {authLoading ? 'Sending…' : 'Send Magic Link 🌸'}
+            {authLoading ? 'Sending…' : 'Send Code 🌸'}
           </button>
-        </>) : (
-          <div style={{ textAlign:'center' }}>
-            <p style={{ fontSize:40, margin:'0 0 16px' }}>📬</p>
-            <p style={{ fontSize:18, fontWeight:700, color:C.text, margin:'0 0 10px' }}>
-              Check your email
+        </>) : (<>
+          <p style={{ margin:'0 0 6px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
+            Enter your 6-digit code
+          </p>
+          <p style={{ margin:'0 0 16px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
+            Sent to <strong style={{ color:C.text }}>{email}</strong>
+          </p>
+          <input
+            value={otpCode}
+            onChange={e => setOtpCode(e.target.value.replace(/\D/g,'').slice(0,6))}
+            onKeyDown={e => e.key==='Enter' && verifyOtp()}
+            placeholder="000000"
+            type="number"
+            inputMode="numeric"
+            autoFocus
+            style={{ width:'100%', boxSizing:'border-box', background:C.card,
+              border:`1.5px solid ${C.border}`, borderRadius:16, padding:'16px 18px',
+              fontSize:28, fontWeight:700, color:C.text, outline:'none',
+              fontFamily:'inherit', boxShadow:SH.card,
+              letterSpacing:'0.3em', textAlign:'center',
+              marginBottom: authError ? 8 : 16 }}
+          />
+          {authError && (
+            <p style={{ margin:'0 0 12px', fontSize:13, color:'#C46A14', alignSelf:'flex-start' }}>
+              {authError}
             </p>
-            <p style={{ fontSize:15, color:C.dim, margin:'0 0 28px', lineHeight:1.6 }}>
-              We sent a magic link to<br/>
-              <strong style={{ color:C.text }}>{email}</strong>
-            </p>
-            <p style={{ fontSize:13, color:C.dim, fontStyle:'italic', margin:0 }}>
-              Tap the link in your email to sign in.<br/>
-              On iPhone — open the link in Safari.
-            </p>
-            <button onClick={() => setAuthStep('email')}
-              style={{ marginTop:24, background:'transparent', border:`1px solid ${C.border}`,
-                borderRadius:12, padding:'10px 24px', fontSize:14, color:C.dim,
-                cursor:'pointer', fontFamily:'inherit' }}>
-              Use a different email
-            </button>
-          </div>
-        )}
+          )}
+          <button onClick={verifyOtp} disabled={authLoading}
+            style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+              border:'none', borderRadius:16, padding:'18px',
+              fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
+              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
+              opacity: authLoading ? 0.7 : 1 }}>
+            {authLoading ? 'Verifying…' : 'Enter Kizuna 🌸'}
+          </button>
+          <button onClick={() => { setAuthStep('email'); setOtpCode(''); setAuthError(''); }}
+            style={{ marginTop:14, background:'transparent', border:'none',
+              fontSize:14, color:C.dim, cursor:'pointer', fontFamily:'inherit' }}>
+            ← Use a different email
+          </button>
+        </>)}
       </div>
     );
   }
