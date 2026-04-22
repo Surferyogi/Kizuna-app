@@ -1,0 +1,1645 @@
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+const p2 = n => String(n).padStart(2, '0');
+// T0 is fixed at module load — used ONLY for MOCK_ENTRIES initial dates.
+// All live "today" comparisons inside components use new Date() directly.
+const T0 = new Date();
+const fd = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const ad = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+const ft = (h, m=0) => `${h%12||12}:${p2(m)} ${h>=12?'PM':'AM'}`;
+const pt = s => { if (!s) return ''; const [h,m] = s.split(':').map(Number); return ft(h,m); };
+const DAY   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MON   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MFULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const relTime = iso => {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60000)     return 'Just now';
+  if (diff < 3600000)   return `${Math.floor(diff/60000)}m ago`;
+  if (diff < 86400000)  return `${Math.floor(diff/3600000)}h ago`;
+  if (diff < 604800000) return `${Math.floor(diff/86400000)}d ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+};
+
+// ─── DESIGN TOKENS — SOFT-TECH WELLNESS PALETTE (color-blind safe) ───
+// Warm cream base · Terracotta rose accent · Blue/orange entry system
+// Deuteranopia/protanopia safe: green replaced with cornflower blue;
+// red/coral replaced with amber-orange. Text contrast ≥ 4.5:1 on cream.
+const C = {
+  bg:      '#F8F5F1',   // warm cream parchment
+  card:    '#FFFEFB',   // near-white card surface
+  elevated:'#F0EAE2',   // warm ecru — inputs, chips
+  border:  '#D8CEBC',   // soft beige — now clearly visible
+  muted:   '#9A9188',   // warm taupe — placeholder/disabled (contrast ≥ 3:1)
+  text:    '#1A1714',   // deep warm charcoal — contrast 14:1 on cream
+  dim:     '#5C5349',   // medium warm brown — contrast 6.5:1 (was too faint)
+  // Terracotta rose accent — grounded, calm, wellness
+  rose:    '#B8715C',   // slightly deeper for contrast on cream
+  roseL:   '#E0A898',
+  // Entry type colours — color-blind safe blue/orange system
+  // NO green, NO red — safe for deuteranopia + protanopia
+  M:       '#4D8EC4',   // steel blue        — meetings  (was dusty sky)
+  F:       '#5BB8E8',   // sky blue           — flights   (warm peach → open sky)
+  T:       '#4E7EC8',   // cornflower blue    — tasks     (replaces sage GREEN)
+  R:       '#A07840',   // warm toffee        — reminders (was sand, now richer)
+  E:       '#8A72B8',   // deeper lavender    — events    (more contrast)
+};
+// Convenience aliases kept for backwards compat with existing refs
+C.gold  = C.rose;
+C.goldL = C.roseL;
+
+const TC = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E };
+const TI = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈' };
+const TL = { meeting:'Meeting', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event' };
+
+// DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
+// Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
+// Rule: whenever a type color is used as a font color, use DTC, never TC.
+const DTC = {
+  meeting:  '#1C4878',   // deep steel navy   — text-safe on C.M tints
+  flight:   '#0A4268',   // deep sky navy     — text-safe on C.F tints & light sky bg
+  task:     '#1A3A78',   // deep cornflower   — text-safe on C.T tints
+  reminder: '#4A2E08',   // dark amber        — text-safe on C.R tints
+  event:    '#38186A',   // deep violet       — text-safe on C.E tints
+};
+
+// PC.low uses DTC.task: badge renders same color as both text AND bg tint,
+// so the value must be dark enough to read against its own 28% alpha wash.
+const PC = { low:DTC.task, medium:'#6B4E10', high:'#8A3A08', critical:'#6A2408' };
+const AC = { created:C.rose, completed:DTC.task, reopened:DTC.meeting, deleted:'#8A3A08', updated:DTC.event };
+const AL = { created:'Created', completed:'Completed', reopened:'Reopened', deleted:'Deleted', updated:'Updated' };
+
+// Shared shadow levels — replaces harsh borders on cards
+const SH = {
+  card:    '0 2px 16px rgba(44,38,32,0.07)',
+  float:   '0 8px 32px rgba(44,38,32,0.12)',
+  subtle:  '0 1px 6px  rgba(44,38,32,0.05)',
+};
+
+// ─── MOCK DATA ───────────────────────────────────────────────────
+const MOCK_ENTRIES = [
+  { id:1,  type:'meeting',  title:'Board Strategy Session',       date:fd(T0),       time:'09:00', endTime:'11:00', location:'Level 42 Boardroom', attendees:'CFO, COO, General Counsel', notes:'Q4 review + FY2026 budget approval', visibility:'shared'  },
+  { id:2,  type:'flight',   title:'SIN → LHR',                    date:fd(T0),       time:'13:45', depCity:'SIN', arrCity:'LHR', airline:'Singapore Airlines', flightNum:'SQ321', terminal:'T3', gate:'G22', seat:'1A', visibility:'private' },
+  { id:3,  type:'task',     title:'Nexus Labs Acquisition Review', date:fd(T0),       priority:'critical', tags:'M&A, Legal',     visibility:'shared',  done:false },
+  { id:4,  type:'task',     title:'Q4 Budget Sign-off',            date:fd(T0),       priority:'high',     tags:'Finance',        visibility:'shared',  done:false },
+  { id:5,  type:'reminder', title:'Call CFO — Bond Issuance',      date:fd(T0),       time:'11:30', message:'Confirm covenant terms before board', visibility:'private' },
+  { id:6,  type:'meeting',  title:'1:1 with Chief of Staff',       date:fd(T0),       time:'16:00', endTime:'16:30', location:'Office 4201', attendees:'Sarah Chen', visibility:'shared' },
+  { id:7,  type:'task',     title:'Approve PR Statement — Nexus',  date:fd(T0),       priority:'medium',   tags:'Comms',          visibility:'private', done:false },
+  { id:8,  type:'meeting',  title:'IR Briefing — Analysts Call',   date:fd(ad(T0,1)), time:'08:30', endTime:'09:30', location:'Virtual', attendees:'IR Team, 12 Analysts', visibility:'shared' },
+  { id:9,  type:'event',    title:'Leadership Dinner',             date:fd(ad(T0,1)), time:'19:30', endTime:'22:00', location:'Raffles Hotel', notes:'Annual leadership dinner', visibility:'shared' },
+  { id:10, type:'flight',   title:'LHR → JFK',                    date:fd(ad(T0,3)), time:'09:20', depCity:'LHR', arrCity:'JFK', airline:'British Airways', flightNum:'BA012', terminal:'T5', gate:'B42', seat:'1K', visibility:'private' },
+  { id:11, type:'task',     title:'Review Annual Report Draft',    date:fd(ad(T0,3)), priority:'high',     tags:'Finance, Comms', visibility:'shared',  done:false },
+  { id:12, type:'task',     title:'Approve Board Slides',          date:fd(ad(T0,4)), priority:'medium',   tags:'Governance',     visibility:'shared',  done:true  },
+  { id:13, type:'event',    title:'UN Global Compact Forum',       date:fd(ad(T0,5)), time:'09:00', endTime:'17:00', location:'Geneva, Switzerland', visibility:'shared' },
+  { id:14, type:'reminder', title:'Wedding Anniversary',           date:fd(ad(T0,6)), time:'08:00', message:'Flowers + dinner reservation at Odette', visibility:'private' },
+];
+
+// ─── STORAGE ─────────────────────────────────────────────────────
+const SK_ENTRIES     = 'exec_entries_v1';
+const SK_AUDIT       = 'exec_audit_v1';
+const SCHEMA_VERSION = 1;
+const APP_VERSION    = 'v1.5.0';
+const APP_BUILD_DATE = 'April 22, 2026';
+
+function parseStoredEntries(raw) {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw;
+  if (raw.schemaVersion === SCHEMA_VERSION) return raw.entries;
+  return raw.entries ?? raw;
+}
+
+async function storageSet(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch { return false; }
+}
+
+// ─── SHARED UI ATOMS ─────────────────────────────────────────────
+const Sec = ({ label, count }) => (
+  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, marginTop:24 }}>
+    <span style={{ fontSize:11, fontWeight:700, color:C.rose, textTransform:'uppercase', letterSpacing:'0.14em', whiteSpace:'nowrap' }}>{label}</span>
+    {count != null && (
+      <span style={{ fontSize:11, color:C.dim, background:C.elevated, borderRadius:10,
+        padding:'2px 8px', boxShadow:SH.subtle }}>{count}</span>
+    )}
+    <div style={{ flex:1, height:'1px', background:C.border }} />
+  </div>
+);
+
+const Badge = ({ label, color }) => (
+  <span style={{ fontSize:11, fontWeight:700, color, background:color+'28', borderRadius:20,
+    padding:'3px 10px', textTransform:'capitalize', letterSpacing:'0.02em', flexShrink:0,
+    border:`1px solid ${color}30` }}>{label}</span>
+);
+
+const Tog = ({ on, onChange }) => (
+  <button onClick={() => onChange(!on)}
+    style={{ width:50, height:28, borderRadius:14, background:on?C.rose:C.elevated,
+      border:`1.5px solid ${on?C.rose:C.border}`,
+      cursor:'pointer', position:'relative', flexShrink:0, padding:0,
+      transition:'background 0.2s, border-color 0.2s', boxShadow:SH.subtle }}>
+    <div style={{ position:'absolute', top:3, left:on?25:3, width:20, height:20,
+      borderRadius:10, background:on?'#fff':C.muted,
+      boxShadow:'0 1px 4px rgba(0,0,0,0.15)', transition:'left 0.18s' }} />
+  </button>
+);
+
+// P3-17: SS and SR at module level — never recreated on SettingsTab renders
+const SS = ({ title, children }) => (
+  <div style={{ marginBottom:12 }}>
+    <p style={{ fontSize:11, fontWeight:700, color:C.rose, textTransform:'uppercase',
+      letterSpacing:'0.14em', margin:'24px 0 8px' }}>{title}</p>
+    <div style={{ background:C.card, borderRadius:20, overflow:'hidden',
+      boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+      {children}
+    </div>
+  </div>
+);
+
+const SR = ({ label, sub, right, noBorder }) => (
+  <div style={{ display:'flex', alignItems:'center', padding:'16px 18px',
+    borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:12 }}>
+    <div style={{ flex:1 }}>
+      <p style={{ margin:0, fontSize:15, color:C.text, fontWeight:500 }}>{label}</p>
+      {sub && <p style={{ margin:0, fontSize:13, color:C.dim, marginTop:2 }}>{sub}</p>}
+    </div>
+    {right}
+  </div>
+);
+
+// ─── ENTRY CARD ──────────────────────────────────────────────────
+// Creative UX: the bottom metadata row morphs in-place to reveal actions.
+// Tapping ··· at the end of the meta row replaces it with Edit + Delete pills.
+// Delete has an inline confirm step — no modal, no layout shift.
+function ECard({ e, onToggle, onEdit, onDelete }) {
+  const col  = TC[e.type];
+  const dcol = DTC[e.type] || col;  // dark sibling — safe for text on tinted backgrounds
+  const [open,       setOpen]       = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const openMenu  = ev => { ev.stopPropagation(); setOpen(true);  setConfirmDel(false); };
+  const closeMenu = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); };
+  const handleEdit   = ev => { ev.stopPropagation(); setOpen(false); onEdit   && onEdit(e); };
+  const handleDelReq = ev => { ev.stopPropagation(); setConfirmDel(true); };
+  const handleDelOk  = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); onDelete && onDelete(e.id); };
+
+  // Shared pill button style factory
+  const pill = (bg, fg, border) => ({
+    background: bg, color: fg,
+    border: `1px solid ${border}`,
+    borderRadius: 20, padding: '4px 13px',
+    fontSize: 12, fontWeight: 700,
+    cursor: 'pointer', fontFamily: 'inherit',
+    whiteSpace: 'nowrap', flexShrink: 0,
+  });
+
+  return (
+    <div style={{ display:'flex', gap:14, padding:'16px 0',
+      borderBottom:`1px solid ${C.border}` }}>
+
+      {/* Left colour stripe */}
+      <div style={{ width:4, minHeight:24, borderRadius:4,
+        background: col+'90', flexShrink:0, marginTop:4 }} />
+
+      <div style={{ flex:1, minWidth:0 }}>
+        {/* ── Title row — always visible ── */}
+        <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
+          {e.type === 'task' && (
+            <button onClick={() => onToggle && onToggle(e.id)}
+              style={{ width:22, height:22, borderRadius:6,
+                border:`2px solid ${e.done ? C.T : C.border}`,
+                background: e.done ? C.T+'22' : 'transparent',
+                cursor:'pointer', flexShrink:0, marginTop:1,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                color:C.T, fontSize:13, padding:0,
+                transition:'background 0.15s, border-color 0.15s' }}>
+              {e.done ? '✓' : ''}
+            </button>
+          )}
+          <span style={{ fontSize:15, fontWeight:600,
+            color: e.done ? C.muted : C.text,
+            textDecoration: e.done ? 'line-through' : 'none',
+            lineHeight:'1.4', flex:1, minWidth:0 }}>
+            {e.title}
+          </span>
+          {e.priority && <Badge label={e.priority} color={PC[e.priority]} />}
+          {e.type === 'flight' && (
+            <span style={{ fontSize:13, fontWeight:700, color:dcol,
+              letterSpacing:'0.04em', flexShrink:0 }}>
+              {e.depCity}→{e.arrCity}
+            </span>
+          )}
+        </div>
+
+        {/* ── Bottom row — morphs between: meta / actions / confirm ── */}
+        {!open ? (
+          /* META STATE — normal view with subtle ··· trigger at the end */
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+            {e.time      && <span style={{ fontSize:13, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
+            {e.location  && <span style={{ fontSize:13, color:C.dim }}>📍 {e.location}</span>}
+            {e.flightNum && <span style={{ fontSize:13, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
+            {e.tags      && <span style={{ fontSize:13, color:C.dim }}>🏷 {e.tags}</span>}
+            {e.message   && <span style={{ fontSize:13, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
+            {e.visibility==='shared' && (
+              <span style={{ fontSize:12, color:C.rose,
+                background:C.rose+'15', borderRadius:10, padding:'1px 8px' }}>
+                ◯ Shared
+              </span>
+            )}
+            {/* Subtle trigger — sits naturally at end of meta content */}
+            <button onClick={openMenu}
+              style={{ marginLeft:'auto', fontSize:13, color:C.muted,
+                background:'transparent', border:`1px solid ${C.border}`,
+                borderRadius:12, padding:'2px 9px', cursor:'pointer',
+                letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>
+              ···
+            </button>
+          </div>
+
+        ) : !confirmDel ? (
+          /* ACTION STATE — Edit + Delete + close */
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <button onClick={handleEdit}
+              style={pill(col+'18', dcol, col+'50')}>
+              ✎ Edit
+            </button>
+            <button onClick={handleDelReq}
+              style={pill('#C46A1415', '#C46A14', '#C46A1450')}>
+              ✕ Delete
+            </button>
+            <button onClick={closeMenu}
+              style={{ ...pill(C.elevated, C.muted, C.border), marginLeft:'auto', padding:'4px 10px' }}>
+              ×
+            </button>
+          </div>
+
+        ) : (
+          /* CONFIRM STATE — "Remove?" with Cancel + confirm */
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ fontSize:13, color:C.dim, flex:1, fontStyle:'italic' }}>
+              Remove this entry?
+            </span>
+            <button onClick={closeMenu}
+              style={pill(C.elevated, C.dim, C.border)}>
+              Cancel
+            </button>
+            <button onClick={handleDelOk}
+              style={pill('#A04E08', '#fff', '#A04E08')}>
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── HOME TAB ────────────────────────────────────────────────────
+function HomeTab({ entries, onToggle, onEdit, onDelete }) {
+  const now      = new Date();
+  const todayStr = fd(now);
+
+  const todayEs = useMemo(() =>
+    entries.filter(e => e.date === fd(new Date()))
+           .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99')),
+    [entries]);
+  const nextFlight = useMemo(() =>
+    entries.filter(e => e.type==='flight' && e.date >= fd(new Date()))
+           .sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''))[0],
+    [entries]);
+  const topTasks = useMemo(() => {
+    const pr = { critical:0, high:1, medium:2, low:3 };
+    return entries.filter(e => e.type==='task' && !e.done)
+                  .sort((a,b) => (pr[a.priority]??9)-(pr[b.priority]??9)).slice(0,3);
+  }, [entries]);
+  const openTasks = entries.filter(e => e.type==='task' && !e.done).length;
+  const next48 = useMemo(() => {
+    const n = new Date(), lim = new Date(n.getTime()+48*3600000);
+    return entries.filter(e => {
+      const d=new Date(e.date+'T'+(e.time||'00:00'));
+      return d>=n && d<=lim && e.type!=='task';
+    }).length;
+  }, [entries]);
+  const hr    = now.getHours();
+  const greet = hr<12?'Good Morning':hr<17?'Good Afternoon':'Good Evening';
+
+  return (
+    <div style={{ padding:'0 18px 100px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
+
+      {/* Greeting */}
+      <div style={{ paddingTop:14, marginBottom:20 }}>
+        <p style={{ fontSize:13, color:C.dim, margin:'0 0 3px', fontStyle:'italic' }}>{greet}</p>
+        <h1 style={{ fontSize:30, fontFamily:'Cormorant Garamond,Georgia,serif',
+          fontWeight:600, color:C.text, margin:0, lineHeight:1.2 }}>
+          Marcus{' '}
+          <span style={{ color:C.rose }}>Harrington</span>
+        </h1>
+        <p style={{ fontSize:14, color:C.dim, margin:'5px 0 0' }}>
+          {DAY[now.getDay()]}, {MFULL[now.getMonth()]} {now.getDate()} · {todayEs.length} items today
+        </p>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:6 }}>
+        {[[todayEs.length,'Today',C.M],[openTasks,'Open Tasks',C.T],[next48,'Next 48h',C.E]].map(([v,l,c]) => (
+          <div key={l} style={{ background:C.card, borderRadius:18, padding:'16px 10px',
+            textAlign:'center', boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+            <div style={{ fontSize:26, fontWeight:700,
+              fontFamily:'Cormorant Garamond,serif', color:c, lineHeight:1 }}>{v}</div>
+            <div style={{ fontSize:12, color:C.dim, marginTop:4 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Next Flight */}
+      {nextFlight && (<>
+        <Sec label="Next Flight" />
+        <div style={{ background:`linear-gradient(135deg,#EDF5FD,#E2EFF8)`,
+          border:`1px solid ${C.F}50`,
+          borderRadius:20, padding:18, marginBottom:6,
+          position:'relative', overflow:'hidden',
+          boxShadow:`0 4px 20px ${C.F}20` }}>
+          <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100,
+            background:`radial-gradient(circle,${C.F}30 0%,transparent 70%)`,
+            pointerEvents:'none' }} />
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+            <div style={{ flex:1 }}>
+              <p style={{ fontSize:12, color:DTC.flight, fontWeight:700, margin:'0 0 5px',
+                textTransform:'uppercase', letterSpacing:'0.1em' }}>
+                {nextFlight.airline} · {nextFlight.flightNum}
+              </p>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:32, fontWeight:600, color:C.text,
+                  fontFamily:'Cormorant Garamond,serif' }}>{nextFlight.depCity}</span>
+                <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
+                  <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight}60,transparent)` }} />
+                  <span style={{ fontSize:14, color:DTC.flight }}>✈</span>
+                  <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight}60,transparent)` }} />
+                </div>
+                <span style={{ fontSize:32, fontWeight:600, color:C.text,
+                  fontFamily:'Cormorant Garamond,serif' }}>{nextFlight.arrCity}</span>
+              </div>
+            </div>
+            <div style={{ textAlign:'right', paddingLeft:14 }}>
+              <p style={{ fontSize:17, fontWeight:600, color:C.text, margin:0 }}>{pt(nextFlight.time)}</p>
+              <p style={{ fontSize:13, color:C.dim, margin:'4px 0 0' }}>
+                {nextFlight.date===todayStr ? 'Today'
+                  : nextFlight.date===fd(ad(new Date(),1)) ? 'Tomorrow'
+                  : nextFlight.date}
+              </p>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            {[['Terminal',nextFlight.terminal],['Gate',nextFlight.gate],['Seat',nextFlight.seat]]
+              .filter(([,v])=>v).map(([k,v]) => (
+              <div key={k} style={{ background:'#ffffff60', borderRadius:12,
+                padding:'7px 12px', backdropFilter:'blur(4px)',
+                border:`1px solid ${C.F}25` }}>
+                <p style={{ fontSize:10, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
+                <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>)}
+
+      {/* Priority Tasks */}
+      {topTasks.length > 0 && (<>
+        <Sec label="Priority Tasks" count={openTasks} />
+        <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+          boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+          {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+        </div>
+      </>)}
+
+      {/* Today's Schedule */}
+      <Sec label="Today's Schedule" count={todayEs.length} />
+      {todayEs.length === 0
+        ? <p style={{ color:C.muted, fontSize:14, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
+            Nothing scheduled for today
+          </p>
+        : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+            boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+            {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── AGENDA VIEW ─────────────────────────────────────────────────
+function AgendaView({ entries, onToggle, onEdit, onDelete }) {
+  const grouped = useMemo(() => {
+    const sorted = [...entries].sort((a,b) =>
+      a.date.localeCompare(b.date) || (a.time||'99:99').localeCompare(b.time||'99:99'));
+    const map = {};
+    sorted.forEach(e => { (map[e.date] = map[e.date]||[]).push(e); });
+    return map;
+  }, [entries]);
+  const dates = Object.keys(grouped).sort();
+
+  return (
+    <div style={{ overflowY:'auto', height:'100%', padding:'0 18px 100px', boxSizing:'border-box' }}>
+      {dates.map(d => {
+        const dt  = new Date(d+'T00:00:00');
+        const isT = d === fd(new Date());
+        return (
+          <div key={d} style={{ marginTop:20 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+              <div style={{ width:44, height:44, borderRadius:14, flexShrink:0,
+                background: isT ? `linear-gradient(135deg,${C.rose},${C.roseL})` : C.card,
+                boxShadow: isT ? `0 4px 16px ${C.rose}35` : SH.subtle,
+                border: isT ? 'none' : `1px solid ${C.border}`,
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+                <span style={{ fontSize:9, fontWeight:700, color:isT?'#fff':C.dim,
+                  lineHeight:1, textTransform:'uppercase' }}>{DAY[dt.getDay()]}</span>
+                <span style={{ fontSize:18, fontWeight:700, color:isT?'#fff':C.text, lineHeight:1.2 }}>
+                  {dt.getDate()}
+                </span>
+              </div>
+              <span style={{ fontSize:14, color:isT?C.rose:C.dim, fontStyle:isT?'italic':'normal' }}>
+                {isT ? 'Today — ' : ''}{MFULL[dt.getMonth()]} {dt.getFullYear()}
+              </span>
+            </div>
+            <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── DAY VIEW ────────────────────────────────────────────────────
+function DayView({ entries, selDate, setSelDate }) {
+  const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
+  const hours  = Array.from({ length:18 }, (_,i) => i+6); // 6 AM – 11 PM
+  const dt     = new Date(selDate+'T00:00:00');
+
+  const NavBtn = ({ children, onClick }) => (
+    <button onClick={onClick} style={{ background:C.card, border:`1px solid ${C.border}`,
+      color:C.text, borderRadius:12, padding:'7px 16px', cursor:'pointer',
+      fontSize:18, boxShadow:SH.subtle }}>{children}</button>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 18px',
+        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
+        <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-1); setSelDate(fd(d)); }}>‹</NavBtn>
+        <div style={{ flex:1, textAlign:'center' }}>
+          <p style={{ margin:0, fontSize:15, fontWeight:600, color:C.text }}>
+            {DAY[dt.getDay()]}, {MFULL[dt.getMonth()]} {dt.getDate()}
+          </p>
+          {selDate===fd(new Date()) && (
+            <p style={{ margin:0, fontSize:12, color:C.rose, fontStyle:'italic' }}>Today</p>
+          )}
+        </div>
+        <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+1); setSelDate(fd(d)); }}>›</NavBtn>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'6px 18px 100px', boxSizing:'border-box' }}>
+        {hours.map(h => {
+          const hEs = dayEs.filter(e => parseInt(e.time.split(':')[0])===h);
+          return (
+            <div key={h} style={{ display:'flex', gap:12, minHeight:52 }}>
+              <div style={{ width:50, paddingTop:10, flexShrink:0 }}>
+                <span style={{ fontSize:12, color:C.muted }}>{ft(h)}</span>
+              </div>
+              <div style={{ flex:1, borderTop:`1px solid ${C.border}`, paddingTop:6, paddingBottom:6 }}>
+                {hEs.map(e => (
+                  <div key={e.id} style={{ background:TC[e.type]+'20',
+                    borderLeft:`3px solid ${TC[e.type]}`,
+                    borderRadius:'0 12px 12px 0', padding:'9px 14px', marginBottom:6 }}>
+                    <p style={{ margin:0, fontSize:14, fontWeight:600, color:C.text }}>{e.title}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:12, color:C.dim }}>
+                      {pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}{e.location?` · ${e.location}`:''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── WEEK VIEW ───────────────────────────────────────────────────
+function WeekView({ entries, selDate, setSelDate }) {
+  const dt        = new Date(selDate+'T00:00:00');
+  const dow       = dt.getDay();
+  const weekStart = new Date(dt);
+  weekStart.setDate(dt.getDate() - (dow===0?6:dow-1));
+  const days = Array.from({ length:7 }, (_,i) => ad(weekStart,i));
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ display:'flex', alignItems:'center', padding:'8px 18px',
+        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
+        <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-7); setSelDate(fd(d)); }}
+          style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>‹</button>
+        <span style={{ flex:1, textAlign:'center', fontSize:14, color:C.dim, fontWeight:600 }}>
+          {MON[weekStart.getMonth()]} {weekStart.getDate()} – {MON[days[6].getMonth()]} {days[6].getDate()}
+        </span>
+        <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+7); setSelDate(fd(d)); }}
+          style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>›</button>
+      </div>
+      {/* Day header row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
+        padding:'0 6px', flexShrink:0, borderBottom:`1px solid ${C.border}`,
+        background:C.card }}>
+        {days.map(d => {
+          const ds=fd(d); const isT=ds===fd(new Date()); const isSel=ds===selDate;
+          return (
+            <button key={ds} onClick={() => setSelDate(ds)}
+              style={{ background:'transparent', border:'none', cursor:'pointer',
+                padding:'8px 2px', textAlign:'center' }}>
+              <div style={{ fontSize:10, color:isT?C.rose:C.dim,
+                marginBottom:3, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                {DAY[d.getDay()]}
+              </div>
+              <div style={{ width:30, height:30, borderRadius:15, margin:'0 auto',
+                background: isSel?C.rose : isT?C.rose+'22':'transparent',
+                boxShadow: isSel?`0 2px 10px ${C.rose}40`:'none',
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <span style={{ fontSize:14, fontWeight:isSel?700:400,
+                  color:isSel?'#fff':isT?C.rose:C.text }}>{d.getDate()}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {/* Entry grid */}
+      <div style={{ flex:1, overflowY:'auto', padding:'8px 6px 80px', boxSizing:'border-box' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:3, alignItems:'start' }}>
+          {days.map(d => {
+            const ds  = fd(d);
+            const dEs = entries.filter(e=>e.date===ds)
+                               .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+            return (
+              <div key={ds} style={{ minHeight:60 }}>
+                {dEs.map(e => (
+                  <div key={e.id} style={{ background:TC[e.type]+'25',
+                    borderLeft:`2px solid ${TC[e.type]}`,
+                    borderRadius:'0 6px 6px 0', padding:'4px 5px', marginBottom:3 }}>
+                    <p style={{ margin:0, fontSize:11, fontWeight:600, color:C.text,
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.title}</p>
+                    {e.time && <p style={{ margin:0, fontSize:10, color:C.dim }}>{pt(e.time)}</p>}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MONTH VIEW ──────────────────────────────────────────────────
+function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete }) {
+  const initDt      = new Date(selDate+'T00:00:00');
+  const [vm, setVm] = useState({ y:initDt.getFullYear(), m:initDt.getMonth() });
+  const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
+  const first       = new Date(vm.y, vm.m, 1);
+  const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
+  const cells       = [...Array(offset).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
+  const selDayEs    = entries.filter(e=>e.date===selDate)
+                             .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ display:'flex', alignItems:'center', padding:'8px 18px',
+        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
+        <button onClick={() => setVm(p => p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1})}
+          style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>‹</button>
+        <span style={{ flex:1, textAlign:'center', fontSize:17, fontWeight:600,
+          color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
+          {MFULL[vm.m]} {vm.y}
+        </span>
+        <button onClick={() => setVm(p => p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1})}
+          style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
+            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:18 }}>›</button>
+      </div>
+      {/* Weekday labels */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
+        padding:'6px 6px 0', flexShrink:0, background:C.card }}>
+        {['M','T','W','T','F','S','S'].map((d,i) => (
+          <div key={i} style={{ textAlign:'center', fontSize:12, color:C.muted, fontWeight:600, padding:'3px 0' }}>{d}</div>
+        ))}
+      </div>
+      {/* Day grid */}
+      <div style={{ padding:'0 6px', flexShrink:0, background:C.card }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2 }}>
+          {cells.map((day,i) => {
+            if (!day) return <div key={`e${i}`} style={{ height:42 }} />;
+            const ds   = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
+            const isT  = ds===fd(new Date()), isSel = ds===selDate;
+            const dots = [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
+            return (
+              <button key={ds} onClick={() => setSelDate(ds)}
+                style={{ background:'transparent', border:'none', cursor:'pointer',
+                  padding:'3px 1px', textAlign:'center' }}>
+                <div style={{ width:32, height:32, borderRadius:16, margin:'0 auto',
+                  background: isSel?C.rose : isT?C.rose+'20':'transparent',
+                  border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
+                  boxShadow: isSel?`0 2px 12px ${C.rose}35`:'none',
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <span style={{ fontSize:14, fontWeight:isSel?700:400,
+                    color: isSel?'#fff' : isT?C.rose:C.text }}>{day}</span>
+                </div>
+                <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:5 }}>
+                  {dots.map((col,j) => (
+                    <div key={j} style={{ width:5, height:5, borderRadius:3, background:col+'90' }} />
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {/* Selected day entries */}
+      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 80px',
+        borderTop:`1px solid ${C.border}`, marginTop:8, boxSizing:'border-box' }}>
+        <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
+          textTransform:'uppercase', letterSpacing:'0.1em', fontWeight:700 }}>
+          {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
+        </p>
+        {selDayEs.length===0
+          ? <p style={{ color:C.muted, fontSize:14, textAlign:'center', padding:'24px 0', fontStyle:'italic' }}>
+              Nothing on this day
+            </p>
+          : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ─── CALENDAR TAB ────────────────────────────────────────────────
+function CalendarTab({ entries, onToggle, onEdit, onDelete }) {
+  const [view,    setView]    = useState('agenda');
+  const [selDate, setSelDate] = useState(fd(new Date()));
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ display:'flex', gap:6, padding:'10px 18px',
+        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
+        {['agenda','day','week','month'].map(v => (
+          <button key={v} onClick={() => setView(v)}
+            style={{ flex:1, padding:'9px 2px', borderRadius:12, border:'none', cursor:'pointer',
+              background: view===v ? C.rose : C.elevated,
+              color: view===v ? '#fff' : C.dim,
+              fontSize:13, fontWeight:view===v?600:400, textTransform:'capitalize',
+              boxShadow: view===v?`0 2px 10px ${C.rose}35`:SH.subtle,
+              transition:'background 0.15s' }}>
+            {v}
+          </button>
+        ))}
+      </div>
+      <div style={{ flex:1, overflow:'hidden' }}>
+        {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />}
+        {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} />}
+        {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} />}
+        {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />}
+      </div>
+    </div>
+  );
+}
+
+// ─── SEARCH TAB ──────────────────────────────────────────────────
+const QUICK_FILTERS = [
+  { k:'today',   l:'Today',            f: e => e.date===fd(new Date()) },
+  { k:'week',    l:'This Week',        f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date(),w=ad(n,7); return d>=n&&d<=w; } },
+  { k:'flights', l:'Upcoming Flights', f: e => e.type==='flight' && e.date>=fd(new Date()) },
+  { k:'tasks',   l:'Pending Tasks',    f: e => e.type==='task' && !e.done },
+  { k:'shared',  l:'Shared',          f: e => e.visibility==='shared' },
+];
+
+function SearchTab({ entries, onToggle, onEdit, onDelete }) {
+  const [q,      setQ]      = useState('');
+  const [typeF,  setTypeF]  = useState('all');
+  const [quickF, setQuickF] = useState(null);
+
+  const results = useMemo(() => {
+    let r = entries;
+    if (quickF) { const qf=QUICK_FILTERS.find(x=>x.k===quickF); if (qf) r=r.filter(qf.f); }
+    if (typeF !== 'all') r = r.filter(e => e.type===typeF);
+    if (q.trim()) {
+      const lq = q.toLowerCase();
+      r = r.filter(e =>
+        [e.title,e.location,e.attendees,e.tags,e.notes,e.message,e.airline,e.flightNum,e.depCity,e.arrCity]
+          .some(f => f && f.toLowerCase().includes(lq)));
+    }
+    return r.sort((a,b) => a.date.localeCompare(b.date));
+  }, [entries, q, typeF, quickF]);
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ padding:'12px 18px', borderBottom:`1px solid ${C.border}`,
+        flexShrink:0, background:C.card }}>
+        {/* Search input */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, background:C.elevated,
+          borderRadius:16, padding:'11px 16px', border:`1px solid ${C.border}`,
+          boxShadow:SH.subtle }}>
+          <span style={{ color:C.muted, fontSize:17 }}>🔍</span>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search all entries…"
+            style={{ flex:1, background:'transparent', border:'none', outline:'none',
+              color:C.text, fontSize:15, fontFamily:'inherit' }} />
+          {q && (
+            <button onClick={() => setQ('')}
+              style={{ background:'transparent', border:'none', color:C.muted,
+                cursor:'pointer', fontSize:16, padding:0 }}>✕</button>
+          )}
+        </div>
+        {/* Quick filters */}
+        <div style={{ display:'flex', gap:7, marginTop:10, overflowX:'auto', paddingBottom:2 }}>
+          {QUICK_FILTERS.map(qf => (
+            <button key={qf.k} onClick={() => setQuickF(p => p===qf.k?null:qf.k)}
+              style={{ background: quickF===qf.k ? C.rose : C.elevated,
+                border:`1px solid ${quickF===qf.k ? C.rose : C.border}`,
+                color: quickF===qf.k ? '#fff' : C.dim,
+                borderRadius:20, padding:'5px 14px',
+                fontSize:13, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
+                boxShadow: quickF===qf.k?`0 2px 10px ${C.rose}35`:SH.subtle,
+                transition:'background 0.15s' }}>
+              {qf.l}
+            </button>
+          ))}
+        </div>
+        {/* Type filters */}
+        <div style={{ display:'flex', gap:6, marginTop:7, overflowX:'auto', paddingBottom:2 }}>
+          {['all','meeting','task','flight','reminder','event'].map(t => (
+            <button key={t} onClick={() => setTypeF(t)}
+              style={{ background: typeF===t ? (t==='all'?C.rose:TC[t]+'28') : C.elevated,
+                border:`1px solid ${typeF===t ? (t==='all'?C.rose:TC[t]) : C.border}`,
+                color: typeF===t ? (t==='all'?'#fff':DTC[t]||TC[t]) : C.dim,
+                borderRadius:20, padding:'4px 13px', fontSize:12, fontWeight:600,
+                cursor:'pointer', whiteSpace:'nowrap', textTransform:'capitalize',
+                transition:'background 0.15s' }}>
+              {t==='all'?'All':TL[t]||t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 100px', boxSizing:'border-box' }}>
+        <p style={{ fontSize:13, color:C.muted, margin:'12px 0 6px', fontStyle:'italic' }}>
+          {results.length} result{results.length!==1?'s':''}
+        </p>
+        {results.length===0
+          ? <p style={{ color:C.muted, fontSize:14, textAlign:'center', padding:'50px 0', fontStyle:'italic' }}>
+              Nothing found
+            </p>
+          : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ─── RESET SECTION ───────────────────────────────────────────────
+// Two-tap confirm guard — first tap shows warning, second tap executes reset.
+// Separated to module level so it's never recreated inside SettingsTab.
+function ResetSection({ onReset }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div style={{ marginBottom:40 }}>
+      <p style={{ fontSize:11, fontWeight:700, color:'#C46A14', textTransform:'uppercase',
+        letterSpacing:'0.14em', margin:'24px 0 8px' }}>Danger Zone</p>
+      <div style={{ background:C.card, borderRadius:20, overflow:'hidden',
+        boxShadow:SH.card, border:`1px solid ${'#C46A14'}40` }}>
+        {!confirming ? (
+          <div style={{ display:'flex', alignItems:'center', padding:'16px 18px', gap:12 }}>
+            <div style={{ flex:1 }}>
+              <p style={{ margin:0, fontSize:15, color:C.text, fontWeight:500 }}>Reset App Data</p>
+              <p style={{ margin:0, fontSize:13, color:C.dim, marginTop:2 }}>
+                Wipe all entries, audit log and storage. Cannot be undone.
+              </p>
+            </div>
+            <button onClick={() => setConfirming(true)}
+              style={{ background:'transparent', border:`1.5px solid ${'#C46A14'}`,
+                color:'#C46A14', borderRadius:12, padding:'8px 16px',
+                fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+                whiteSpace:'nowrap' }}>
+              Reset…
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding:'18px 18px' }}>
+            <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:700, color:'#A04E08' }}>
+              Are you sure?
+            </p>
+            <p style={{ margin:'0 0 16px', fontSize:13, color:C.dim, lineHeight:1.5 }}>
+              This permanently erases every entry, flight, reminder and activity log record.
+              Your next sync will start with a completely blank database.
+            </p>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setConfirming(false)}
+                style={{ flex:1, background:C.elevated, border:`1px solid ${C.border}`,
+                  color:C.dim, borderRadius:12, padding:'11px 0',
+                  fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                Cancel
+              </button>
+              <button onClick={() => { setConfirming(false); onReset(); }}
+                style={{ flex:1, background:'#A04E08', border:'none',
+                  color:'#fff', borderRadius:12, padding:'11px 0',
+                  fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                  boxShadow:`0 4px 16px ${'#A04E08'}40` }}>
+                Yes, Wipe Everything
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SETTINGS TAB ────────────────────────────────────────────────
+function SettingsTab({ auditLog, onReset }) {
+  const [notifs,     setNotifs]     = useState({ digest:true, preEvent:true, flights:true, shared:true });
+  const [digestTime, setDigestTime] = useState('06:30');
+  const [dndStart,   setDndStart]   = useState('22:00');
+  const [dndEnd,     setDndEnd]     = useState('06:00');
+
+  // P3-15: 60 s tick keeps relTime() labels fresh in the activity log
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t+1), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const recentLog = [...auditLog].reverse().slice(0, 50);
+
+  const InputStyle = {
+    display:'block', marginTop:6, width:'100%', boxSizing:'border-box',
+    background:C.elevated, border:`1px solid ${C.border}`,
+    borderRadius:12, padding:'10px 13px', color:C.text,
+    fontSize:15, fontFamily:'inherit', outline:'none',
+    boxShadow:SH.subtle,
+  };
+
+  return (
+    <div style={{ padding:'0 18px 100px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
+
+      {/* Profile card */}
+      <div style={{ paddingTop:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:16, padding:20,
+          background:C.card, borderRadius:22,
+          boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+          <div style={{ width:60, height:60, borderRadius:30,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+            boxShadow:`0 4px 16px ${C.rose}35` }}>
+            <span style={{ fontSize:22, fontWeight:700, color:'#fff' }}>MH</span>
+          </div>
+          <div>
+            <p style={{ margin:0, fontSize:19, fontWeight:600, color:C.text,
+              fontFamily:'Cormorant Garamond,serif' }}>Marcus Harrington</p>
+            <p style={{ margin:0, fontSize:13, color:C.dim }}>Group CEO · Harrington Corp</p>
+            <p style={{ margin:'4px 0 0', fontSize:12, color:C.rose,
+              background:C.rose+'15', display:'inline-block',
+              borderRadius:10, padding:'2px 10px' }}>◯ Workspace Admin</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Workspace */}
+      <SS title="Workspace">
+        <SR label="Harrington Corp Team" sub="8 members · You are Admin" right={<Badge label="Admin" color={C.rose} />} />
+        <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
+          <p style={{ fontSize:11, color:C.muted, margin:'10px 0 6px',
+            fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>Members</p>
+          {['Sarah Chen — Chief of Staff','James Park — CFO','Aisha Rahman — COO','Wei Liu — General Counsel','+ 4 others'].map((m,i) => (
+            <div key={m} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0' }}>
+              <div style={{ width:32, height:32, borderRadius:16, background:C.elevated,
+                border:`1px solid ${C.border}`,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <span style={{ fontSize:13, color:C.dim }}>{m[0]}</span>
+              </div>
+              <span style={{ fontSize:14, color:i===4?C.muted:C.text }}>{m}</span>
+            </div>
+          ))}
+          <button style={{ marginTop:12, background:'transparent',
+            border:`1.5px dashed ${C.border}`,
+            borderRadius:12, padding:'10px 14px', color:C.dim,
+            fontSize:14, cursor:'pointer', width:'100%',
+            fontFamily:'inherit', transition:'border-color 0.15s' }}>
+            + Invite via Email or QR Code
+          </button>
+        </div>
+      </SS>
+
+      {/* Notifications */}
+      <SS title="Notifications">
+        <SR label="Daily Digest" sub={`Fires at ${pt(digestTime)} each morning`}
+          right={<Tog on={notifs.digest} onChange={v => setNotifs(p=>({...p,digest:v}))} />} />
+        {notifs.digest && (
+          <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}` }}>
+            <label style={{ fontSize:13, color:C.dim }}>Digest time</label>
+            <input type="time" value={digestTime} onChange={e=>setDigestTime(e.target.value)}
+              style={InputStyle} />
+          </div>
+        )}
+        <SR label="Pre-Event Reminders" sub="Contextual alerts per item"
+          right={<Tog on={notifs.preEvent} onChange={v=>setNotifs(p=>({...p,preEvent:v}))} />} />
+        <SR label="Flight Alerts" sub="Auto: T-24h, T-3h, T-1h"
+          right={<Tog on={notifs.flights} onChange={v=>setNotifs(p=>({...p,flights:v}))} />} />
+        <SR label="Shared Reminders" sub="Workspace push notifications" noBorder
+          right={<Tog on={notifs.shared} onChange={v=>setNotifs(p=>({...p,shared:v}))} />} />
+      </SS>
+
+      {/* Do Not Disturb */}
+      <SS title="Do Not Disturb">
+        <SR label="DND Window" sub={`${pt(dndStart)} – ${pt(dndEnd)} · No notifications`}
+          right={<span style={{ fontSize:13, color:C.T, background:C.T+'20',
+            borderRadius:10, padding:'2px 10px' }}>● Active</span>} />
+        <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
+          display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          {[['Start',dndStart,setDndStart],['End',dndEnd,setDndEnd]].map(([l,v,sv]) => (
+            <div key={l}>
+              <label style={{ fontSize:13, color:C.dim }}>{l}</label>
+              <input type="time" value={v} onChange={e=>sv(e.target.value)}
+                style={InputStyle} />
+            </div>
+          ))}
+        </div>
+      </SS>
+
+      {/* Activity Log — P2-11: append-only, no clear button */}
+      <SS title={`Activity Log${auditLog.length > 0 ? ` · ${auditLog.length}` : ''}`}>
+        {recentLog.length === 0 ? (
+          <div style={{ padding:'32px 18px', textAlign:'center' }}>
+            <p style={{ margin:0, fontSize:28, opacity:0.35 }}>◎</p>
+            <p style={{ margin:'8px 0 3px', fontSize:15, color:C.dim, fontWeight:600 }}>No activity yet</p>
+            <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic' }}>
+              Create or complete entries to start tracking
+            </p>
+          </div>
+        ) : (
+          <>
+            {recentLog.map((log, i) => {
+              const actionColor = AC[log.action] || C.dim;
+              const isLast      = i === recentLog.length - 1;
+              const initials    = log.actor.split(' ').map(n=>n[0]).join('').slice(0,2);
+              return (
+                <div key={log.id} style={{ display:'flex', gap:12, padding:'13px 18px',
+                  borderBottom: isLast?'none':`1px solid ${C.border}`,
+                  background: i===0 ? actionColor+'08' : 'transparent' }}>
+                  {/* Avatar */}
+                  <div style={{ width:36, height:36, borderRadius:18, flexShrink:0,
+                    background:`linear-gradient(135deg,${C.rose}30,${C.roseL}20)`,
+                    border:`1.5px solid ${C.rose}40`,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.rose }}>{initials}</span>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{log.actor}</span>
+                      <span style={{ fontSize:11, fontWeight:700, color:actionColor,
+                        background:actionColor+'20', borderRadius:20,
+                        padding:'2px 9px', textTransform:'capitalize', flexShrink:0,
+                        border:`1px solid ${actionColor}30` }}>
+                        {AL[log.action] || log.action}
+                      </span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5, minWidth:0 }}>
+                      <div style={{ width:8, height:8, borderRadius:4,
+                        background:TC[log.entryType]||C.dim, flexShrink:0 }} />
+                      <span style={{ fontSize:14, color:C.text,
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                        {log.entryTitle}
+                      </span>
+                      <span style={{ fontSize:12, color:C.dim, flexShrink:0,
+                        textTransform:'capitalize', background:C.elevated,
+                        borderRadius:8, padding:'2px 8px', border:`1px solid ${C.border}` }}>
+                        {log.entryType}
+                      </span>
+                    </div>
+                    {log.changes && log.changes.length > 0 && (
+                      <div style={{ background:C.elevated, borderRadius:10,
+                        padding:'7px 10px', marginBottom:5, border:`1px solid ${C.border}` }}>
+                        {log.changes.map((ch, ci) => (
+                          <div key={ci} style={{ fontSize:12, color:C.dim, lineHeight:1.8 }}>
+                            <span style={{ color:C.text, fontWeight:600 }}>{ch.field}: </span>
+                            <span style={{ color:'#C46A14', textDecoration:'line-through' }}>{String(ch.from ?? '—')}</span>
+                            <span style={{ color:C.muted }}> → </span>
+                            <span style={{ color:C.T }}>{String(ch.to ?? '—')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <span style={{ fontSize:12, color:C.muted, fontStyle:'italic' }}>{relTime(log.timestamp)}</span>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ padding:'12px 18px', borderTop:`1px solid ${C.border}` }}>
+              <p style={{ margin:0, fontSize:13, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
+                Showing {recentLog.length} of {auditLog.length} events · Append-only
+              </p>
+            </div>
+          </>
+        )}
+      </SS>
+
+      {/* Entry Colour Key */}
+      <SS title="Entry Colour Key">
+        <div style={{ padding:'14px 18px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          {Object.entries(TL).map(([t,l]) => (
+            <div key={t} style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:12, height:12, borderRadius:4, background:TC[t]+'90', flexShrink:0 }} />
+              <span style={{ fontSize:14, color:C.text }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      </SS>
+
+      {/* Data & Privacy */}
+      <SS title="Data & Privacy">
+        <SR label="End-to-End Encryption" sub="All entries encrypted at rest"
+          right={<span style={{ fontSize:13, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
+        <SR label="GDPR Compliance" sub="Data stored per EU regulations"
+          right={<span style={{ fontSize:13, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
+        <SR label="Persistent Storage" sub={`Schema v${SCHEMA_VERSION} · Auto-saves on every change`}
+          right={<span style={{ fontSize:13, color:C.rose, background:C.rose+'18', borderRadius:10, padding:'2px 10px' }}>◯ Live</span>} />
+        <SR label="Audit Trail" sub="All changes tracked · Append-only" noBorder
+          right={<span style={{ fontSize:13, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ On</span>} />
+      </SS>
+
+      {/* About */}
+      <SS title="About">
+        <SR label="絆 Kizuna"
+          sub={`${APP_VERSION} · Released ${APP_BUILD_DATE}`}
+          right={
+            <span style={{ fontSize:12, color:C.dim, background:C.elevated,
+              borderRadius:10, padding:'3px 10px', border:`1px solid ${C.border}` }}>
+              {APP_VERSION}
+            </span>
+          } />
+        <SR label="Schema Version" sub={`Storage format v${SCHEMA_VERSION}`} noBorder
+          right={<span style={{ fontSize:13, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
+      </SS>
+
+      {/* Reset App Data */}
+      <ResetSection onReset={onReset} />
+    </div>
+  );
+}
+
+// ─── ADD MODAL ───────────────────────────────────────────────────
+const mkBlank = () => ({
+  type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
+  priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
+  terminal:'',gate:'',seat:'',visibility:'private',remind:'30min'
+});
+
+function EForm({ form, set }) {
+  // P3-16: Auto-generate flight title from IATA codes
+  const prevAutoRef = useRef('');
+  useEffect(() => {
+    if (form.type !== 'flight' || !form.depCity || !form.arrCity) return;
+    const autoTitle = `${form.depCity} → ${form.arrCity}`;
+    if (!form.title || form.title === prevAutoRef.current) {
+      prevAutoRef.current = autoTitle;
+      set('title', autoTitle);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.depCity, form.arrCity, form.type]);
+
+  const inputBase = {
+    width:'100%', boxSizing:'border-box', background:C.elevated,
+    border:`1px solid ${C.border}`, borderRadius:12, padding:'12px 14px',
+    color:C.text, fontSize:15, outline:'none', fontFamily:'inherit',
+    boxShadow:SH.subtle,
+  };
+  const FI = ({ field, ...props }) => (
+    <input value={form[field]||''} onChange={e => set(field, e.target.value)} {...props}
+      style={{ ...inputBase, ...props.style }} />
+  );
+  const TA = ({ field, ...props }) => (
+    <textarea value={form[field]||''} onChange={e => set(field, e.target.value)} rows={2} {...props}
+      style={{ ...inputBase, resize:'vertical' }} />
+  );
+  const FL = ({ label, children }) => (
+    <div style={{ marginBottom:14 }}>
+      <label style={{ fontSize:12, color:C.dim, display:'block', marginBottom:5,
+        fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</label>
+      {children}
+    </div>
+  );
+  const Row2 = ({ children }) => (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>
+  );
+  const selStyle = { ...inputBase, appearance:'none' };
+
+  return (
+    <div style={{ paddingTop:8 }}>
+      <FL label="Title">
+        <FI field="title" placeholder={`${TL[form.type]} title`} autoFocus />
+      </FL>
+
+      {form.type === 'flight' ? (<>
+        <Row2>
+          <FL label="From"><FI field="depCity" placeholder="SIN" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
+          <FL label="To"><FI field="arrCity" placeholder="LHR" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
+        </Row2>
+        <FL label="Airline"><FI field="airline" placeholder="Singapore Airlines" /></FL>
+        <Row2>
+          <FL label="Flight No."><FI field="flightNum" placeholder="SQ321" onChange={e=>set('flightNum',e.target.value.toUpperCase())} /></FL>
+          <FL label="Seat"><FI field="seat" placeholder="1A" /></FL>
+        </Row2>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
+          <FL label="Terminal"><FI field="terminal" placeholder="T3" /></FL>
+          <FL label="Gate"><FI field="gate" placeholder="G22" /></FL>
+          <FL label="Dep. Time"><FI field="time" type="time" /></FL>
+        </div>
+        <FL label="Date"><FI field="date" type="date" /></FL>
+      </>) : form.type === 'task' ? (<>
+        <Row2>
+          <FL label="Due Date"><FI field="date" type="date" /></FL>
+          <FL label="Priority">
+            <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
+              {['low','medium','high','critical'].map(p => (
+                <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
+              ))}
+            </select>
+          </FL>
+        </Row2>
+        <FL label="Tags"><FI field="tags" placeholder="Finance, Legal, M&A" /></FL>
+      </>) : form.type === 'reminder' ? (<>
+        <Row2>
+          <FL label="Date"><FI field="date" type="date" /></FL>
+          <FL label="Time"><FI field="time" type="time" /></FL>
+        </Row2>
+        <FL label="Message"><TA field="message" placeholder="Reminder details…" /></FL>
+      </>) : (<>
+        <Row2>
+          <FL label="Date"><FI field="date" type="date" /></FL>
+          <FL label="Start Time"><FI field="time" type="time" /></FL>
+        </Row2>
+        <FL label="End Time"><FI field="endTime" type="time" /></FL>
+        <FL label="Location"><FI field="location" placeholder="Room, address, or virtual" /></FL>
+        {form.type==='meeting' && (
+          <FL label="Attendees"><FI field="attendees" placeholder="Names or emails, comma-separated" /></FL>
+        )}
+        <FL label="Notes"><TA field="notes" placeholder="Additional details…" /></FL>
+      </>)}
+
+      <Row2>
+        <FL label="Remind me">
+          <select value={form.remind} onChange={e=>set('remind',e.target.value)} style={selStyle}>
+            {[['none','None'],['15min','15 min'],['30min','30 min'],['1h','1 hr'],['2h','2 hrs'],['1d','1 day']].map(([v,l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </FL>
+        <FL label="Visibility">
+          <select value={form.visibility} onChange={e=>set('visibility',e.target.value)} style={selStyle}>
+            <option value="private">🔒 Private</option>
+            <option value="shared">◯ Shared</option>
+          </select>
+        </FL>
+      </Row2>
+    </div>
+  );
+}
+
+function AddModal({ onClose, onSave, editEntry = null }) {
+  const isEdit = editEntry !== null;
+  // Edit mode: skip type selector (step 1), pre-populate form from entry
+  const [step, setStep] = useState(isEdit ? 1 : 0);
+  const [form, setForm] = useState(isEdit ? { ...mkBlank(), ...editEntry } : mkBlank());
+  const setF    = (k, v) => setForm(p => ({ ...p, [k]:v }));
+  const canSave = form.title.trim().length > 0;
+  const handleSave = () => {
+    if (!canSave) return;
+    // Edit: preserve id + type. Create: assign UUID.
+    onSave(isEdit
+      ? { ...form, id: editEntry.id, type: editEntry.type }
+      : { ...form, id: crypto.randomUUID() }
+    );
+    onClose();
+  };
+
+  const typeColor = TC[form.type] || C.rose;
+
+  return (
+    <div style={{ position:'absolute', inset:0, zIndex:100,
+      display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+      <div style={{ position:'absolute', inset:0, background:'rgba(44,38,32,0.35)',
+        backdropFilter:'blur(4px)' }} onClick={onClose} />
+      <div style={{ position:'relative', background:C.card, borderRadius:'28px 28px 0 0',
+        border:`1px solid ${C.border}`, borderBottom:'none', maxHeight:'92%',
+        display:'flex', flexDirection:'column', boxShadow:SH.float }}>
+        <div style={{ width:40, height:5, borderRadius:3, background:C.border, margin:'14px auto 0' }} />
+        <div style={{ display:'flex', alignItems:'center', padding:'12px 22px 8px' }}>
+          {/* Back only shown in create mode step 1 — not in edit mode (can't change type) */}
+          {step===1 && !isEdit && (
+            <button onClick={() => setStep(0)}
+              style={{ background:'transparent', border:'none', color:C.rose,
+                fontSize:15, cursor:'pointer', padding:'0 16px 0 0', fontWeight:700 }}>
+              ‹ Back
+            </button>
+          )}
+          <h2 style={{ flex:1, margin:0, fontSize:20, fontWeight:600, color:C.text,
+            fontFamily:'Cormorant Garamond,serif' }}>
+            {step===0 ? 'New Entry' : isEdit ? `Edit ${TL[form.type]}` : `New ${TL[form.type]}`}
+          </h2>
+          {step===1 ? (
+            <button onClick={handleSave}
+              style={{ background:canSave?typeColor:C.elevated,
+                border:`1px solid ${canSave?typeColor:C.border}`,
+                color:canSave?'#fff':C.muted, borderRadius:12,
+                padding:'9px 20px', fontSize:15, fontWeight:600,
+                cursor:canSave?'pointer':'default',
+                boxShadow:canSave?`0 4px 16px ${typeColor}40`:'none',
+                fontFamily:'inherit', transition:'background 0.15s' }}>
+              {isEdit ? 'Save Changes' : 'Save'}
+            </button>
+          ) : (
+            <button onClick={onClose}
+              style={{ background:C.elevated, border:`1px solid ${C.border}`,
+                color:C.dim, width:32, height:32, borderRadius:16,
+                cursor:'pointer', fontSize:16, padding:0,
+                display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          )}
+        </div>
+        <div style={{ overflowY:'auto', padding:'6px 22px 44px', flex:1 }}>
+          {step === 0 ? (
+            <div>
+              <p style={{ fontSize:14, color:C.dim, margin:'4px 0 16px', fontStyle:'italic' }}>
+                What would you like to add?
+              </p>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                {['meeting','task','flight','reminder','event'].map(t => (
+                  <button key={t} onClick={() => { setForm({...mkBlank(),type:t}); setStep(1); }}
+                    style={{ background:TC[t]+'15', border:`1px solid ${TC[t]+'35'}`,
+                      borderRadius:18, padding:'18px 14px', cursor:'pointer', textAlign:'left',
+                      display:'flex', flexDirection:'column', gap:6,
+                      boxShadow:`0 2px 12px ${TC[t]}15`,
+                      transition:'transform 0.1s' }}>
+                    <span style={{ fontSize:22 }}>{TI[t]}</span>
+                    <span style={{ fontSize:15, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
+                    <span style={{ fontSize:13, color:C.dim, lineHeight:1.4 }}>
+                      {t==='meeting'?'Schedule a meeting'
+                        :t==='task'?'Add a to-do item'
+                        :t==='flight'?'Log flight details'
+                        :t==='reminder'?'Set a reminder'
+                        :'Create an event'}
+                    </span>
+                  </button>
+                ))}
+                <button style={{ background:C.elevated, border:`1px dashed ${C.border}`,
+                  borderRadius:18, padding:'18px 14px', cursor:'pointer',
+                  display:'flex', flexDirection:'column', gap:6,
+                  alignItems:'center', justifyContent:'center' }}>
+                  <span style={{ fontSize:22 }}>🎤</span>
+                  <span style={{ fontSize:13, color:C.muted, fontStyle:'italic' }}>Voice Input</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <EForm form={form} set={setF} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── KIZUNA ICON — TWO SAKURA 桜 ────────────────────────────────
+// Flower 1: larger, lower-left — the dominant bloom.
+// Flower 2: smaller, upper-right — the accent bloom, rendered behind.
+// Three drifting petals add gracefulness between the two flowers.
+// Petal path: authentic notched tip (bilobed split) of Prunus serrulata.
+const KizunaIcon = () => {
+  // One petal pointing upward from (0,0), length ~14 units.
+  // The forked tip (L 0,-13.8 midpoint) is the sakura's signature.
+  const P = "M 0,0 C -3.5,-3.5 -6,-8 -5,-12 C -4.5,-14.5 -2.5,-15 -0.8,-13 L 0,-13.8 L 0.8,-13 C 2.5,-15 4.5,-14.5 5,-12 C 6,-8 3.5,-3.5 0,0 Z";
+  const ROTS = [0, 72, 144, 216, 288];
+  const r = d => d * Math.PI / 180;
+
+  return (
+    <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
+      style={{ display:'block', flexShrink:0 }}>
+
+      {/* ── Drifting petals — rendered first so flowers sit above ── */}
+
+      {/* Petal drifting to the far right */}
+      <g transform="translate(46,30) rotate(-22) scale(0.36)" opacity="0.42">
+        <path d={P} fill="#EAA898" />
+      </g>
+      {/* Petal drifting below, between the two blooms */}
+      <g transform="translate(29,36) rotate(50) scale(0.30)" opacity="0.35">
+        <path d={P} fill="#F0C0B4" />
+      </g>
+      {/* Petal drifting to upper-left */}
+      <g transform="translate(4,7) rotate(-58) scale(0.26)" opacity="0.28">
+        <path d={P} fill="#EAB8A8" />
+      </g>
+
+      {/* ── FLOWER 2 — smaller accent bloom, upper-right ── */}
+      {/* Offset rotation by 36° so its petals interleave with Flower 1 visually */}
+      {ROTS.map(rot => (
+        <g key={`f2p${rot}`}
+          transform={`translate(37,13) rotate(${rot + 36}) scale(0.65)`}>
+          <path d={P}
+            fill="#F0C0B4"
+            stroke="#E0A898"
+            strokeWidth="0.45"
+            opacity="0.86"
+          />
+        </g>
+      ))}
+      {/* Flower 2 — center disc */}
+      <circle cx="37" cy="13" r="1.9" fill="#D09080" opacity="0.75" />
+      {/* Flower 2 — stamen dots at r=3.3 */}
+      {ROTS.map((rot, i) => (
+        <circle key={`f2s${i}`}
+          cx={(37 + Math.sin(r(rot)) * 3.3).toFixed(2)}
+          cy={(13 - Math.cos(r(rot)) * 3.3).toFixed(2)}
+          r="0.65" fill="#C89078" opacity="0.50"
+        />
+      ))}
+
+      {/* ── FLOWER 1 — larger dominant bloom, lower-left ── */}
+      {ROTS.map(rot => (
+        <g key={`f1p${rot}`}
+          transform={`translate(15,27) rotate(${rot})`}>
+          <path d={P}
+            fill="#EAA898"
+            stroke="#D48880"
+            strokeWidth="0.35"
+            opacity="0.93"
+          />
+        </g>
+      ))}
+      {/* Flower 1 — center disc */}
+      <circle cx="15" cy="27" r="2.8" fill="#C4826E" opacity="0.84" />
+      {/* Flower 1 — stamen dots at r=5 */}
+      {ROTS.map((rot, i) => (
+        <circle key={`f1s${i}`}
+          cx={(15 + Math.sin(r(rot)) * 5).toFixed(2)}
+          cy={(27 - Math.cos(r(rot)) * 5).toFixed(2)}
+          r="0.9" fill="#C4826E" opacity="0.52"
+        />
+      ))}
+    </svg>
+  );
+};
+
+// ─── BOTTOM NAV ──────────────────────────────────────────────────
+const NAV = [
+  { key:'home',     icon:'◯', label:'Home'     },
+  { key:'calendar', icon:'◫', label:'Calendar'  },
+  { key:'search',   icon:'◎', label:'Search'    },
+  { key:'settings', icon:'◈', label:'Settings'  },
+];
+
+// ─── APP ROOT ────────────────────────────────────────────────────
+export default function App() {
+  const [tab,          setTab]          = useState('home');
+  const [entries,      setEntries]      = useState(MOCK_ENTRIES);
+  const [auditLog,     setAuditLog]     = useState([]);
+  const [showAdd,      setShowAdd]      = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);   // null = closed, entry = edit mode
+  const [storageReady, setStorageReady] = useState(false);
+  const [syncStatus,   setSyncStatus]   = useState('loading');
+
+  // P3-14: Live clock — updates every 60 s
+  const [clockTime, setClockTime] = useState(() => {
+    const n = new Date(); return ft(n.getHours(), n.getMinutes());
+  });
+  useEffect(() => {
+    const tick = () => { const n = new Date(); setClockTime(ft(n.getHours(), n.getMinutes())); };
+    const id   = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Ref mirror — reads current entries synchronously in toggleDone (no stale closure)
+  const entriesRef = useRef(entries);
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+
+  // ── Load from storage on mount ──────────────────────────────
+  useEffect(() => {
+    async function load() {
+      try {
+        const se = localStorage.getItem(SK_ENTRIES);
+        const sa = localStorage.getItem(SK_AUDIT);
+        if (se) {
+          const parsed = parseStoredEntries(JSON.parse(se));
+          if (parsed) setEntries(parsed);
+        }
+        if (sa) setAuditLog(JSON.parse(sa));
+        setSyncStatus('synced');
+      } catch {
+        setSyncStatus('error');
+      } finally {
+        setStorageReady(true);
+      }
+    }
+    load();
+  }, []);
+
+  // ── Persist entries — versioned format, 3× retry
+  useEffect(() => {
+    if (!storageReady) return;
+    storageSet(SK_ENTRIES, JSON.stringify({ schemaVersion: SCHEMA_VERSION, entries }))
+      .then(ok => setSyncStatus(ok ? 'synced' : 'error'));
+  }, [entries, storageReady]);
+
+  // ── Persist audit log — capped at 200 events
+  useEffect(() => {
+    if (!storageReady) return;
+    storageSet(SK_AUDIT, JSON.stringify(auditLog.slice(-200)));
+  }, [auditLog, storageReady]);
+
+  // ── Audit helper
+  const logAudit = useCallback((action, entry, changes = null) => {
+    setAuditLog(prev => [...prev, {
+      id:         `${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+      timestamp:  new Date().toISOString(),
+      actor:      'Marcus Harrington',
+      action, entryId: entry.id, entryType: entry.type, entryTitle: entry.title, changes,
+    }]);
+  }, []);
+
+  const addEntry = useCallback(e => {
+    setEntries(prev => [...prev, e]);
+    logAudit('created', e);
+  }, [logAudit]);
+
+  const toggleDone = useCallback(id => {
+    const current = entriesRef.current.find(e => e.id === id);
+    if (!current) return;
+    const willComplete = !current.done;
+    setEntries(prev => prev.map(e => e.id === id ? { ...e, done: willComplete } : e));
+    logAudit(willComplete ? 'completed' : 'reopened', current);
+  }, [logAudit]);
+
+  // ── Update entry (from edit modal) — diffs fields, logs 'updated'
+  const updateEntry = useCallback(updated => {
+    const original = entriesRef.current.find(e => e.id === updated.id);
+    if (!original) return;
+    const TRACKED = ['title','date','time','endTime','location','attendees','notes',
+                     'priority','tags','message','airline','flightNum','depCity',
+                     'arrCity','terminal','gate','seat','visibility'];
+    const changes = TRACKED
+      .filter(f => String(original[f] ?? '') !== String(updated[f] ?? ''))
+      .map(f => ({ field:f, from:original[f], to:updated[f] }));
+    setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+    logAudit('updated', updated, changes.length > 0 ? changes : null);
+    setEditingEntry(null);
+  }, [logAudit]);
+
+  // ── Delete entry — removes from state, logs 'deleted'
+  const deleteEntry = useCallback(id => {
+    const current = entriesRef.current.find(e => e.id === id);
+    if (!current) return;
+    setEntries(prev => prev.filter(e => e.id !== id));
+    logAudit('deleted', current);
+  }, [logAudit]);
+
+  // ── Reset all data — wipes storage, state returns to empty (not mock)
+  const resetData = useCallback(async () => {
+    setEntries([]);
+    setAuditLog([]);
+    await Promise.all([
+      storageSet(SK_ENTRIES, JSON.stringify({ schemaVersion: SCHEMA_VERSION, entries: [] })),
+      storageSet(SK_AUDIT,   JSON.stringify([])),
+    ]);
+    setSyncStatus('synced');
+  }, []);
+
+  const TAB_TITLES = { home:'', calendar:'Calendar', search:'Search', settings:'Settings' };
+
+  const syncColor  = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
+  const syncLabel  = syncStatus==='loading' ? '◌ Loading' : syncStatus==='synced' ? '● Saved' : '⚠ Sync Error';
+
+  return (
+    <div style={{ width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
+      background:C.bg, color:C.text,
+      fontFamily:`'Nunito','DM Sans',system-ui,sans-serif`,
+      display:'flex', flexDirection:'column', position:'relative', overflow:'hidden',
+      WebkitFontSmoothing:'antialiased' }}>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&display=swap');
+        * { -webkit-tap-highlight-color: transparent; }
+        input, select, textarea { font-family: 'Nunito', system-ui, sans-serif; }
+        input[type=date]::-webkit-calendar-picker-indicator,
+        input[type=time]::-webkit-calendar-picker-indicator { filter: opacity(0.5); }
+        ::-webkit-scrollbar { width:3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius:2px; }
+        button { font-family: 'Nunito', system-ui, sans-serif; }
+      `}</style>
+
+      {/* Status bar */}
+      <div style={{ height:40, display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'0 20px', flexShrink:0, background:C.card,
+        borderBottom:`1px solid ${C.border}` }}>
+        <span style={{ fontSize:14, fontWeight:700, color:C.text }}>{clockTime}</span>
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase',
+          color:syncColor, background:syncColor+'18', borderRadius:10, padding:'2px 9px' }}>
+          {syncLabel}
+        </span>
+      </div>
+
+      {/* ── Kizuna brand header ─────────────────────────────────── */}
+      <div style={{ flexShrink:0, background:C.card,
+        borderBottom:`1px solid ${C.border}`, boxShadow:SH.subtle,
+        padding:'12px 20px 10px' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
+          {/* Left — name + meaning */}
+          <div style={{ flex:1, minWidth:0 }}>
+            {/* App name row */}
+            <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:4 }}>
+              <h1 style={{ margin:0, fontSize:22, fontWeight:600, color:C.text,
+                fontFamily:'Cormorant Garamond,serif', lineHeight:1, flexShrink:0 }}>
+                Kizuna&thinsp;絆
+              </h1>
+              {/* Tab label — hidden on Home (empty string) */}
+              {TAB_TITLES[tab] && (
+                <span style={{ fontSize:11, fontWeight:700, color:C.rose,
+                  textTransform:'uppercase', letterSpacing:'0.13em', flexShrink:0 }}>
+                  {TAB_TITLES[tab]}
+                </span>
+              )}
+            </div>
+            {/* Meaning — two lines, poetic, italic */}
+            <p style={{ margin:0, fontSize:11, color:C.dim, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
+              Warmth, loyalty &amp; invisible strength —
+            </p>
+            <p style={{ margin:0, fontSize:11, color:C.dim, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
+              the thread that connects hearts across time and distance
+            </p>
+          </div>
+          {/* Right — Enso 円相 with 絆 — Kizuna held within the eternal circle */}
+          <div style={{ marginTop:2, flexShrink:0 }}>
+            <KizunaIcon />
+          </div>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
+        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
+        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
+        {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
+        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} />}
+
+        {/* FAB */}
+        <button onClick={() => setShowAdd(true)}
+          style={{ position:'absolute', bottom:90, right:20, width:58, height:58,
+            borderRadius:29,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            border:'none', boxShadow:`0 6px 24px ${C.rose}50`,
+            cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', zIndex:10 }}>
+          <span style={{ fontSize:28, color:'#fff', fontWeight:300, lineHeight:1, marginTop:-1 }}>+</span>
+        </button>
+
+        {/* Create modal */}
+        {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
+        {/* Edit modal — pre-fills form, shows "Edit [type]" + "Save Changes" */}
+        {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{ height:80, display:'flex', alignItems:'center',
+        borderTop:`1px solid ${C.border}`, background:C.card,
+        flexShrink:0, paddingBottom:8, boxShadow:`0 -2px 12px rgba(44,38,32,0.06)` }}>
+        {NAV.map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'6px 0' }}>
+            <span style={{ fontSize:21,
+              color:tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>{n.icon}</span>
+            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
+              color:tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>
+              {n.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

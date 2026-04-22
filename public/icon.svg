@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#F8F5F1"/>
+
+  <!-- Large sakura flower, centred -->
+  <!-- Petal path (pointing up from origin, scaled to fit) -->
+  <g transform="translate(256,256)">
+    <!-- 5 petals at 72° intervals -->
+    <g transform="rotate(0)">
+      <path d="M 0,0 C -42,-42 -72,-96 -60,-144 C -54,-174 -30,-180 -10,-156 L 0,-165 L 10,-156 C 30,-180 54,-174 60,-144 C 72,-96 42,-42 0,0 Z"
+        fill="#EAA898" stroke="#D48880" stroke-width="3"/>
+    </g>
+    <g transform="rotate(72)">
+      <path d="M 0,0 C -42,-42 -72,-96 -60,-144 C -54,-174 -30,-180 -10,-156 L 0,-165 L 10,-156 C 30,-180 54,-174 60,-144 C 72,-96 42,-42 0,0 Z"
+        fill="#EAA898" stroke="#D48880" stroke-width="3"/>
+    </g>
+    <g transform="rotate(144)">
+      <path d="M 0,0 C -42,-42 -72,-96 -60,-144 C -54,-174 -30,-180 -10,-156 L 0,-165 L 10,-156 C 30,-180 54,-174 60,-144 C 72,-96 42,-42 0,0 Z"
+        fill="#EAA898" stroke="#D48880" stroke-width="3"/>
+    </g>
+    <g transform="rotate(216)">
+      <path d="M 0,0 C -42,-42 -72,-96 -60,-144 C -54,-174 -30,-180 -10,-156 L 0,-165 L 10,-156 C 30,-180 54,-174 60,-144 C 72,-96 42,-42 0,0 Z"
+        fill="#EAA898" stroke="#D48880" stroke-width="3"/>
+    </g>
+    <g transform="rotate(288)">
+      <path d="M 0,0 C -42,-42 -72,-96 -60,-144 C -54,-174 -30,-180 -10,-156 L 0,-165 L 10,-156 C 30,-180 54,-174 60,-144 C 72,-96 42,-42 0,0 Z"
+        fill="#EAA898" stroke="#D48880" stroke-width="3"/>
+    </g>
+    <!-- Centre disc -->
+    <circle r="34" fill="#C4826E" opacity="0.85"/>
+    <!-- Stamen dots -->
+    <circle cx="0"   cy="-58" r="9" fill="#C4826E" opacity="0.55"/>
+    <circle cx="55"  cy="-18" r="9" fill="#C4826E" opacity="0.55"/>
+    <circle cx="34"  cy="48"  r="9" fill="#C4826E" opacity="0.55"/>
+    <circle cx="-34" cy="48"  r="9" fill="#C4826E" opacity="0.55"/>
+    <circle cx="-55" cy="-18" r="9" fill="#C4826E" opacity="0.55"/>
+  </g>
+</svg>

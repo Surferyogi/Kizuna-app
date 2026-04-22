@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Kizuna — Generate PWA Icons</title>
+  <style>
+    body { font-family: sans-serif; background:#F8F5F1; display:flex;
+           flex-direction:column; align-items:center; padding:40px; gap:20px; }
+    h2   { color:#B8715C; margin:0; }
+    p    { color:#5C5349; margin:0; font-size:14px; text-align:center; }
+    button { background:#B8715C; color:#fff; border:none; border-radius:10px;
+             padding:12px 28px; font-size:15px; cursor:pointer; }
+    canvas { border-radius:22px; box-shadow:0 4px 20px rgba(0,0,0,.12); }
+  </style>
+</head>
+<body>
+  <h2>Kizuna PWA Icon Generator</h2>
+  <p>Click the buttons below to download the two PNG icons required<br>
+     for installation. Place both files inside the <code>public/</code> folder.</p>
+
+  <canvas id="c" width="512" height="512"></canvas>
+
+  <div style="display:flex;gap:12px;">
+    <button onclick="dl(192)">⬇ Download icon-192.png</button>
+    <button onclick="dl(512)">⬇ Download icon-512.png</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx    = canvas.getContext('2d');
+    const S      = 512;
+
+    function drawIcon(size) {
+      canvas.width  = size;
+      canvas.height = size;
+      const s = size / 512;
+      ctx.clearRect(0, 0, size, size);
+
+      // Background rounded rect
+      const r = 112 * s;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, r);
+      ctx.fillStyle = '#F8F5F1';
+      ctx.fill();
+
+      // Sakura flower
+      ctx.save();
+      ctx.translate(size / 2, size / 2);
+
+      const petalPath = new Path2D(
+        'M 0,0 C -42,-42 -72,-96 -60,-144 ' +
+        'C -54,-174 -30,-180 -10,-156 ' +
+        'L 0,-165 L 10,-156 ' +
+        'C 30,-180 54,-174 60,-144 ' +
+        'C 72,-96 42,-42 0,0 Z'
+      );
+
+      for (let i = 0; i < 5; i++) {
+        ctx.save();
+        ctx.rotate((i * 72 * Math.PI) / 180);
+        ctx.scale(s, s);
+        ctx.fillStyle   = '#EAA898';
+        ctx.strokeStyle = '#D48880';
+        ctx.lineWidth   = 3;
+        ctx.fill(petalPath);
+        ctx.stroke(petalPath);
+        ctx.restore();
+      }
+
+      // Centre
+      ctx.beginPath();
+      ctx.arc(0, 0, 34 * s, 0, Math.PI * 2);
+      ctx.fillStyle = '#C4826E';
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Stamens
+      [[0,-58],[55,-18],[34,48],[-34,48],[-55,-18]].forEach(([x,y]) => {
+        ctx.beginPath();
+        ctx.arc(x * s, y * s, 9 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#C4826E';
+        ctx.globalAlpha = 0.55;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+
+      ctx.restore();
+    }
+
+    // Draw preview at 512
+    drawIcon(512);
+
+    function dl(size) {
+      drawIcon(size);
+      const a = document.createElement('a');
+      a.download = `icon-${size}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      // Redraw preview
+      setTimeout(() => drawIcon(512), 100);
+    }
+  </script>
+</body>
+</html>
