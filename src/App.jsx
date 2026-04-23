@@ -184,7 +184,6 @@ const SH = {
 
 // ─── STORAGE + SYNC ──────────────────────────────────────────
 const SK_USER        = 'exec_user_v1';
-const MEMBERS_KEY    = 'kizuna_members_v1'; // module-level constant
 const SCHEMA_VERSION = 1;
 const APP_VERSION    = 'v2.1.0';
 const APP_BUILD_DATE = 'April 23, 2026';
@@ -1028,7 +1027,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         [e.title,e.location,e.attendees,e.tags,e.notes,e.message,e.airline,e.flightNum,e.depCity,e.arrCity]
           .some(f => f && f.toLowerCase().includes(lq)));
     }
-    return r.sort((a,b) => a.date.localeCompare(b.date));
+    return r.sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'));
   }, [entries, q, typeF, quickF]);
 
   return (
@@ -1156,10 +1155,15 @@ function ResetSection({ onReset }) {
 }
 
 // ─── INVITE MODAL ────────────────────────────────────────────────
-function InviteModal({ onClose }) {
+function InviteModal({ onClose, workspaceId, invitedBy }) {
   const url    = 'https://surferyogi.github.io/Kizuna-app/';
   const qr     = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=B8715C&bgcolor=FFFEFB&data=${encodeURIComponent(url)}`;
-  const [copied, setCopied] = useState(false);
+  const [copied,       setCopied]       = useState(false);
+  const [inviteEmail,  setInviteEmail]  = useState('');
+  const [inviteSent,   setInviteSent]   = useState(false);
+  const [inviteError,  setInviteError]  = useState('');
+  const [inviteLoading,setInviteLoading]= useState(false);
+
   const copy = () => {
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(url)
@@ -1174,6 +1178,19 @@ function InviteModal({ onClose }) {
     document.body.removeChild(el);
     setCopied(true); setTimeout(() => setCopied(false), 2500);
   };
+
+  const sendInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) { setInviteError('Please enter an email address.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setInviteError('Invalid email address.'); return; }
+    if (!workspaceId) { setInviteError('Workspace not loaded. Please try again.'); return; }
+    setInviteLoading(true); setInviteError('');
+    const ok = await dbInviteMember(workspaceId, invitedBy, email);
+    setInviteLoading(false);
+    if (ok) { setInviteSent(true); setInviteEmail(''); }
+    else    { setInviteError('Failed to send invite. Please try again.'); }
+  };
+
   return (
     <div style={{ position:'fixed', inset:0, zIndex:200,
       display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
@@ -1186,10 +1203,29 @@ function InviteModal({ onClose }) {
         <h3 style={{ margin:'0 0 4px', fontSize:21, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif' }}>Invite to Kizuna 絆</h3>
         <p style={{ margin:'0 0 20px', fontSize:15, color:C.dim, fontStyle:'italic' }}>
-          Share the link or scan the QR code
+          Share the link, scan the QR code, or invite by email
         </p>
+
+        {/* Email invite */}
+        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+          <input value={inviteEmail} onChange={e=>{setInviteEmail(e.target.value);setInviteSent(false);setInviteError('');}}
+            onKeyDown={e=>e.key==='Enter'&&sendInvite()}
+            placeholder="colleague@email.com" type="email"
+            style={{ flex:1, background:C.elevated, border:`1px solid ${inviteError?'#C46A14':C.border}`,
+              borderRadius:12, padding:'11px 14px', fontSize:16, color:C.text,
+              outline:'none', fontFamily:'inherit' }} />
+          <button onClick={sendInvite} disabled={inviteLoading}
+            style={{ background:C.rose, border:'none', color:'#fff', borderRadius:12,
+              padding:'11px 18px', fontSize:15, fontWeight:700, cursor:'pointer',
+              fontFamily:'inherit', opacity:inviteLoading?0.7:1, flexShrink:0 }}>
+            {inviteLoading ? '…' : 'Invite'}
+          </button>
+        </div>
+        {inviteError && <p style={{ margin:'-10px 0 10px', fontSize:13, color:'#C46A14' }}>{inviteError}</p>}
+        {inviteSent  && <p style={{ margin:'-10px 0 10px', fontSize:13, color:'#2A6E3A' }}>✓ Invite sent! They'll join when they sign up.</p>}
+
         {/* QR code */}
-        <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
           <div style={{ background:C.elevated, borderRadius:16, padding:14,
             border:`1px solid ${C.border}`, boxShadow:SH.card }}>
             <img src={qr} alt="QR Code" width="160" height="160"
@@ -1219,12 +1255,40 @@ function InviteModal({ onClose }) {
 }
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, userId }) {
+function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, setWorkspace, userId }) {
   const isAdmin = workspace?.role === 'admin' || workspace?.ownerId === userId;
-  const [notifs,     setNotifs]     = useState({ digest:true, preEvent:true, flights:true, shared:true });
-  const [digestTime, setDigestTime] = useState('06:30');
-  const [dndStart,   setDndStart]   = useState('22:00');
-  const [dndEnd,     setDndEnd]     = useState('06:00');
+  const NOTIF_KEY = 'kizuna_notifs_v1';
+  const DND_KEY   = 'kizuna_dnd_v1';
+
+  const [notifs, setNotifs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NOTIF_KEY)) || { digest:true, preEvent:true, flights:true, shared:true }; }
+    catch { return { digest:true, preEvent:true, flights:true, shared:true }; }
+  });
+  const [digestTime, setDigestTime] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(DND_KEY))?.digestTime || '06:30'; }
+    catch { return '06:30'; }
+  });
+  const [dndStart, setDndStart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(DND_KEY))?.dndStart || '22:00'; }
+    catch { return '22:00'; }
+  });
+  const [dndEnd, setDndEnd] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(DND_KEY))?.dndEnd || '06:00'; }
+    catch { return '06:00'; }
+  });
+
+  // Persist notif changes
+  const saveNotifs = (updated) => {
+    setNotifs(updated);
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(updated));
+  };
+  const saveDnd = (field, value) => {
+    const next = { digestTime, dndStart, dndEnd, [field]: value };
+    if (field === 'digestTime') setDigestTime(value);
+    if (field === 'dndStart')   setDndStart(value);
+    if (field === 'dndEnd')     setDndEnd(value);
+    localStorage.setItem(DND_KEY, JSON.stringify(next));
+  };
   const [showInvite, setShowInvite] = useState(false);
 
   // Use live workspace members from Supabase — no localStorage fallback needed
@@ -1232,15 +1296,12 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
   const removeMember = async (memberId) => {
     if (!workspace?.id) return;
     await dbRemoveMember(workspace.id, memberId);
-    // Optimistic UI update — workspace refreshes on next load
+    // Optimistic UI update — remove from local workspace state immediately
+    setWorkspace(prev => prev ? {
+      ...prev,
+      members: prev.members.filter(m => m.id !== memberId)
+    } : prev);
   };
-
-  // P3-15: 60 s tick keeps relTime() labels fresh in the activity log
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t+1), 60000);
-    return () => clearInterval(id);
-  }, []);
 
   const InputStyle = {
     display:'block', marginTop:6, width:'100%', boxSizing:'border-box',
@@ -1253,7 +1314,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
   return (
     <div style={{ padding:'0 18px 90px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} workspaceId={workspace?.id} invitedBy={userId} />}
 
       {/* Profile card */}
       <div style={{ paddingTop:12 }}>
@@ -1283,8 +1344,8 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
       {/* Workspace */}
       <SS title="Workspace">
         <SR label="My Team"
-          sub={`${members.length} members · You are Admin`}
-          right={<Badge label="Admin" color={C.rose} />} />
+          sub={`${members.length} member${members.length!==1?'s':''} · You are ${isAdmin?'Admin':'Member'}`}
+          right={<Badge label={isAdmin?'Admin':'Member'} color={isAdmin?C.rose:C.dim} />} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
           <p style={{ fontSize:13, color:C.muted, margin:'10px 0 6px',
             fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>Members</p>
@@ -1335,33 +1396,36 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
       {/* Notifications */}
       <SS title="Notifications">
         <SR label="Daily Digest" sub={`Fires at ${pt(digestTime)} each morning`}
-          right={<Tog on={notifs.digest} onChange={v => setNotifs(p=>({...p,digest:v}))} />} />
+          right={<Tog on={notifs.digest} onChange={v => saveNotifs({...notifs,digest:v})} />} />
         {notifs.digest && (
           <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}` }}>
             <label style={{ fontSize:15, color:C.dim }}>Digest time</label>
-            <input type="time" value={digestTime} onChange={e=>setDigestTime(e.target.value)}
+            <input type="time" value={digestTime} onChange={e=>saveDnd('digestTime',e.target.value)}
               style={InputStyle} />
           </div>
         )}
         <SR label="Pre-Event Reminders" sub="Contextual alerts per item"
-          right={<Tog on={notifs.preEvent} onChange={v=>setNotifs(p=>({...p,preEvent:v}))} />} />
+          right={<Tog on={notifs.preEvent} onChange={v=>saveNotifs({...notifs,preEvent:v})} />} />
         <SR label="Flight Alerts" sub="Auto: T-24h, T-3h, T-1h"
-          right={<Tog on={notifs.flights} onChange={v=>setNotifs(p=>({...p,flights:v}))} />} />
+          right={<Tog on={notifs.flights} onChange={v=>saveNotifs({...notifs,flights:v})} />} />
         <SR label="Shared Reminders" sub="Workspace push notifications" noBorder
-          right={<Tog on={notifs.shared} onChange={v=>setNotifs(p=>({...p,shared:v}))} />} />
+          right={<Tog on={notifs.shared} onChange={v=>saveNotifs({...notifs,shared:v})} />} />
       </SS>
 
       {/* Do Not Disturb */}
       <SS title="Do Not Disturb">
         <SR label="DND Window" sub={`${pt(dndStart)} – ${pt(dndEnd)} · No notifications`}
-          right={<span style={{ fontSize:15, color:C.T, background:C.T+'20',
-            borderRadius:10, padding:'2px 10px' }}>● Active</span>} />
+          right={<span style={{ fontSize:15, color:notifs.digest?C.T:C.muted,
+            background:notifs.digest?C.T+'20':C.elevated,
+            borderRadius:10, padding:'2px 10px' }}>
+            {notifs.digest ? '● Active' : '○ Off'}
+          </span>} />
         <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
           display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-          {[['Start',dndStart,setDndStart],['End',dndEnd,setDndEnd]].map(([l,v,sv]) => (
+          {[['Start','dndStart',dndStart],['End','dndEnd',dndEnd]].map(([l,k,v]) => (
             <div key={l}>
               <label style={{ fontSize:15, color:C.dim }}>{l}</label>
-              <input type="time" value={v} onChange={e=>sv(e.target.value)}
+              <input type="time" value={v} onChange={e=>saveDnd(k,e.target.value)}
                 style={InputStyle} />
             </div>
           ))}
@@ -1825,9 +1889,6 @@ export default function App() {
   const [userName,   setUserName]   = useState('');
   const [nameInput,  setNameInput]  = useState('');
   const [nameReady,  setNameReady]  = useState(false);
-  const userInitials = userName.split(' ').filter(Boolean)
-    .map(w=>w[0].toUpperCase()).join('').slice(0,2) || '?';
-
   // Ref mirror — synchronous read for toggleDone / updateEntry
   const entriesRef = useRef(entries);
   useEffect(() => { entriesRef.current = entries; }, [entries]);
@@ -2126,7 +2187,7 @@ export default function App() {
             Sign in with your email
           </p>
           <p style={{ margin:'0 0 14px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
-            We'll send a 8-digit code — no password needed.
+            We'll send an 8-digit code — no password needed.
           </p>
           <input
             value={email}
@@ -2337,7 +2398,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
-        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} userId={user?.id} />}
+        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} setWorkspace={setWorkspace} userId={user?.id} />}
 
         {/* FAB */}
         <button onClick={() => setShowAdd(true)}
