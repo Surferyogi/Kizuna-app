@@ -4,8 +4,7 @@ import { supabase, supabaseConfigured } from './supabase.js';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
-// T0 is fixed at module load — used ONLY for MOCK_ENTRIES initial dates.
-// All live "today" comparisons inside components use new Date() directly.
+// T0 is fixed at module load — used only for relative date calculations.
 const T0 = new Date();
 const fd = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
 const ad = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
@@ -183,37 +182,32 @@ const SH = {
   subtle:  '0 1px 6px  rgba(44,38,32,0.05)',
 };
 
-// ─── MOCK DATA ───────────────────────────────────────────────────
-const MOCK_ENTRIES = [
-  { id:1,  type:'meeting',  title:'Board Strategy Session',       date:fd(T0),       time:'09:00', endTime:'11:00', location:'Level 42 Boardroom', attendees:'CFO, COO, General Counsel', notes:'Q4 review + FY2026 budget approval', visibility:'shared'  },
-  { id:2,  type:'flight',   title:'SIN → LHR',                    date:fd(T0),       time:'13:45', depCity:'SIN', arrCity:'LHR', airline:'Singapore Airlines', flightNum:'SQ321', terminal:'T3', gate:'G22', seat:'1A', visibility:'private' },
-  { id:3,  type:'task',     title:'Nexus Labs Acquisition Review', date:fd(T0),       priority:'critical', tags:'M&A, Legal',     visibility:'shared',  done:false },
-  { id:4,  type:'task',     title:'Q4 Budget Sign-off',            date:fd(T0),       priority:'high',     tags:'Finance',        visibility:'shared',  done:false },
-  { id:5,  type:'reminder', title:'Call CFO — Bond Issuance',      date:fd(T0),       time:'11:30', message:'Confirm covenant terms before board', visibility:'private' },
-  { id:6,  type:'meeting',  title:'1:1 with Chief of Staff',       date:fd(T0),       time:'16:00', endTime:'16:30', location:'Office 4201', attendees:'Sarah Chen', visibility:'shared' },
-  { id:7,  type:'task',     title:'Approve PR Statement — Nexus',  date:fd(T0),       priority:'medium',   tags:'Comms',          visibility:'private', done:false },
-  { id:8,  type:'meeting',  title:'IR Briefing — Analysts Call',   date:fd(ad(T0,1)), time:'08:30', endTime:'09:30', location:'Virtual', attendees:'IR Team, 12 Analysts', visibility:'shared' },
-  { id:9,  type:'event',    title:'Leadership Dinner',             date:fd(ad(T0,1)), time:'19:30', endTime:'22:00', location:'Raffles Hotel', notes:'Annual leadership dinner', visibility:'shared' },
-  { id:10, type:'flight',   title:'LHR → JFK',                    date:fd(ad(T0,3)), time:'09:20', depCity:'LHR', arrCity:'JFK', airline:'British Airways', flightNum:'BA012', terminal:'T5', gate:'B42', seat:'1K', visibility:'private' },
-  { id:11, type:'task',     title:'Review Annual Report Draft',    date:fd(ad(T0,3)), priority:'high',     tags:'Finance, Comms', visibility:'shared',  done:false },
-  { id:12, type:'task',     title:'Approve Board Slides',          date:fd(ad(T0,4)), priority:'medium',   tags:'Governance',     visibility:'shared',  done:true  },
-  { id:13, type:'event',    title:'UN Global Compact Forum',       date:fd(ad(T0,5)), time:'09:00', endTime:'17:00', location:'Geneva, Switzerland', visibility:'shared' },
-  { id:14, type:'reminder', title:'Wedding Anniversary',           date:fd(ad(T0,6)), time:'08:00', message:'Flowers + dinner reservation at Odette', visibility:'private' },
-];
-
 // ─── STORAGE + SYNC ──────────────────────────────────────────
-const SK_USER        = 'exec_user_v1';   // display name — also cached locally
+const SK_USER        = 'exec_user_v1';
+const MEMBERS_KEY    = 'kizuna_members_v1'; // module-level constant
 const SCHEMA_VERSION = 1;
-const APP_VERSION    = 'v2.0.0';
+const APP_VERSION    = 'v2.1.0';
 const APP_BUILD_DATE = 'April 23, 2026';
 
-// Load all entries for signed-in user
+// Load all entries for signed-in user (own + shared from workspace)
 async function dbLoadEntries(userId) {
-  const { data, error } = await supabase
+  // Own entries
+  const { data: own, error: e1 } = await supabase
     .from('entries').select('data').eq('user_id', userId)
     .order('updated_at', { ascending: true });
-  if (error) throw error;
-  return data.map(r => r.data);
+  if (e1) throw e1;
+
+  // Shared entries from workspace members — RLS already filters to same-workspace shared only
+  const { data: shared } = await supabase
+    .from('entries').select('data')
+    .neq('user_id', userId)
+    .eq('data->>visibility', 'shared')
+    .order('updated_at', { ascending: true });
+
+  const all = [...(own || []), ...(shared || [])].map(r => r.data);
+  // Deduplicate by id (in case of overlap)
+  const seen = new Set();
+  return all.filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; });
 }
 
 // Load audit log (last 200)
@@ -266,12 +260,55 @@ async function dbLoadName(userId) {
   return data?.display_name || '';
 }
 
-// Legacy helper — kept for any JSON migration
-function parseStoredEntries(raw) {
-  if (!raw) return null;
-  if (Array.isArray(raw)) return raw;
-  if (raw.schemaVersion === SCHEMA_VERSION) return raw.entries;
-  return raw.entries ?? raw;
+// Load workspace and its members for the signed-in user
+async function dbLoadWorkspace(userId) {
+  // Get the workspace this user belongs to
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('workspace_id, role, workspaces(id, name, owner_id)')
+    .eq('user_id', userId)
+    .single();
+  if (!membership) return null;
+
+  // Get all members of that workspace + their display names
+  const { data: members } = await supabase
+    .from('workspace_members')
+    .select('user_id, role, profiles(display_name)')
+    .eq('workspace_id', membership.workspace_id);
+
+  return {
+    id:      membership.workspace_id,
+    name:    membership.workspaces?.name || 'My Team',
+    ownerId: membership.workspaces?.owner_id,
+    role:    membership.role,
+    members: (members || []).map(m => ({
+      id:   m.user_id,
+      name: m.profiles?.display_name || 'Unknown',
+      role: m.role,
+    })),
+  };
+}
+
+// Invite a member by email — stored as pending invite, auto-accepted on signup
+async function dbInviteMember(workspaceId, invitedByUserId, email) {
+  const { error } = await supabase
+    .from('workspace_invites')
+    .upsert({
+      workspace_id: workspaceId,
+      email:        email.toLowerCase().trim(),
+      invited_by:   invitedByUserId,
+    });
+  return !error;
+}
+
+// Remove a member from workspace
+async function dbRemoveMember(workspaceId, memberId) {
+  const { error } = await supabase
+    .from('workspace_members')
+    .delete()
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', memberId);
+  return !error;
 }
 
 
@@ -329,15 +366,14 @@ const SR = ({ label, sub, right, noBorder }) => (
 );
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
-// Creative UX: the bottom metadata row morphs in-place to reveal actions.
-// Tapping ··· at the end of the meta row replaces it with Edit + Delete pills.
-// Delete has an inline confirm step — no modal, no layout shift.
-function ECard({ e, onToggle, onEdit, onDelete }) {
+function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
   const col  = TC[e.type];
-  const dcol = DTC[e.type] || col;  // dark sibling — safe for text on tinted backgrounds
+  const dcol = DTC[e.type] || col;
   const [open,       setOpen]       = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
+  // Shared entries from other users are read-only — no edit/delete
+  const isOwn = !e.userId || e.userId === currentUserId;
   const openMenu  = ev => { ev.stopPropagation(); setOpen(true);  setConfirmDel(false); };
   const closeMenu = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); };
   const handleEdit   = ev => { ev.stopPropagation(); setOpen(false); onEdit   && onEdit(e); };
@@ -366,14 +402,16 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
         {/* ── Title row — always visible ── */}
         <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
           {e.type === 'task' && (
-            <button onClick={() => onToggle && onToggle(e.id)}
+            <button onClick={() => isOwn && onToggle && onToggle(e.id)}
               style={{ width:26, height:26, borderRadius:7,
                 border:`2px solid ${e.done ? C.T : C.border}`,
                 background: e.done ? C.T+'22' : 'transparent',
-                cursor:'pointer', flexShrink:0, marginTop:1,
+                cursor: isOwn ? 'pointer' : 'default',
+                flexShrink:0, marginTop:1,
                 display:'flex', alignItems:'center', justifyContent:'center',
                 color:C.T, fontSize:15, padding:0,
-                transition:'background 0.15s, border-color 0.15s' }}>
+                transition:'background 0.15s, border-color 0.15s',
+                opacity: isOwn ? 1 : 0.5 }}>
               {e.done ? '✓' : ''}
             </button>
           )}
@@ -394,27 +432,37 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
 
         {/* ── Bottom row — morphs between: meta / actions / confirm ── */}
         {!open ? (
-          /* META STATE — normal view with subtle ··· trigger at the end */
+          /* META STATE */
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
             {e.time      && <span style={{ fontSize:15, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
             {e.location  && <span style={{ fontSize:15, color:C.dim }}>📍 {e.location}</span>}
             {e.flightNum && <span style={{ fontSize:15, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
             {e.tags      && <span style={{ fontSize:15, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:15, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
-            {e.visibility==='shared' && (
+            {/* Own shared entry — rose badge */}
+            {e.visibility==='shared' && isOwn && (
               <span style={{ fontSize:14, color:C.rose,
                 background:C.rose+'15', borderRadius:10, padding:'1px 8px' }}>
                 ◯ Shared
               </span>
             )}
-            {/* Subtle trigger — sits naturally at end of meta content */}
-            <button onClick={openMenu}
-              style={{ marginLeft:'auto', fontSize:15, color:C.muted,
-                background:'transparent', border:`1px solid ${C.border}`,
-                borderRadius:14, padding:'6px 13px', cursor:'pointer',
-                letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>
-              ···
-            </button>
+            {/* Teammate's shared entry — blue badge, read-only */}
+            {e.visibility==='shared' && !isOwn && (
+              <span style={{ fontSize:13, color:DTC.meeting,
+                background:C.M+'18', borderRadius:10, padding:'1px 8px' }}>
+                👤 Team
+              </span>
+            )}
+            {/* ··· only shown for own entries */}
+            {isOwn && (
+              <button onClick={openMenu}
+                style={{ marginLeft:'auto', fontSize:15, color:C.muted,
+                  background:'transparent', border:`1px solid ${C.border}`,
+                  borderRadius:14, padding:'6px 13px', cursor:'pointer',
+                  letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>
+                ···
+              </button>
+            )}
           </div>
 
         ) : !confirmDel ? (
@@ -571,7 +619,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId }) {
   const now      = new Date();
   const todayStr = fd(now);
 
@@ -637,7 +685,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
         <Sec label="Priority Tasks" count={openTasks} />
         <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
           boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-          {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+          {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
         </div>
       </>)}
 
@@ -649,7 +697,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
           </p>
         : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+            {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
           </div>
       }
     </div>
@@ -692,7 +740,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete }) {
             </div>
             <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
           </div>
         );
@@ -702,9 +750,9 @@ function AgendaView({ entries, onToggle, onEdit, onDelete }) {
 }
 
 // ─── DAY VIEW ────────────────────────────────────────────────────
-function DayView({ entries, selDate, setSelDate }) {
+function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete }) {
   const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
-  const hours  = Array.from({ length:18 }, (_,i) => i+6); // 6 AM – 11 PM
+  const hours  = Array.from({ length:18 }, (_,i) => i+6);
   const dt     = new Date(selDate+'T00:00:00');
 
   const NavBtn = ({ children, onClick }) => (
@@ -737,16 +785,14 @@ function DayView({ entries, selDate, setSelDate }) {
                 <span style={{ fontSize:14, color:C.muted }}>{ft(h)}</span>
               </div>
               <div style={{ flex:1, borderTop:`1px solid ${C.border}`, paddingTop:6, paddingBottom:6 }}>
-                {hEs.map(e => (
-                  <div key={e.id} style={{ background:TC[e.type]+'20',
-                    borderLeft:`3px solid ${TC[e.type]}`,
-                    borderRadius:'0 12px 12px 0', padding:'9px 14px', marginBottom:6 }}>
-                    <p style={{ margin:0, fontSize:16, fontWeight:600, color:C.text }}>{e.title}</p>
-                    <p style={{ margin:'2px 0 0', fontSize:14, color:C.dim }}>
-                      {pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}{e.location?` · ${e.location}`:''}
-                    </p>
+                {hEs.length > 0 && (
+                  <div style={{ background:C.card, borderRadius:16, padding:'0 12px',
+                    boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+                    {hEs.map(e => (
+                      <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             </div>
           );
@@ -906,7 +952,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete })
             </p>
           : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
         }
       </div>
@@ -915,7 +961,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete })
 }
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
-function CalendarTab({ entries, onToggle, onEdit, onDelete }) {
+function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
   const [view,    setView]    = useState('agenda');
   const [selDate, setSelDate] = useState(fd(new Date()));
 
@@ -936,10 +982,10 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete }) {
         ))}
       </div>
       <div style={{ flex:1, overflow:'hidden' }}>
-        {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />}
-        {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} />}
+        {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
+        {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
         {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} />}
-        {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />}
+        {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
       </div>
     </div>
   );
@@ -954,7 +1000,7 @@ const QUICK_FILTERS = [
   { k:'shared',  l:'Shared',          f: e => e.visibility==='shared' },
 ];
 
-function SearchTab({ entries, onToggle, onEdit, onDelete }) {
+function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
   const [q,      setQ]      = useState('');
   const [typeF,  setTypeF]  = useState('all');
   const [quickF, setQuickF] = useState(null);
@@ -1030,7 +1076,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete }) {
             </p>
           : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />)}
+              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
         }
       </div>
@@ -1160,33 +1206,20 @@ function InviteModal({ onClose }) {
 }
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userInitials = '?', onChangeName, onSignOut }) {
+function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, userId }) {
+  const isAdmin = workspace?.role === 'admin' || workspace?.ownerId === userId;
   const [notifs,     setNotifs]     = useState({ digest:true, preEvent:true, flights:true, shared:true });
   const [digestTime, setDigestTime] = useState('06:30');
   const [dndStart,   setDndStart]   = useState('22:00');
   const [dndEnd,     setDndEnd]     = useState('06:00');
   const [showInvite, setShowInvite] = useState(false);
 
-  // Members — persisted to localStorage so deletions survive restart
-  const MEMBERS_KEY = 'kizuna_members_v1';
-  const defaultMembers = [
-    { id:1, name:'Sarah Chen'   },
-    { id:2, name:'James Park'   },
-    { id:3, name:'Aisha Rahman' },
-    { id:4, name:'Wei Liu'      },
-  ];
-  const [members, setMembers] = useState(() => {
-    try {
-      const saved = localStorage.getItem(MEMBERS_KEY);
-      return saved ? JSON.parse(saved) : defaultMembers;
-    } catch { return defaultMembers; }
-  });
-  const removeMember = id => {
-    setMembers(prev => {
-      const updated = prev.filter(m => m.id !== id);
-      localStorage.setItem(MEMBERS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+  // Use live workspace members from Supabase — no localStorage fallback needed
+  const members = (workspace?.members || []).filter(m => m.id !== userId);
+  const removeMember = async (memberId) => {
+    if (!workspace?.id) return;
+    await dbRemoveMember(workspace.id, memberId);
+    // Optimistic UI update — workspace refreshes on next load
   };
 
   // P3-15: 60 s tick keeps relTime() labels fresh in the activity log
@@ -1789,6 +1822,7 @@ export default function App() {
   const [showAdd,      setShowAdd]      = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [syncStatus,   setSyncStatus]   = useState('loading');
+  const [workspace,    setWorkspace]    = useState(null); // {id, name, ownerId, role, members}
 
   // ── Auth state ─────────────────────────────────────────────────
   const [user,       setUser]       = useState(null);   // Supabase user object
@@ -1829,14 +1863,16 @@ export default function App() {
     async function load() {
       setSyncStatus('loading');
       try {
-        const [loadedEntries, loadedAudit, loadedName] = await Promise.all([
+        const [loadedEntries, loadedAudit, loadedName, loadedWorkspace] = await Promise.all([
           dbLoadEntries(user.id),
           dbLoadAudit(user.id),
           dbLoadName(user.id),
+          dbLoadWorkspace(user.id),
         ]);
         setEntries(loadedEntries.length > 0 ? loadedEntries : []);
         setAuditLog(loadedAudit);
         if (loadedName) { setUserName(loadedName); setNameInput(loadedName); setNameReady(true); }
+        if (loadedWorkspace) setWorkspace(loadedWorkspace);
         setSyncStatus('synced');
       } catch (err) {
         console.error('load:', err);
@@ -1846,11 +1882,12 @@ export default function App() {
     load();
   }, [authReady, user]);
 
-  // ── Step 3: Real-time subscription — sync across devices ───────
+  // ── Step 3: Real-time — own entries + shared entries from workspace ──
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel(`kizuna-${user.id}`)
+      // Own entries — all changes
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${user.id}` },
         payload => {
@@ -1866,6 +1903,7 @@ export default function App() {
             });
           }
         })
+      // Own audit log
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'audit_log', filter: `user_id=eq.${user.id}` },
         payload => {
@@ -1874,8 +1912,43 @@ export default function App() {
           }
         })
       .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [user]);
+
+    // Also subscribe to shared entries from each workspace member
+    const memberChannels = (workspace?.members || [])
+      .filter(m => m.id !== user.id)
+      .map(m => supabase
+        .channel(`kizuna-shared-${m.id}-${user.id}`)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${m.id}` },
+          payload => {
+            // Only show if visibility is shared
+            const entry = payload.new?.data || payload.old;
+            if (!entry) return;
+            if (payload.eventType === 'DELETE') {
+              setEntries(prev => prev.filter(e => e.id !== payload.old.id));
+            } else if (payload.new?.data?.visibility === 'shared') {
+              const incoming = payload.new.data;
+              setEntries(prev => {
+                const exists = prev.find(e => e.id === incoming.id);
+                return exists
+                  ? prev.map(e => e.id === incoming.id ? incoming : e)
+                  : [...prev, incoming];
+              });
+            } else if (payload.eventType === 'UPDATE' && payload.new?.data?.visibility !== 'shared') {
+              // Entry was changed to private — remove from our view
+              setEntries(prev => prev.filter(e =>
+                !(e.id === payload.new.data.id && e.userId !== user.id)
+              ));
+            }
+          })
+        .subscribe()
+      );
+
+    return () => {
+      supabase.removeChannel(channel);
+      memberChannels.forEach(c => supabase.removeChannel(c));
+    };
+  }, [user, workspace]);
 
   // ── Auth actions ───────────────────────────────────────────────
   const sendOtp = async () => {
@@ -1913,8 +1986,7 @@ export default function App() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    // Reset ALL auth + app state cleanly
-    setUser(null); setEntries([]); setAuditLog([]);
+    setUser(null); setEntries([]); setAuditLog([]); setWorkspace(null);
     setUserName(''); setNameInput(''); setNameReady(false);
     setAuthStep('email'); setOtpCode(''); setAuthError(''); setEmail('');
     localStorage.removeItem(SK_USER);
@@ -1947,14 +2019,18 @@ export default function App() {
 
   // ── Entry mutations ────────────────────────────────────────────
   const addEntry = useCallback(e => {
-    setEntries(prev => [...prev, e]);
-    logAudit('created', e);
-    if (user) dbUpsertEntry(user.id, e);
+    // Stamp userId on entry so shared readers can identify ownership
+    const stamped = { ...e, userId: user?.id };
+    setEntries(prev => [...prev, stamped]);
+    logAudit('created', stamped);
+    if (user) dbUpsertEntry(user.id, stamped);
   }, [logAudit, user]);
 
   const toggleDone = useCallback(id => {
     const current = entriesRef.current.find(e => e.id === id);
     if (!current) return;
+    // Only allow toggling own entries — shared entries from others are read-only
+    if (current.userId && current.userId !== user?.id) return;
     const willComplete = !current.done;
     const updated = { ...current, done: willComplete };
     setEntries(prev => prev.map(e => e.id === id ? updated : e));
@@ -2270,10 +2346,10 @@ export default function App() {
 
       {/* Main content */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} />}
-        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
-        {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} />}
-        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} userInitials={userInitials} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} />}
+        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} />}
+        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
+        {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
+        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} userId={user?.id} />}
 
         {/* FAB */}
         <button onClick={() => setShowAdd(true)}
