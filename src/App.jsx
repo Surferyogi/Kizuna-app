@@ -258,31 +258,40 @@ async function dbResetUser(userId) {
   await supabase.from('audit_log').delete().eq('user_id', userId);
 }
 
-// Display name — stored in profiles table + cached in localStorage
+// Display name — stored in profiles table + cached in localStorage per user
 async function dbSaveName(userId, name) {
-  localStorage.setItem(SK_USER, name);
+  localStorage.setItem(`exec_user_v1_${userId}`, name);
   await supabase.from('profiles')
     .upsert({ id: userId, display_name: name, updated_at: new Date().toISOString() });
 }
 async function dbLoadName(userId) {
-  const cached = localStorage.getItem(SK_USER);
-  if (cached) return cached;
-  const { data } = await supabase.from('profiles')
-    .select('display_name').eq('id', userId).single();
-  return data?.display_name || '';
+  // Always fetch from DB first for cross-device consistency
+  // Fall back to localStorage only if DB unavailable
+  try {
+    const { data } = await supabase.from('profiles')
+      .select('display_name').eq('id', userId).single();
+    const name = data?.display_name || '';
+    if (name) {
+      localStorage.setItem(`exec_user_v1_${userId}`, name); // refresh cache
+      return name;
+    }
+  } catch { /* offline — fall through to cache */ }
+  return localStorage.getItem(`exec_user_v1_${userId}`) || '';
 }
 
-// Load workspace and its members for the signed-in user
+// Load workspace — handles users in multiple workspaces (own + invited)
+// Prefers the workspace where user is admin (their own); falls back to member workspace
 async function dbLoadWorkspace(userId) {
-  // Get the workspace this user belongs to
-  const { data: membership } = await supabase
+  const { data: memberships, error } = await supabase
     .from('workspace_members')
     .select('workspace_id, role, workspaces(id, name, owner_id)')
     .eq('user_id', userId)
-    .single();
-  if (!membership) return null;
+    .order('role', { ascending: true }); // 'admin' sorts before 'member'
+  if (error || !memberships || memberships.length === 0) return null;
 
-  // Get all members of that workspace + their display names
+  // Prefer admin workspace (their own), then fall back to first membership
+  const membership = memberships.find(m => m.role === 'admin') || memberships[0];
+
   const { data: members } = await supabase
     .from('workspace_members')
     .select('user_id, role, profiles(display_name)')
@@ -2034,23 +2043,31 @@ export default function App() {
   };
 
   const signOut = async () => {
+    const uid = user?.id;
     await supabase.auth.signOut();
     setUser(null); setEntries([]); setAuditLog([]); setWorkspace(null);
     setUserName(''); setNameInput(''); setNameReady(false);
     setAuthStep('email'); setOtpCode(''); setAuthError(''); setEmail('');
-    localStorage.removeItem(SK_USER);
+    if (uid) localStorage.removeItem(`exec_user_v1_${uid}`);
+    localStorage.removeItem(SK_USER); // also clear old key if exists
   };
 
   // ── Name save ──────────────────────────────────────────────────
   const [nameSaving, setNameSaving] = useState(false);
+  const [nameSaveError, setNameSaveError] = useState('');
   const saveUserName = async () => {
     const n = nameInput.trim();
     if (!n || !user || nameSaving) return;
-    setNameSaving(true);
-    setUserName(n);
-    setNameReady(true);
-    await dbSaveName(user.id, n);
-    setNameSaving(false);
+    setNameSaving(true); setNameSaveError('');
+    try {
+      await dbSaveName(user.id, n);
+      setUserName(n);
+      setNameReady(true); // only set after confirmed DB write
+    } catch {
+      setNameSaveError('Could not save name. Please check your connection and try again.');
+    } finally {
+      setNameSaving(false);
+    }
   };
 
   // ── Audit helper ───────────────────────────────────────────────
@@ -2289,10 +2306,15 @@ export default function App() {
           placeholder="Enter your full name"
           autoFocus
           style={{ width:'100%', boxSizing:'border-box', background:C.card,
-            border:`1.5px solid ${C.border}`, borderRadius:16, padding:'16px 18px',
+            border:`1.5px solid ${nameSaveError ? '#C46A14' : C.border}`, borderRadius:16, padding:'16px 18px',
             fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
-            boxShadow:SH.card, marginBottom:16 }}
+            boxShadow:SH.card, marginBottom: nameSaveError ? 8 : 16 }}
         />
+        {nameSaveError && (
+          <p style={{ margin:'0 0 12px', fontSize:13, color:'#C46A14', alignSelf:'flex-start' }}>
+            {nameSaveError}
+          </p>
+        )}
         <button onClick={saveUserName} disabled={nameSaving}
           style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             border:'none', borderRadius:16, padding:'18px',
