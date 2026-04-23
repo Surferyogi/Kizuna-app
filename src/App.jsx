@@ -381,7 +381,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
   const greet = hr<12?'Good Morning':hr<17?'Good Afternoon':'Good Evening';
 
   return (
-    <div style={{ padding:'0 18px 100px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
+    <div style={{ padding:'0 18px 90px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
       {/* Greeting */}
       <div style={{ paddingTop:14, marginBottom:20 }}>
@@ -495,7 +495,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete }) {
   const dates = Object.keys(grouped).sort();
 
   return (
-    <div style={{ overflowY:'auto', height:'100%', padding:'0 18px 100px', boxSizing:'border-box' }}>
+    <div style={{ overflowY:'auto', height:'100%', padding:'0 18px 90px', boxSizing:'border-box' }}>
       {dates.map(d => {
         const dt  = new Date(d+'T00:00:00');
         const isT = d === fd(new Date());
@@ -555,7 +555,7 @@ function DayView({ entries, selDate, setSelDate }) {
         </div>
         <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+1); setSelDate(fd(d)); }}>›</NavBtn>
       </div>
-      <div style={{ flex:1, overflowY:'auto', padding:'6px 18px 100px', boxSizing:'border-box' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'6px 18px 90px', boxSizing:'border-box' }}>
         {hours.map(h => {
           const hEs = dayEs.filter(e => parseInt(e.time.split(':')[0])===h);
           return (
@@ -847,7 +847,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete }) {
           ))}
         </div>
       </div>
-      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 100px', boxSizing:'border-box' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px', boxSizing:'border-box' }}>
         <p style={{ fontSize:15, color:C.muted, margin:'12px 0 6px', fontStyle:'italic' }}>
           {results.length} result{results.length!==1?'s':''}
         </p>
@@ -994,14 +994,27 @@ function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userIni
   const [dndEnd,     setDndEnd]     = useState('06:00');
   const [showInvite, setShowInvite] = useState(false);
 
-  // Members — local state so deletions work within session
-  const [members, setMembers] = useState([
+  // Members — persisted to localStorage so deletions survive restart
+  const MEMBERS_KEY = 'kizuna_members_v1';
+  const defaultMembers = [
     { id:1, name:'Sarah Chen'   },
     { id:2, name:'James Park'   },
     { id:3, name:'Aisha Rahman' },
     { id:4, name:'Wei Liu'      },
-  ]);
-  const removeMember = id => setMembers(p => p.filter(m => m.id !== id));
+  ];
+  const [members, setMembers] = useState(() => {
+    try {
+      const saved = localStorage.getItem(MEMBERS_KEY);
+      return saved ? JSON.parse(saved) : defaultMembers;
+    } catch { return defaultMembers; }
+  });
+  const removeMember = id => {
+    setMembers(prev => {
+      const updated = prev.filter(m => m.id !== id);
+      localStorage.setItem(MEMBERS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // P3-15: 60 s tick keeps relTime() labels fresh in the activity log
   const [, setTick] = useState(0);
@@ -1021,7 +1034,7 @@ function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userIni
   };
 
   return (
-    <div style={{ padding:'0 18px 100px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
+    <div style={{ padding:'0 18px 90px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
 
@@ -1336,9 +1349,16 @@ function EForm({ form, set }) {
           <FL label="Dep. Time"><FI field="time" type="time" /></FL>
         </div>
         <FL label="Date"><FI field="date" type="date" /></FL>
+        <FL label="Priority">
+          <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
+            {['low','medium','high','critical'].map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
+            ))}
+          </select>
+        </FL>
       </>) : form.type === 'task' ? (<>
         <Row2>
-          <FL label="Due Date"><FI field="date" type="date" /></FL>
+          <FL label="Due Date (optional)"><FI field="date" type="date" /></FL>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
               {['low','medium','high','critical'].map(p => (
@@ -1350,7 +1370,7 @@ function EForm({ form, set }) {
         <FL label="Tags"><FI field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <Row2>
-          <FL label="Date"><FI field="date" type="date" /></FL>
+          <FL label="Date (optional)"><FI field="date" type="date" /></FL>
           <FL label="Time"><FI field="time" type="time" /></FL>
         </Row2>
         <FL label="Message"><TA field="message" placeholder="Reminder details…" /></FL>
@@ -1391,7 +1411,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
   // Edit mode: skip type selector (step 1), pre-populate form from entry
   const [step, setStep] = useState(isEdit ? 1 : 0);
   const [form, setForm] = useState(isEdit ? { ...mkBlank(), ...editEntry } : mkBlank());
-  const setF    = (k, v) => setForm(p => ({ ...p, [k]:v }));
+  const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
   const canSave = form.title.trim().length > 0;
   const handleSave = () => {
     if (!canSave) return;
@@ -1981,13 +2001,30 @@ export default function App() {
         button { font-family: 'Nunito', system-ui, sans-serif; }
       `}</style>
 
-      {/* Status bar */}
-      <div style={{ height:40, display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'0 20px', flexShrink:0, background:C.card,
-        borderBottom:`1px solid ${C.border}` }}>
-        <span style={{ fontSize:16, fontWeight:700, color:C.text }}>{clockTime}</span>
-        <span style={{ fontSize:13, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase',
-          color:syncColor, background:syncColor+'18', borderRadius:10, padding:'2px 9px' }}>
+      {/* ── Top nav bar — replaces bottom nav ───────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', height:52,
+        borderBottom:`1px solid ${C.border}`, background:C.card,
+        flexShrink:0, boxShadow:SH.subtle }}>
+        {NAV.map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
+              transition:'border-color 0.15s' }}>
+            <span style={{ fontSize:20,
+              color:tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>{n.icon}</span>
+            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
+              color:tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>
+              {n.label}
+            </span>
+          </button>
+        ))}
+        {/* Sync status pill — right side */}
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
+          textTransform:'uppercase', color:syncColor, background:syncColor+'18',
+          borderRadius:10, padding:'2px 9px', marginRight:10, flexShrink:0 }}>
           {syncLabel}
         </span>
       </div>
@@ -2039,7 +2076,7 @@ export default function App() {
 
         {/* FAB */}
         <button onClick={() => setShowAdd(true)}
-          style={{ position:'absolute', bottom:90, right:20, width:58, height:58,
+          style={{ position:'absolute', bottom:20, right:20, width:58, height:58,
             borderRadius:29,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             border:'none', boxShadow:`0 6px 24px ${C.rose}50`,
@@ -2052,26 +2089,6 @@ export default function App() {
         {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
         {/* Edit modal — pre-fills form, shows "Edit [type]" + "Save Changes" */}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
-      </div>
-
-      {/* Bottom nav */}
-      <div style={{ height:80, display:'flex', alignItems:'center',
-        borderTop:`1px solid ${C.border}`, background:C.card,
-        flexShrink:0, paddingBottom:8, boxShadow:`0 -2px 12px rgba(44,38,32,0.06)` }}>
-        {NAV.map(n => (
-          <button key={n.key} onClick={() => setTab(n.key)}
-            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'6px 0' }}>
-            <span style={{ fontSize:23,
-              color:tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>{n.icon}</span>
-            <span style={{ fontSize:14, fontWeight:tab===n.key?700:400,
-              color:tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>
-              {n.label}
-            </span>
-          </button>
-        ))}
       </div>
     </div>
   );
