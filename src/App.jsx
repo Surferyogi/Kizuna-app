@@ -190,24 +190,37 @@ const APP_VERSION    = 'v2.1.0';
 const APP_BUILD_DATE = 'April 23, 2026';
 
 // Load all entries for signed-in user (own + shared from workspace)
+// Load entries — own entries + shared entries from workspace members.
+// RLS on the entries table handles filtering: own entries always visible,
+// workspace members' shared entries visible via the entries_read policy.
+// No explicit user_id filter needed — RLS does the scoping.
 async function dbLoadEntries(userId) {
-  // Own entries
-  const { data: own, error: e1 } = await supabase
+  // Load own entries (explicit filter — always works even without workspace)
+  const { data: own, error } = await supabase
     .from('entries').select('data').eq('user_id', userId)
     .order('updated_at', { ascending: true });
-  if (e1) throw e1;
+  if (error) throw error;
+  const ownEntries = (own || []).map(r => r.data);
 
-  // Shared entries from workspace members — RLS already filters to same-workspace shared only
-  const { data: shared } = await supabase
-    .from('entries').select('data')
-    .neq('user_id', userId)
-    .eq('data->>visibility', 'shared')
-    .order('updated_at', { ascending: true });
+  // Load shared entries from workspace members (let RLS filter)
+  // Uses filter on data JSONB column with correct Supabase syntax
+  let sharedEntries = [];
+  try {
+    const { data: shared } = await supabase
+      .from('entries').select('data')
+      .neq('user_id', userId)
+      .filter('data->>visibility', 'eq', 'shared')
+      .order('updated_at', { ascending: true });
+    sharedEntries = (shared || []).map(r => r.data);
+  } catch { /* workspace not set up yet — silently ignore */ }
 
-  const all = [...(own || []), ...(shared || [])].map(r => r.data);
-  // Deduplicate by id (in case of overlap)
+  // Merge and deduplicate by id
   const seen = new Set();
-  return all.filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; });
+  return [...ownEntries, ...sharedEntries].filter(e => {
+    if (!e?.id || seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
 }
 
 // Load audit log (last 200)
