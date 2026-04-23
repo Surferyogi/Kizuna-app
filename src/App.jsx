@@ -1216,19 +1216,10 @@ function SettingsTab({ auditLog, onReset, isAdmin = true, userName = '', userIni
         <div style={{ display:'flex', alignItems:'center', gap:16, padding:20,
           background:C.card, borderRadius:22,
           boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-          <div style={{ width:60, height:60, borderRadius:30,
-            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-            boxShadow:`0 4px 16px ${C.rose}35` }}>
-            <span style={{ fontSize:22, fontWeight:700, color:'#fff' }}>{userInitials}</span>
-          </div>
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ margin:0, fontSize:21, fontWeight:600, color:C.text,
               fontFamily:'Cormorant Garamond,serif', overflow:'hidden',
               textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName || 'Your Name'}</p>
-            <p style={{ margin:'4px 0 0', fontSize:14, color:C.rose,
-              background:C.rose+'15', display:'inline-block',
-              borderRadius:10, padding:'2px 10px' }}>◯ Workspace Admin</p>
           </div>
           <button onClick={onChangeName}
             style={{ background:C.elevated, border:`1px solid ${C.border}`,
@@ -1502,26 +1493,35 @@ function EForm({ form, set }) {
 
   return (
     <div style={{ paddingTop:8 }}>
-      <FL label="Title">
-        <FI field="title" placeholder={`${TL[form.type]} title`} autoFocus />
-      </FL>
+      {/* Title shown for all types EXCEPT flight — flight title is auto-generated */}
+      {form.type !== 'flight' && (
+        <FL label="Title">
+          <FI field="title" placeholder={`${TL[form.type]} title`} autoFocus />
+        </FL>
+      )}
 
       {form.type === 'flight' ? (<>
+        {/* Flight No. + Date first — these are the search keys for AeroDataBox */}
+        <Row2>
+          <FL label="Flight No.">
+            <FI field="flightNum" placeholder="SQ321" autoFocus
+              onChange={e=>set('flightNum',e.target.value.toUpperCase())} />
+          </FL>
+          <FL label="Date"><FI field="date" type="date" /></FL>
+        </Row2>
         <Row2>
           <FL label="From"><FI field="depCity" placeholder="SIN" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
           <FL label="To"><FI field="arrCity" placeholder="LHR" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
         </Row2>
         <FL label="Airline"><FI field="airline" placeholder="Singapore Airlines" /></FL>
         <Row2>
-          <FL label="Flight No."><FI field="flightNum" placeholder="SQ321" onChange={e=>set('flightNum',e.target.value.toUpperCase())} /></FL>
           <FL label="Seat"><FI field="seat" placeholder="1A" /></FL>
+          <FL label="Dep. Time"><FI field="time" type="time" /></FL>
         </Row2>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
           <FL label="Terminal"><FI field="terminal" placeholder="T3" /></FL>
           <FL label="Gate"><FI field="gate" placeholder="G22" /></FL>
-          <FL label="Dep. Time"><FI field="time" type="time" /></FL>
         </div>
-        <FL label="Date"><FI field="date" type="date" /></FL>
         <FL label="Priority">
           <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
             {['low','medium','high','critical'].map(p => (
@@ -1585,7 +1585,9 @@ function AddModal({ onClose, onSave, editEntry = null }) {
   const [step, setStep] = useState(isEdit ? 1 : 0);
   const [form, setForm] = useState(isEdit ? { ...mkBlank(), ...editEntry } : mkBlank());
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
-  const canSave = form.title.trim().length > 0;
+  const canSave = form.type === 'flight'
+    ? (form.flightNum?.trim().length > 0)   // flight: needs flight number
+    : (form.title?.trim().length > 0);       // others: need title
   const handleSave = () => {
     if (!canSave) return;
     // Edit: preserve id + type. Create: assign UUID.
@@ -1621,16 +1623,24 @@ function AddModal({ onClose, onSave, editEntry = null }) {
             {step===0 ? 'New Entry' : isEdit ? `Edit ${TL[form.type]}` : `New ${TL[form.type]}`}
           </h2>
           {step===1 ? (
-            <button onClick={handleSave}
-              style={{ background:canSave?typeColor:C.elevated,
-                border:`1px solid ${canSave?typeColor:C.border}`,
-                color:canSave?'#fff':C.muted, borderRadius:12,
-                padding:'9px 20px', fontSize:17, fontWeight:600,
-                cursor:canSave?'pointer':'default',
-                boxShadow:canSave?`0 4px 16px ${typeColor}40`:'none',
-                fontFamily:'inherit', transition:'background 0.15s' }}>
-              {isEdit ? 'Save Changes' : 'Save'}
-            </button>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <button onClick={onClose}
+                style={{ background:C.elevated, border:`1px solid ${C.border}`,
+                  color:C.dim, borderRadius:12, padding:'9px 16px',
+                  fontSize:15, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                Cancel
+              </button>
+              <button onClick={handleSave}
+                style={{ background:canSave?typeColor:C.elevated,
+                  border:`1px solid ${canSave?typeColor:C.border}`,
+                  color:canSave?'#fff':C.muted, borderRadius:12,
+                  padding:'9px 20px', fontSize:17, fontWeight:600,
+                  cursor:canSave?'pointer':'default',
+                  boxShadow:canSave?`0 4px 16px ${typeColor}40`:'none',
+                  fontFamily:'inherit', transition:'background 0.15s' }}>
+                {isEdit ? 'Save Changes' : 'Save'}
+              </button>
+            </div>
           ) : (
             <button onClick={onClose}
               style={{ background:C.elevated, border:`1px solid ${C.border}`,
@@ -2039,7 +2049,7 @@ export default function App() {
         </h1>
         <p style={{ margin:'0 0 36px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
-          the thread that connects hearts
+          the thread that bonds hearts
         </p>
 
         {authStep === 'email' ? (<>
@@ -2137,7 +2147,7 @@ export default function App() {
         </h1>
         <p style={{ margin:'0 0 32px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
-          the thread that connects hearts
+          the thread that bonds hearts
         </p>
         <p style={{ margin:'0 0 12px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
           What's your name?
@@ -2208,11 +2218,11 @@ export default function App() {
             {/* Meaning — two lines, poetic, italic */}
             <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              Warmth, loyalty &amp; invisible strength —
+              Love, Loyalty &amp; Trust —
             </p>
             <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              the thread that connects hearts across time and distance
+              the thread that bonds hearts across time and distance
             </p>
           </div>
           {/* Right — Sakura icon */}
