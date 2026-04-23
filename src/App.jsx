@@ -1910,7 +1910,7 @@ export default function App() {
             onChange={e => setOtpCode(e.target.value.replace(/\D/g,'').slice(0,8))}
             onKeyDown={e => e.key==='Enter' && verifyOtp()}
             placeholder="00000000"
-            type="number"
+            type="text"
             inputMode="numeric"
             autoFocus
             style={{ width:'100%', boxSizing:'border-box', background:C.card,
@@ -2001,37 +2001,9 @@ export default function App() {
         button { font-family: 'Nunito', system-ui, sans-serif; }
       `}</style>
 
-      {/* ── Top nav bar — replaces bottom nav ───────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', height:52,
-        borderBottom:`1px solid ${C.border}`, background:C.card,
-        flexShrink:0, boxShadow:SH.subtle }}>
-        {NAV.map(n => (
-          <button key={n.key} onClick={() => setTab(n.key)}
-            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-              padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
-              transition:'border-color 0.15s' }}>
-            <span style={{ fontSize:20,
-              color:tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>{n.icon}</span>
-            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
-              color:tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>
-              {n.label}
-            </span>
-          </button>
-        ))}
-        {/* Sync status pill — right side */}
-        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
-          textTransform:'uppercase', color:syncColor, background:syncColor+'18',
-          borderRadius:10, padding:'2px 9px', marginRight:10, flexShrink:0 }}>
-          {syncLabel}
-        </span>
-      </div>
-
       {/* ── Kizuna brand header ─────────────────────────────────── */}
       <div style={{ flexShrink:0, background:C.card,
-        borderBottom:`1px solid ${C.border}`, boxShadow:SH.subtle,
+        borderBottom:'none', boxShadow:'none',
         padding:'12px 20px 10px' }}>
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
           {/* Left — name + meaning */}
@@ -2065,6 +2037,34 @@ export default function App() {
             <KizunaIcon />
           </div>
         </div>
+      </div>
+
+      {/* ── Nav tabs — below the Kizuna header ──────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', height:52,
+        borderBottom:`1px solid ${C.border}`, background:C.card,
+        flexShrink:0, boxShadow:SH.subtle }}>
+        {NAV.map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
+              transition:'border-color 0.15s' }}>
+            <span style={{ fontSize:20,
+              color:tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>{n.icon}</span>
+            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
+              color:tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>
+              {n.label}
+            </span>
+          </button>
+        ))}
+        {/* Sync status pill — right side */}
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
+          textTransform:'uppercase', color:syncColor, background:syncColor+'18',
+          borderRadius:10, padding:'2px 9px', marginRight:10, flexShrink:0 }}>
+          {syncLabel}
+        </span>
       </div>
 
       {/* Main content */}
