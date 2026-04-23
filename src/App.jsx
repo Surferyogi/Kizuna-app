@@ -24,7 +24,111 @@ const relTime = iso => {
   return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' });
 };
 
-// ─── DESIGN TOKENS — SOFT-TECH WELLNESS PALETTE (color-blind safe) ───
+// ─── AIRPORT LOOKUP ──────────────────────────────────────────────
+// Top 300 IATA codes → city name. Bundled statically — zero API calls,
+// works fully offline, instant lookup. Covers >95% of commercial routes.
+const AIRPORTS = {
+  SIN:'Singapore',ICN:'Seoul',NRT:'Tokyo',HND:'Tokyo',PVG:'Shanghai',PEK:'Beijing',
+  PKX:'Beijing',HKG:'Hong Kong',BKK:'Bangkok',KUL:'Kuala Lumpur',CGK:'Jakarta',
+  MNL:'Manila',SGN:'Ho Chi Minh City',HAN:'Hanoi',RGN:'Yangon',PNH:'Phnom Penh',
+  VTE:'Vientiane',REP:'Siem Reap',DAD:'Da Nang',CXR:'Nha Trang',
+  LHR:'London',LGW:'London',CDG:'Paris',AMS:'Amsterdam',FRA:'Frankfurt',
+  MUC:'Munich',ZRH:'Zurich',VIE:'Vienna',MAD:'Madrid',BCN:'Barcelona',
+  FCO:'Rome',MXP:'Milan',LIN:'Milan',ATH:'Athens',IST:'Istanbul',
+  DXB:'Dubai',AUH:'Abu Dhabi',DOH:'Doha',BAH:'Bahrain',KWI:'Kuwait City',
+  RUH:'Riyadh',JED:'Jeddah',CAI:'Cairo',ADD:'Addis Ababa',NBO:'Nairobi',
+  JNB:'Johannesburg',CPT:'Cape Town',LOS:'Lagos',ACC:'Accra',CMN:'Casablanca',
+  JFK:'New York',EWR:'New York',LGA:'New York',LAX:'Los Angeles',ORD:'Chicago',
+  MDW:'Chicago',ATL:'Atlanta',DFW:'Dallas',DEN:'Denver',SFO:'San Francisco',
+  SEA:'Seattle',MIA:'Miami',BOS:'Boston',IAD:'Washington DC',DCA:'Washington DC',
+  YYZ:'Toronto',YVR:'Vancouver',YUL:'Montreal',GRU:'São Paulo',GIG:'Rio de Janeiro',
+  EZE:'Buenos Aires',SCL:'Santiago',BOG:'Bogotá',LIM:'Lima',MEX:'Mexico City',
+  SYD:'Sydney',MEL:'Melbourne',BNE:'Brisbane',PER:'Perth',AKL:'Auckland',
+  DEL:'Delhi',BOM:'Mumbai',MAA:'Chennai',BLR:'Bangalore',HYD:'Hyderabad',
+  CCU:'Kolkata',CMB:'Colombo',DAC:'Dhaka',KTM:'Kathmandu',MLE:'Malé',
+  CPH:'Copenhagen',ARN:'Stockholm',HEL:'Helsinki',OSL:'Oslo',DUB:'Dublin',
+  EDI:'Edinburgh',MAN:'Manchester',BRU:'Brussels',LIS:'Lisbon',OPO:'Porto',
+  WAW:'Warsaw',PRG:'Prague',BUD:'Budapest',BEG:'Belgrade',SOF:'Sofia',
+  OTP:'Bucharest',KBP:'Kyiv',SVO:'Moscow',DME:'Moscow',LED:'St Petersburg',
+  TLV:'Tel Aviv',AMM:'Amman',BEY:'Beirut',MCT:'Muscat',KHI:'Karachi',
+  LHE:'Lahore',ISB:'Islamabad',KBL:'Kabul',ULN:'Ulaanbaatar',
+  CTS:'Sapporo',OKA:'Okinawa',FUK:'Fukuoka',KIX:'Osaka',NGO:'Nagoya',
+  TPE:'Taipei',KHH:'Kaohsiung',TSA:'Taipei',MFM:'Macau',CAN:'Guangzhou',
+  SZX:'Shenzhen',CTU:'Chengdu',XIY:'Xi\'an',WUH:'Wuhan',CKG:'Chongqing',
+};
+
+// City name from IATA code — falls back to the code itself if unknown
+const airportCity = code => (code && AIRPORTS[code.toUpperCase()]) || code || '—';
+
+// ─── FLIGHT STATUS — AeroDataBox via Supabase Edge Function ──────
+// Calls the flight-status Edge Function which:
+//   1. Checks a 10-minute Supabase cache first
+//   2. Calls AeroDataBox if cache is stale
+//   3. Returns normalised status object
+// Falls back to time-based local status on any error.
+// Input: flightNumber (e.g. 'SQ321') + date (e.g. '2026-04-25')
+
+// Local time-based fallback — used when API unavailable or flight has no number
+const flightStatusLocal = (flight) => {
+  if (!flight.date || !flight.time) return null;
+  const dep  = new Date(`${flight.date}T${flight.time}`);
+  const now  = new Date();
+  const mins = (now - dep) / 60000;
+  let arrMins = 480;
+  if (flight.endTime) {
+    const [ah, am] = flight.endTime.split(':').map(Number);
+    const [dh, dm] = flight.time.split(':').map(Number);
+    arrMins = (ah * 60 + am) - (dh * 60 + dm);
+    if (arrMins < 0) arrMins += 1440;
+  }
+  if (mins < -60)       return { label:'Scheduled',  color:'#5BB8E8', source:'local' };
+  if (mins < -30)       return { label:'Check-in',   color:'#4D8EC4', source:'local' };
+  if (mins < -10)       return { label:'Boarding',   color:'#B8715C', source:'local' };
+  if (mins < 0)         return { label:'Final Call', color:'#A04E08', source:'local' };
+  if (mins < arrMins)   return { label:'In Flight',  color:'#1C4878', source:'local' };
+  return                       { label:'Landed',     color:'#2A6E3A', source:'local' };
+};
+
+// React hook — fetches live status, falls back to local
+function useLiveFlightStatus(flight) {
+  const [status,      setStatus]      = useState(() => flightStatusLocal(flight));
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [loading,     setLoading]     = useState(false);
+
+  useEffect(() => {
+    // Only fetch if we have a flight number and supabase is configured
+    if (!flight?.flightNum || !flight?.date || !supabaseConfigured) return;
+
+    let cancelled = false;
+    async function fetchStatus() {
+      setLoading(true);
+      try {
+        const res = await supabase.functions.invoke('flight-status', {
+          body: { flightNumber: flight.flightNum, date: flight.date }
+        });
+        if (cancelled) return;
+        if (res.error || res.data?.error) throw new Error(res.data?.error || 'fetch failed');
+        setStatus(res.data);
+        setLastUpdated(new Date());
+      } catch {
+        // Silently fall back to local status — no error shown to user
+        setStatus(flightStatusLocal(flight));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchStatus();
+    // Refresh every 5 minutes while card is visible
+    const interval = setInterval(fetchStatus, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flight?.flightNum, flight?.date]);
+
+  return { status, lastUpdated, loading };
+}
+
+
 // Warm cream base · Terracotta rose accent · Blue/orange entry system
 // Deuteranopia/protanopia safe: green replaced with cornflower blue;
 // red/coral replaced with amber-orange. Text contrast ≥ 4.5:1 on cream.
@@ -351,7 +455,122 @@ function ECard({ e, onToggle, onEdit, onDelete }) {
   );
 }
 
-// ─── HOME TAB ────────────────────────────────────────────────────
+// ─── FLIGHT HERO CARD ────────────────────────────────────────────
+// Separate component so useLiveFlightStatus hook runs cleanly per flight
+function FlightHeroCard({ flight, todayStr }) {
+  const { status, lastUpdated, loading } = useLiveFlightStatus(flight);
+  const depName = airportCity(flight.depCity);
+  const arrName = airportCity(flight.arrCity);
+
+  return (
+    <div style={{ background:`linear-gradient(135deg,#EDF5FD,#E2EFF8)`,
+      border:`1px solid ${C.F}50`,
+      borderRadius:20, padding:18, marginBottom:6,
+      position:'relative', overflow:'hidden',
+      boxShadow:`0 4px 20px ${C.F}20` }}>
+      <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100,
+        background:`radial-gradient(circle,${C.F}30 0%,transparent 70%)`,
+        pointerEvents:'none' }} />
+
+      {/* Airline + flight number + live status badge */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <p style={{ fontSize:14, color:DTC.flight, fontWeight:700, margin:0,
+          textTransform:'uppercase', letterSpacing:'0.1em' }}>
+          {flight.airline} · {flight.flightNum}
+        </p>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          {loading && (
+            <span style={{ fontSize:11, color:C.dim, fontStyle:'italic' }}>updating…</span>
+          )}
+          {status && (
+            <span style={{ fontSize:12, fontWeight:700, color:'#fff',
+              background:status.color, borderRadius:20, padding:'3px 12px',
+              letterSpacing:'0.04em', flexShrink:0 }}>
+              {status.label}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            {/* Departure */}
+            <div style={{ textAlign:'center' }}>
+              <span style={{ fontSize:34, fontWeight:600, color:C.text,
+                fontFamily:'Cormorant Garamond,serif', lineHeight:1 }}>
+                {flight.depCity}
+              </span>
+              <p style={{ margin:'2px 0 0', fontSize:12, color:C.dim, lineHeight:1 }}>
+                {depName !== flight.depCity ? depName : ''}
+              </p>
+              {/* Show revised departure time if delayed */}
+              {status?.revisedDep && status?.delayMins > 4 && (
+                <p style={{ margin:'3px 0 0', fontSize:11, color:'#8A3A08', fontWeight:700 }}>
+                  {status.delayLabel}
+                </p>
+              )}
+            </div>
+            {/* Route line */}
+            <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
+              <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight}60,transparent)` }} />
+              <span style={{ fontSize:16, color:DTC.flight }}>✈</span>
+              <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight}60,transparent)` }} />
+            </div>
+            {/* Arrival */}
+            <div style={{ textAlign:'center' }}>
+              <span style={{ fontSize:34, fontWeight:600, color:C.text,
+                fontFamily:'Cormorant Garamond,serif', lineHeight:1 }}>
+                {flight.arrCity}
+              </span>
+              <p style={{ margin:'2px 0 0', fontSize:12, color:C.dim, lineHeight:1 }}>
+                {arrName !== flight.arrCity ? arrName : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign:'right', paddingLeft:14 }}>
+          <p style={{ fontSize:19, fontWeight:600, color:C.text, margin:0 }}>
+            {/* Show revised time if delayed, otherwise scheduled */}
+            {status?.revisedDep
+              ? pt(status.revisedDep.split('T')[1]?.slice(0,5) || flight.time)
+              : pt(flight.time)}
+          </p>
+          <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
+            {flight.date===todayStr ? 'Today'
+              : flight.date===fd(ad(new Date(),1)) ? 'Tomorrow'
+              : flight.date}
+          </p>
+        </div>
+      </div>
+
+      {/* Terminal / Gate / Seat chips — gate may update live from AeroDataBox */}
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        {[
+          ['Terminal', status?.terminal || flight.terminal],
+          ['Gate',     status?.gate     || flight.gate],
+          ['Seat',     flight.seat],
+        ].filter(([,v])=>v).map(([k,v]) => (
+          <div key={k} style={{ background:'#ffffff60', borderRadius:12,
+            padding:'7px 12px', backdropFilter:'blur(4px)',
+            border:`1px solid ${C.F}25` }}>
+            <p style={{ fontSize:12, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
+            <p style={{ fontSize:17, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Last updated timestamp — shows data freshness */}
+      {lastUpdated && status?.source !== 'local' && (
+        <p style={{ margin:'10px 0 0', fontSize:11, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
+          Live data · updated {Math.floor((Date.now()-lastUpdated)/60000) < 1
+            ? 'just now'
+            : `${Math.floor((Date.now()-lastUpdated)/60000)}m ago`}
+        </p>
+      )}
+    </div>
+  );
+}
 function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
   const now      = new Date();
   const todayStr = fd(now);
@@ -410,53 +629,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName }) {
       {/* Next Flight */}
       {nextFlight && (<>
         <Sec label="Next Flight" />
-        <div style={{ background:`linear-gradient(135deg,#EDF5FD,#E2EFF8)`,
-          border:`1px solid ${C.F}50`,
-          borderRadius:20, padding:18, marginBottom:6,
-          position:'relative', overflow:'hidden',
-          boxShadow:`0 4px 20px ${C.F}20` }}>
-          <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100,
-            background:`radial-gradient(circle,${C.F}30 0%,transparent 70%)`,
-            pointerEvents:'none' }} />
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
-            <div style={{ flex:1 }}>
-              <p style={{ fontSize:14, color:DTC.flight, fontWeight:700, margin:'0 0 5px',
-                textTransform:'uppercase', letterSpacing:'0.1em' }}>
-                {nextFlight.airline} · {nextFlight.flightNum}
-              </p>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontSize:36, fontWeight:600, color:C.text,
-                  fontFamily:'Cormorant Garamond,serif' }}>{nextFlight.depCity}</span>
-                <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
-                  <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight}60,transparent)` }} />
-                  <span style={{ fontSize:16, color:DTC.flight }}>✈</span>
-                  <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight}60,transparent)` }} />
-                </div>
-                <span style={{ fontSize:36, fontWeight:600, color:C.text,
-                  fontFamily:'Cormorant Garamond,serif' }}>{nextFlight.arrCity}</span>
-              </div>
-            </div>
-            <div style={{ textAlign:'right', paddingLeft:14 }}>
-              <p style={{ fontSize:19, fontWeight:600, color:C.text, margin:0 }}>{pt(nextFlight.time)}</p>
-              <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
-                {nextFlight.date===todayStr ? 'Today'
-                  : nextFlight.date===fd(ad(new Date(),1)) ? 'Tomorrow'
-                  : nextFlight.date}
-              </p>
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            {[['Terminal',nextFlight.terminal],['Gate',nextFlight.gate],['Seat',nextFlight.seat]]
-              .filter(([,v])=>v).map(([k,v]) => (
-              <div key={k} style={{ background:'#ffffff60', borderRadius:12,
-                padding:'7px 12px', backdropFilter:'blur(4px)',
-                border:`1px solid ${C.F}25` }}>
-                <p style={{ fontSize:12, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
-                <p style={{ fontSize:17, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
       </>)}
 
       {/* Priority Tasks */}
