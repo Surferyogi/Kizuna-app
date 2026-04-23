@@ -1863,17 +1863,17 @@ export default function App() {
     async function load() {
       setSyncStatus('loading');
       try {
-        const [loadedEntries, loadedAudit, loadedName, loadedWorkspace] = await Promise.all([
+        const [loadedEntries, loadedAudit, loadedName] = await Promise.all([
           dbLoadEntries(user.id),
           dbLoadAudit(user.id),
           dbLoadName(user.id),
-          dbLoadWorkspace(user.id),
         ]);
         setEntries(loadedEntries.length > 0 ? loadedEntries : []);
         setAuditLog(loadedAudit);
         if (loadedName) { setUserName(loadedName); setNameInput(loadedName); setNameReady(true); }
-        if (loadedWorkspace) setWorkspace(loadedWorkspace);
         setSyncStatus('synced');
+        // Load workspace separately — silently fails if tables not yet created
+        dbLoadWorkspace(user.id).then(ws => { if (ws) setWorkspace(ws); }).catch(() => {});
       } catch (err) {
         console.error('load:', err);
         setSyncStatus('error');
