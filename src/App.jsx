@@ -1499,7 +1499,7 @@ const mkBlank = () => ({
 });
 
 function EForm({ form, set }) {
-  // P3-16: Auto-generate flight title from IATA codes
+  // Auto-generate flight title from IATA codes
   const prevAutoRef = useRef('');
   useEffect(() => {
     if (form.type !== 'flight' || !form.depCity || !form.arrCity) return;
@@ -1510,6 +1510,44 @@ function EForm({ form, set }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.depCity, form.arrCity, form.type]);
+
+  // ── Flight auto-fill — lookup via AeroDataBox when No. + Date filled ──
+  const [lookupStatus, setLookupStatus] = useState(''); // '' | 'loading' | 'found' | 'not_found'
+  const lastLookupRef = useRef('');
+  useEffect(() => {
+    if (form.type !== 'flight') return;
+    if (!form.flightNum || form.flightNum.length < 3 || !form.date) return;
+    const key = `${form.flightNum}_${form.date}`;
+    if (key === lastLookupRef.current) return; // already looked up this combo
+    lastLookupRef.current = key;
+
+    if (!supabaseConfigured) return;
+    let cancelled = false;
+    setLookupStatus('loading');
+
+    supabase.functions.invoke('flight-status', {
+      body: { flightNumber: form.flightNum, date: form.date }
+    }).then(({ data, error }) => {
+      if (cancelled || error || data?.error) {
+        setLookupStatus('not_found'); return;
+      }
+      // Auto-populate only empty fields — never overwrite what user typed
+      if (data.depIata   && !form.depCity)  set('depCity',  data.depIata);
+      if (data.arrIata   && !form.arrCity)  set('arrCity',  data.arrIata);
+      if (data.airlineName && !form.airline) set('airline', data.airlineName);
+      if (data.terminal  && !form.terminal) set('terminal', data.terminal);
+      if (data.gate      && !form.gate)     set('gate',     data.gate);
+      // Extract HH:mm from scheduledDep ISO string
+      if (data.scheduledDep && !form.time) {
+        const t = data.scheduledDep.split('T')[1]?.slice(0, 5);
+        if (t) set('time', t);
+      }
+      setLookupStatus(data.depIata ? 'found' : 'not_found');
+    }).catch(() => { if (!cancelled) setLookupStatus('not_found'); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.flightNum, form.date, form.type]);
 
   const inputBase = {
     width:'100%', boxSizing:'border-box', background:C.elevated,
@@ -1547,7 +1585,7 @@ function EForm({ form, set }) {
       )}
 
       {form.type === 'flight' ? (<>
-        {/* Flight No. + Date first — these are the search keys for AeroDataBox */}
+        {/* Flight No. + Date first — triggers AeroDataBox lookup */}
         <Row2>
           <FL label="Flight No.">
             <FI field="flightNum" placeholder="SQ321" autoFocus
@@ -1555,6 +1593,22 @@ function EForm({ form, set }) {
           </FL>
           <FL label="Date"><FI field="date" type="date" /></FL>
         </Row2>
+        {/* Lookup status indicator */}
+        {lookupStatus === 'loading' && (
+          <p style={{ margin:'-6px 0 12px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
+            ✈ Looking up flight details…
+          </p>
+        )}
+        {lookupStatus === 'found' && (
+          <p style={{ margin:'-6px 0 12px', fontSize:13, color:'#2A6E3A' }}>
+            ✓ Flight found — details filled in
+          </p>
+        )}
+        {lookupStatus === 'not_found' && (
+          <p style={{ margin:'-6px 0 12px', fontSize:13, color:C.muted, fontStyle:'italic' }}>
+            Flight not found — please fill in manually
+          </p>
+        )}
         <Row2>
           <FL label="From"><FI field="depCity" placeholder="SIN" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
           <FL label="To"><FI field="arrCity" placeholder="LHR" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
