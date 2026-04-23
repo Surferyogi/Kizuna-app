@@ -265,17 +265,16 @@ async function dbSaveName(userId, name) {
     .upsert({ id: userId, display_name: name, updated_at: new Date().toISOString() });
 }
 async function dbLoadName(userId) {
-  // Always fetch from DB first for cross-device consistency
-  // Fall back to localStorage only if DB unavailable
+  // Always fetch from DB first for cross-device consistency.
+  // Use maybeSingle() — returns null (not error) if profile row doesn't exist yet.
   try {
-    const { data } = await supabase.from('profiles')
-      .select('display_name').eq('id', userId).single();
-    const name = data?.display_name || '';
-    if (name) {
-      localStorage.setItem(`exec_user_v1_${userId}`, name); // refresh cache
-      return name;
+    const { data, error } = await supabase.from('profiles')
+      .select('display_name').eq('id', userId).maybeSingle();
+    if (!error && data?.display_name) {
+      localStorage.setItem(`exec_user_v1_${userId}`, data.display_name);
+      return data.display_name;
     }
-  } catch { /* offline — fall through to cache */ }
+  } catch { /* offline — fall through */ }
   return localStorage.getItem(`exec_user_v1_${userId}`) || '';
 }
 
@@ -1904,39 +1903,74 @@ export default function App() {
 
   // ── Step 1: Listen for auth state changes ──────────────────────
   useEffect(() => {
-    if (!supabase) { setAuthReady(true); return; } // no client — skip to config error screen
+    if (!supabase) { setAuthReady(true); return; }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthReady(true);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only update user on meaningful auth events — ignore token refreshes
+      // to prevent re-triggering the data load useEffect unnecessarily
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        setUser(session?.user ?? null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Step 2: Load data once user is known ───────────────────────
+  // ── Step 2: Load data — each piece independently so one failure never kills another ──
+  const loadingRef = useRef(false); // prevent concurrent loads
   useEffect(() => {
     if (!authReady || !user) return;
+    if (loadingRef.current) return; // already loading
+    loadingRef.current = true;
+
     async function load() {
       setSyncStatus('loading');
+
+      // ① Entries — critical. If this fails, show sync error.
+      let loadedEntries = [];
       try {
-        const [loadedEntries, loadedAudit, loadedName] = await Promise.all([
-          dbLoadEntries(user.id),
-          dbLoadAudit(user.id),
-          dbLoadName(user.id),
-        ]);
-        setEntries(loadedEntries.length > 0 ? loadedEntries : []);
-        setAuditLog(loadedAudit);
-        if (loadedName) { setUserName(loadedName); setNameInput(loadedName); setNameReady(true); }
+        loadedEntries = await dbLoadEntries(user.id);
+        setEntries(loadedEntries);
         setSyncStatus('synced');
-        // Load workspace separately — silently fails if tables not yet created
-        dbLoadWorkspace(user.id).then(ws => { if (ws) setWorkspace(ws); }).catch(() => {});
       } catch (err) {
-        console.error('load:', err);
+        console.error('entries load failed:', err.message);
         setSyncStatus('error');
       }
+
+      // ② Name — non-critical. Never triggers sync error.
+      try {
+        const loadedName = await dbLoadName(user.id);
+        if (loadedName) {
+          setUserName(loadedName);
+          setNameInput(loadedName);
+          setNameReady(true);
+        }
+      } catch (err) {
+        console.error('name load failed:', err.message);
+        // Fall back to localStorage
+        const cached = localStorage.getItem(`exec_user_v1_${user.id}`);
+        if (cached) { setUserName(cached); setNameInput(cached); setNameReady(true); }
+      }
+
+      // ③ Audit log — non-critical. Never triggers sync error.
+      try {
+        const loadedAudit = await dbLoadAudit(user.id);
+        setAuditLog(loadedAudit);
+      } catch { /* silently ignore */ }
+
+      // ④ Workspace — non-critical. Never triggers sync error.
+      try {
+        const ws = await dbLoadWorkspace(user.id);
+        if (ws) setWorkspace(ws);
+      } catch { /* silently ignore */ }
+
+      loadingRef.current = false;
     }
+
     load();
   }, [authReady, user]);
 
