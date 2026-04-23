@@ -2000,7 +2000,12 @@ export default function App() {
       background:C.bg, display:'flex', flexDirection:'column', alignItems:'center',
       justifyContent:'center', padding:'0 32px', boxSizing:'border-box',
       fontFamily:`'Nunito','DM Sans',system-ui,sans-serif` },
-    googleFont: `@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;1,400&display=swap');`
+    googleFont: `
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;1,400&display=swap');
+      input[type=number]::-webkit-inner-spin-button,
+      input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+      input[type=number] { -moz-appearance:textfield; }
+    `
   };
 
   // ── Auth screens ───────────────────────────────────────────────
@@ -2188,6 +2193,9 @@ export default function App() {
         input, select, textarea { font-family: 'Nunito', system-ui, sans-serif; }
         input[type=date]::-webkit-calendar-picker-indicator,
         input[type=time]::-webkit-calendar-picker-indicator { filter: opacity(0.5); }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
         ::-webkit-scrollbar { width:3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius:2px; }
