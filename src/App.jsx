@@ -1242,8 +1242,6 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
     return () => clearInterval(id);
   }, []);
 
-  const recentLog = [...auditLog].reverse().slice(0, 50);
-
   const InputStyle = {
     display:'block', marginTop:6, width:'100%', boxSizing:'border-box',
     background:C.elevated, border:`1px solid ${C.border}`,
@@ -1368,83 +1366,6 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
             </div>
           ))}
         </div>
-      </SS>
-
-      {/* Activity Log — P2-11: append-only, no clear button */}
-      <SS title={`Activity Log${auditLog.length > 0 ? ` · ${auditLog.length}` : ''}`}>
-        {recentLog.length === 0 ? (
-          <div style={{ padding:'32px 18px', textAlign:'center' }}>
-            <p style={{ margin:0, fontSize:28, opacity:0.35 }}>◎</p>
-            <p style={{ margin:'8px 0 3px', fontSize:17, color:C.dim, fontWeight:600 }}>No activity yet</p>
-            <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
-              Create or complete entries to start tracking
-            </p>
-          </div>
-        ) : (
-          <>
-            {recentLog.map((log, i) => {
-              const actionColor = AC[log.action] || C.dim;
-              const isLast      = i === recentLog.length - 1;
-              const initials    = log.actor.split(' ').map(n=>n[0]).join('').slice(0,2);
-              return (
-                <div key={log.id} style={{ display:'flex', gap:12, padding:'13px 18px',
-                  borderBottom: isLast?'none':`1px solid ${C.border}`,
-                  background: i===0 ? actionColor+'08' : 'transparent' }}>
-                  {/* Avatar */}
-                  <div style={{ width:36, height:36, borderRadius:18, flexShrink:0,
-                    background:`linear-gradient(135deg,${C.rose}30,${C.roseL}20)`,
-                    border:`1.5px solid ${C.rose}40`,
-                    display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <span style={{ fontSize:15, fontWeight:700, color:C.rose }}>{initials}</span>
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
-                      <span style={{ fontSize:16, fontWeight:600, color:C.text }}>{log.actor}</span>
-                      <span style={{ fontSize:13, fontWeight:700, color:actionColor,
-                        background:actionColor+'20', borderRadius:20,
-                        padding:'2px 9px', textTransform:'capitalize', flexShrink:0,
-                        border:`1px solid ${actionColor}30` }}>
-                        {AL[log.action] || log.action}
-                      </span>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5, minWidth:0 }}>
-                      <div style={{ width:8, height:8, borderRadius:4,
-                        background:TC[log.entryType]||C.dim, flexShrink:0 }} />
-                      <span style={{ fontSize:16, color:C.text,
-                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
-                        {log.entryTitle}
-                      </span>
-                      <span style={{ fontSize:14, color:C.dim, flexShrink:0,
-                        textTransform:'capitalize', background:C.elevated,
-                        borderRadius:8, padding:'2px 8px', border:`1px solid ${C.border}` }}>
-                        {log.entryType}
-                      </span>
-                    </div>
-                    {log.changes && log.changes.length > 0 && (
-                      <div style={{ background:C.elevated, borderRadius:10,
-                        padding:'7px 10px', marginBottom:5, border:`1px solid ${C.border}` }}>
-                        {log.changes.map((ch, ci) => (
-                          <div key={ci} style={{ fontSize:14, color:C.dim, lineHeight:1.8 }}>
-                            <span style={{ color:C.text, fontWeight:600 }}>{ch.field}: </span>
-                            <span style={{ color:'#C46A14', textDecoration:'line-through' }}>{String(ch.from ?? '—')}</span>
-                            <span style={{ color:C.muted }}> → </span>
-                            <span style={{ color:C.T }}>{String(ch.to ?? '—')}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <span style={{ fontSize:14, color:C.muted, fontStyle:'italic' }}>{relTime(log.timestamp)}</span>
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ padding:'12px 18px', borderTop:`1px solid ${C.border}` }}>
-              <p style={{ margin:0, fontSize:15, color:C.muted, textAlign:'center', fontStyle:'italic' }}>
-                Showing {recentLog.length} of {auditLog.length} events · Append-only
-              </p>
-            </div>
-          </>
-        )}
       </SS>
 
       {/* Entry Colour Key */}
