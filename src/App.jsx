@@ -1796,16 +1796,6 @@ export default function App() {
   const userInitials = userName.split(' ').filter(Boolean)
     .map(w=>w[0].toUpperCase()).join('').slice(0,2) || '?';
 
-  // ── Live clock ─────────────────────────────────────────────────
-  const [clockTime, setClockTime] = useState(() => {
-    const n = new Date(); return ft(n.getHours(), n.getMinutes());
-  });
-  useEffect(() => {
-    const tick = () => { const n = new Date(); setClockTime(ft(n.getHours(), n.getMinutes())); };
-    const id = setInterval(tick, 60000);
-    return () => clearInterval(id);
-  }, []);
-
   // Ref mirror — synchronous read for toggleDone / updateEntry
   const entriesRef = useRef(entries);
   useEffect(() => { entriesRef.current = entries; }, [entries]);
@@ -1879,19 +1869,24 @@ export default function App() {
 
   // ── Auth actions ───────────────────────────────────────────────
   const sendOtp = async () => {
-    if (!email.trim()) { setAuthError('Please enter your email address.'); return; }
+    const trimmed = email.trim();
+    if (!trimmed) { setAuthError('Please enter your email address.'); return; }
+    // Basic email format validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setAuthError('Please enter a valid email address.'); return;
+    }
     setAuthLoading(true); setAuthError('');
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+      email: trimmed,
       options: { shouldCreateUser: true }
     });
     setAuthLoading(false);
     if (error) { setAuthError(error.message); }
-    else       { setAuthStep('code'); }
+    else       { setAuthStep('code'); setOtpCode(''); }
   };
 
   const verifyOtp = async () => {
-    if (!otpCode.trim()) { setAuthError('Please enter the 6-digit code.'); return; }
+    if (!otpCode.trim()) { setAuthError('Please enter the 8-digit code.'); return; }
     setAuthLoading(true); setAuthError('');
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
@@ -1899,24 +1894,32 @@ export default function App() {
       type:  'email',
     });
     setAuthLoading(false);
-    if (error) { setAuthError('Invalid or expired code. Please try again.'); }
+    if (error) {
+      setAuthError('Invalid or expired code. Please try again.');
+      setOtpCode(''); // clear stale code so user types fresh
+    }
     // on success, onAuthStateChange fires → setUser → app loads
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // Reset ALL auth + app state cleanly
     setUser(null); setEntries([]); setAuditLog([]);
-    setUserName(''); setNameReady(false);
+    setUserName(''); setNameInput(''); setNameReady(false);
+    setAuthStep('email'); setOtpCode(''); setAuthError(''); setEmail('');
     localStorage.removeItem(SK_USER);
   };
 
   // ── Name save ──────────────────────────────────────────────────
+  const [nameSaving, setNameSaving] = useState(false);
   const saveUserName = async () => {
     const n = nameInput.trim();
-    if (!n || !user) return;
+    if (!n || !user || nameSaving) return;
+    setNameSaving(true);
     setUserName(n);
     setNameReady(true);
     await dbSaveName(user.id, n);
+    setNameSaving(false);
   };
 
   // ── Audit helper ───────────────────────────────────────────────
@@ -2111,6 +2114,12 @@ export default function App() {
               fontSize:14, color:C.dim, cursor:'pointer', fontFamily:'inherit' }}>
             ← Use a different email
           </button>
+          <button onClick={sendOtp} disabled={authLoading}
+            style={{ marginTop:8, background:'transparent', border:'none',
+              fontSize:14, color:C.rose, cursor:'pointer', fontFamily:'inherit',
+              textDecoration:'underline' }}>
+            Resend code
+          </button>
         </>)}
       </div>
     );
@@ -2144,12 +2153,13 @@ export default function App() {
             fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
             boxShadow:SH.card, marginBottom:16 }}
         />
-        <button onClick={saveUserName}
+        <button onClick={saveUserName} disabled={nameSaving}
           style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             border:'none', borderRadius:16, padding:'18px',
             fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
-            fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45` }}>
-          Enter Kizuna 🌸
+            fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
+            opacity: nameSaving ? 0.7 : 1 }}>
+          {nameSaving ? 'Saving…' : 'Enter Kizuna 🌸'}
         </button>
       </div>
     );
