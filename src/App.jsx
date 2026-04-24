@@ -190,36 +190,15 @@ const APP_BUILD_DATE = 'April 23, 2026';
 
 // Load all entries for signed-in user (own + shared from workspace)
 // Load entries — own entries + shared entries from workspace members.
-// RLS on the entries table handles filtering: own entries always visible,
-// workspace members' shared entries visible via the entries_read policy.
-// No explicit user_id filter needed — RLS does the scoping.
+// Load own entries — simple, reliable, no cross-table dependency
 async function dbLoadEntries(userId) {
-  // Load own entries (explicit filter — always works even without workspace)
-  const { data: own, error } = await supabase
-    .from('entries').select('data').eq('user_id', userId)
+  const { data, error } = await supabase
+    .from('entries')
+    .select('data')
+    .eq('user_id', userId)
     .order('updated_at', { ascending: true });
   if (error) throw error;
-  const ownEntries = (own || []).map(r => r.data);
-
-  // Load shared entries from workspace members (let RLS filter)
-  // Uses filter on data JSONB column with correct Supabase syntax
-  let sharedEntries = [];
-  try {
-    const { data: shared } = await supabase
-      .from('entries').select('data')
-      .neq('user_id', userId)
-      .filter('data->>visibility', 'eq', 'shared')
-      .order('updated_at', { ascending: true });
-    sharedEntries = (shared || []).map(r => r.data);
-  } catch { /* workspace not set up yet — silently ignore */ }
-
-  // Merge and deduplicate by id
-  const seen = new Set();
-  return [...ownEntries, ...sharedEntries].filter(e => {
-    if (!e?.id || seen.has(e.id)) return false;
-    seen.add(e.id);
-    return true;
-  });
+  return (data || []).map(r => r.data).filter(Boolean);
 }
 
 // Load audit log (last 200)
