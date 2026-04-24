@@ -1921,6 +1921,12 @@ const NAV = [
   { key:'settings', icon:'◈', label:'Settings'  },
 ];
 
+// ─── DEV BYPASS ──────────────────────────────────────────────────
+// Set to true to skip login during debugging.
+// Set back to false before going live.
+const DEV_BYPASS      = true;
+const DEV_BYPASS_NAME = 'Koksum'; // name shown in dev mode
+
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
   const [tab,          setTab]          = useState('home');
@@ -1951,6 +1957,19 @@ export default function App() {
 
   // ── Step 1: Listen for auth state changes ──────────────────────
   useEffect(() => {
+    // DEV BYPASS: skip auth entirely, go straight to app
+    if (DEV_BYPASS) {
+      setUser({ id: 'dev-bypass-user' });
+      setUserName(DEV_BYPASS_NAME);
+      setNameInput(DEV_BYPASS_NAME);
+      setNameReady(true);
+      setAuthReady(true);
+      setSyncStatus('synced');
+      setWorkspaceLoaded(true);
+      setWorkspace({ id: 'dev-ws', name: 'Dev', ownerId: 'dev-bypass-user', role: 'admin', members: [] });
+      return;
+    }
+
     if (!supabase) { setAuthReady(true); return; }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1969,10 +1988,11 @@ export default function App() {
   }, []);
 
   // ── Step 2: Load data — each piece independently so one failure never kills another ──
-  const loadingRef = useRef(false); // prevent concurrent loads
+  const loadingRef = useRef(false);
   useEffect(() => {
     if (!authReady || !user) return;
-    if (loadingRef.current) return; // already loading
+    if (DEV_BYPASS) return; // dev mode: no DB calls, use empty state
+    if (loadingRef.current) return;
     loadingRef.current = true;
 
     async function load() {
