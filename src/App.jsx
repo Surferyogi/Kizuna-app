@@ -1577,66 +1577,65 @@ function EForm({ form, set }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.depCity, form.arrCity, form.type]);
 
-  // ── Flight auto-fill — lookup via AeroDataBox when No. + Date filled ──
+  // ── Flight auto-fill ─────────────────────────────────────────
   const [lookupStatus, setLookupStatus] = useState('');
-  const lastLookupRef = useRef('');
+  const [lookupData,   setLookupData]   = useState(null);
+  const lastLookupKey  = useRef('');
 
-  // Reset trigger every time the form opens for a new flight
+  // Apply lookup data to form fields whenever fresh data arrives
   useEffect(() => {
-    if (form.type === 'flight') { lastLookupRef.current = ''; setLookupStatus(''); }
+    if (!lookupData) return;
+    if (lookupData.terminal    && !form.terminal) set('terminal', lookupData.terminal);
+    if (lookupData.gate        && !form.gate)     set('gate',     lookupData.gate);
+    if (lookupData.airlineName && !form.airline)  set('airline',  lookupData.airlineName);
+    if (lookupData.depIata     && !form.depCity)  set('depCity',  lookupData.depIata);
+    if (lookupData.arrIata     && !form.arrCity)  set('arrCity',  lookupData.arrIata);
+    if (lookupData.aircraft)                      set('notes',    lookupData.aircraft);
+    const t = lookupData.scheduledDep ?? lookupData.revisedDep;
+    if (t && !form.time) {
+      const hhmm = t.includes('T') ? t.split('T')[1]?.slice(0,5) : t.slice(0,5);
+      if (hhmm) set('time', hhmm);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lookupData]);
 
-  const doFlightLookup = () => {
-    if (!form.flightNum || form.flightNum.length < 3 || !form.date) return;
-    const clean = form.flightNum.replace(/\s+/g,'').toUpperCase();
-    lastLookupRef.current = ''; // force retry
+  // Fire when flight number + date are both filled
+  useEffect(() => {
+    if (form.type !== 'flight') return;
+    const clean = (form.flightNum||'').replace(/\s+/g,'').toUpperCase();
+    if (clean.length < 3 || !form.date) return;
 
-    // ── Step A: Fill airline name from static lookup instantly ──
+    // Airline from static table — instant, no network
     if (!form.airline) {
       const name = airlineFromCode(clean);
       if (name) set('airline', name);
     }
 
-    if (!supabase) { setLookupStatus('not_found'); return; }
-    setLookupStatus('loading');
-
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/flight-status`;
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json',
-        'Authorization':`Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ flightNumber: clean, date: form.date })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data?.error) { setLookupStatus('not_found'); return; }
-      // Fill only empty fields — never overwrite user input
-      if (data.depIata    && !form.depCity)  set('depCity',  data.depIata);
-      if (data.arrIata    && !form.arrCity)  set('arrCity',  data.arrIata);
-      if (data.airlineName && !form.airline) set('airline',  data.airlineName);
-      if (data.terminal   && !form.terminal) set('terminal', data.terminal);
-      if (data.gate       && !form.gate)     set('gate',     data.gate);
-      if (data.aircraft)                     set('notes',    data.aircraft);
-      // Try multiple time fields
-      const depTime = data.scheduledDep ?? data.revisedDep;
-      if (depTime && !form.time) {
-        const t = depTime.includes('T') ? depTime.split('T')[1]?.slice(0,5) : depTime.slice(0,5);
-        if (t) set('time', t);
-      }
-      setLookupStatus(data.label ? 'found' : 'not_found');
-    })
-    .catch(() => setLookupStatus('not_found'));
-  };
-
-  useEffect(() => {
-    if (form.type !== 'flight') return;
-    if (!form.flightNum || form.flightNum.length < 3 || !form.date) return;
-    const clean = form.flightNum.replace(/\s+/g,'').toUpperCase();
     const key = `${clean}_${form.date}`;
-    if (key === lastLookupRef.current) return;
-    lastLookupRef.current = key;
-    doFlightLookup();
+    if (key === lastLookupKey.current) return;
+    lastLookupKey.current = key;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !anonKey) { setLookupStatus('not_found'); return; }
+
+    setLookupStatus('loading');
+    fetch(`${supabaseUrl}/functions/v1/flight-status`, {
+      method:  'POST',
+      headers: { 'Content-Type':'application/json',
+                 'Authorization':`Bearer ${anonKey}` },
+      body:    JSON.stringify({ flightNumber: clean, date: form.date }),
+    })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(data => {
+      if (data?.error) throw new Error(data.error);
+      setLookupData(data);
+      setLookupStatus('found');
+    })
+    .catch(err => {
+      console.warn('Flight lookup:', err.message);
+      setLookupStatus('not_found');
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.flightNum, form.date, form.type]);
 
@@ -1687,26 +1686,18 @@ function EForm({ form, set }) {
         {/* Lookup status indicator */}
         {lookupStatus === 'loading' && (
           <p style={{ margin:'-6px 0 12px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
-            ✈ Looking up flight details…
+            ✈ Looking up SQ flight details…
           </p>
         )}
         {lookupStatus === 'found' && (
           <p style={{ margin:'-6px 0 12px', fontSize:13, color:'#2A6E3A' }}>
-            ✓ Flight found — terminal and aircraft filled in
+            ✓ Found — airline &amp; terminal filled. Enter FROM / TO manually.
           </p>
         )}
         {lookupStatus === 'not_found' && (
-          <div style={{ display:'flex', alignItems:'center', gap:10, margin:'-6px 0 12px' }}>
-            <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic' }}>
-              Not found — fill manually or
-            </p>
-            <button onClick={doFlightLookup}
-              style={{ background:'transparent', border:`1px solid ${C.border}`,
-                borderRadius:8, padding:'3px 10px', fontSize:13, color:C.rose,
-                cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
-              Retry ↻
-            </button>
-          </div>
+          <p style={{ margin:'-6px 0 12px', fontSize:13, color:C.muted, fontStyle:'italic' }}>
+            Not found via AeroDataBox — please fill in manually
+          </p>
         )}
         <Row2>
           <FL label="From"><FI field="depCity" placeholder="SIN" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
