@@ -784,7 +784,8 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
 // ─── DAY VIEW ────────────────────────────────────────────────────
 function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
   const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
-  const hours  = Array.from({ length:18 }, (_,i) => i+6);
+  const allDayEs = useMemo(() => entries.filter(e => e.date===selDate && !e.time), [entries, selDate]);
+  const hours  = Array.from({ length:24 }, (_,i) => i); // 00:00 → 23:00
   const dt     = new Date(selDate+'T00:00:00');
 
   const NavBtn = ({ children, onClick }) => (
@@ -808,17 +809,31 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
         </div>
         <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+1); setSelDate(fd(d)); }}>›</NavBtn>
       </div>
-      <div style={{ flex:1, overflowY:'auto', padding:'6px 18px 90px', boxSizing:'border-box' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px', boxSizing:'border-box' }}>
+        {/* All-day entries (no time) shown at top */}
+        {allDayEs.length > 0 && (
+          <div style={{ background:C.card, borderRadius:14, padding:'0 12px',
+            border:`1px solid ${C.border}`, margin:'8px 0 4px',
+            boxShadow:SH.subtle }}>
+            <p style={{ fontSize:12, color:C.muted, margin:'8px 0 2px',
+              textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>All day</p>
+            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+          </div>
+        )}
+        {/* Hourly slots */}
         {hours.map(h => {
           const hEs = dayEs.filter(e => parseInt(e.time.split(':')[0])===h);
           return (
-            <div key={h} style={{ display:'flex', gap:12, minHeight:52 }}>
-              <div style={{ width:50, paddingTop:10, flexShrink:0 }}>
-                <span style={{ fontSize:14, color:C.muted }}>{ft(h)}</span>
+            <div key={h} style={{ display:'flex', gap:12, minHeight:48 }}>
+              <div style={{ width:48, paddingTop:10, flexShrink:0, textAlign:'right' }}>
+                <span style={{ fontSize:13, color: h===0||h===12 ? C.text : C.muted,
+                  fontWeight: h===0||h===12 ? 600 : 400 }}>
+                  {h===0?'12 AM':h<12?`${h} AM`:h===12?'12 PM':`${h-12} PM`}
+                </span>
               </div>
-              <div style={{ flex:1, borderTop:`1px solid ${C.border}`, paddingTop:6, paddingBottom:6 }}>
+              <div style={{ flex:1, borderTop:`1px solid ${C.border}`, paddingTop:4, paddingBottom:4 }}>
                 {hEs.length > 0 && (
-                  <div style={{ background:C.card, borderRadius:16, padding:'0 12px',
+                  <div style={{ background:C.card, borderRadius:14, padding:'0 12px',
                     boxShadow:SH.card, border:`1px solid ${C.border}` }}>
                     {hEs.map(e => (
                       <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
@@ -835,15 +850,28 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
 }
 
 // ─── WEEK VIEW ───────────────────────────────────────────────────
-function WeekView({ entries, selDate, setSelDate }) {
+function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
   const dt        = new Date(selDate+'T00:00:00');
   const dow       = dt.getDay();
   const weekStart = new Date(dt);
   weekStart.setDate(dt.getDate() - (dow===0?6:dow-1));
   const days = Array.from({ length:7 }, (_,i) => ad(weekStart,i));
 
+  // Entries for each day in week — used for dots
+  const weekEntries = useMemo(() =>
+    Object.fromEntries(days.map(d => {
+      const ds = fd(d);
+      return [ds, entries.filter(e=>e.date===ds).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'))];
+    }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  , [entries, fd(weekStart)]);
+
+  // Selected day's entries
+  const selDayEs = weekEntries[selDate] || [];
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      {/* Week navigation header */}
       <div style={{ display:'flex', alignItems:'center', padding:'8px 18px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-7); setSelDate(fd(d)); }}
@@ -856,53 +884,58 @@ function WeekView({ entries, selDate, setSelDate }) {
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
-      {/* Day header row */}
+
+      {/* 7-day picker row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
-        padding:'0 6px', flexShrink:0, borderBottom:`1px solid ${C.border}`,
+        padding:'4px 6px', flexShrink:0, borderBottom:`1px solid ${C.border}`,
         background:C.card }}>
         {days.map(d => {
           const ds=fd(d); const isT=ds===fd(new Date()); const isSel=ds===selDate;
+          const dots = [...new Set((weekEntries[ds]||[]).map(e=>TC[e.type]))].slice(0,3);
           return (
             <button key={ds} onClick={() => setSelDate(ds)}
               style={{ background:'transparent', border:'none', cursor:'pointer',
-                padding:'8px 2px', textAlign:'center' }}>
-              <div style={{ fontSize:12, color:isT?C.rose:C.dim,
-                marginBottom:3, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                padding:'6px 2px', textAlign:'center' }}>
+              <div style={{ fontSize:11, color:isT?C.rose:C.muted, marginBottom:2,
+                textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 {DAY[d.getDay()]}
               </div>
-              <div style={{ width:30, height:30, borderRadius:15, margin:'0 auto',
+              <div style={{ width:32, height:32, borderRadius:16, margin:'0 auto',
                 background: isSel?C.rose : isT?C.rose+'22':'transparent',
+                border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
                 boxShadow: isSel?`0 2px 10px ${C.rose}40`:'none',
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ fontSize:16, fontWeight:isSel?700:400,
+                <span style={{ fontSize:15, fontWeight:isSel?700:400,
                   color:isSel?'#fff':isT?C.rose:C.text }}>{d.getDate()}</span>
+              </div>
+              {/* Entry count dot or dots */}
+              <div style={{ display:'flex', justifyContent:'center', gap:2, marginTop:3, height:5 }}>
+                {dots.map((col,j) => (
+                  <div key={j} style={{ width:5, height:5, borderRadius:3, background:col }} />
+                ))}
               </div>
             </button>
           );
         })}
       </div>
-      {/* Entry grid */}
-      <div style={{ flex:1, overflowY:'auto', padding:'8px 6px 80px', boxSizing:'border-box' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:3, alignItems:'start' }}>
-          {days.map(d => {
-            const ds  = fd(d);
-            const dEs = entries.filter(e=>e.date===ds)
-                               .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
-            return (
-              <div key={ds} style={{ minHeight:60 }}>
-                {dEs.map(e => (
-                  <div key={e.id} style={{ background:TC[e.type]+'25',
-                    borderLeft:`2px solid ${TC[e.type]}`,
-                    borderRadius:'0 6px 6px 0', padding:'4px 5px', marginBottom:3 }}>
-                    <p style={{ margin:0, fontSize:13, fontWeight:600, color:C.text,
-                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.title}</p>
-                    {e.time && <p style={{ margin:0, fontSize:12, color:C.dim }}>{pt(e.time)}</p>}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+
+      {/* Selected day's entries */}
+      <div style={{ flex:1, overflowY:'auto', padding:'8px 18px 90px', boxSizing:'border-box' }}>
+        {selDayEs.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'40px 0' }}>
+            <p style={{ fontSize:28, opacity:0.25, margin:'0 0 8px' }}>◎</p>
+            <p style={{ fontSize:16, color:C.muted, fontStyle:'italic', margin:0 }}>
+              Nothing on {DAY[new Date(selDate+'T00:00:00').getDay()]}, {MFULL[new Date(selDate+'T00:00:00').getMonth()]} {new Date(selDate+'T00:00:00').getDate()}
+            </p>
+          </div>
+        ) : (
+          <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+            boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+            {selDayEs.map(e => (
+              <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1016,7 +1049,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
       <div style={{ flex:1, overflow:'hidden' }}>
         {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
         {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
-        {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} />}
+        {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
         {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
       </div>
     </div>
@@ -1275,9 +1308,10 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 }
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, setWorkspace, userId }) {
-  // Default to true when workspace hasn't loaded yet — every user is admin of their own account
-  const isAdmin = workspace === null ? true : (workspace?.role === 'admin' || workspace?.ownerId === userId);
+function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
+  // Only show admin features once workspace is loaded AND role is confirmed admin
+  // Never default to true — wait for confirmed data
+  const isAdmin = workspaceLoaded && (workspace?.role === 'admin' || workspace?.ownerId === userId);
   const NOTIF_KEY = 'kizuna_notifs_v1';
   const DND_KEY   = 'kizuna_dnd_v1';
 
@@ -1364,8 +1398,8 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
       {/* Workspace */}
       <SS title="Workspace">
-        <SR label={workspace?.name || 'Workspace'}
-          sub={`${members.length} member${members.length!==1?'s':''} · You are ${isAdmin?'Admin':'Member'}`}
+        <SR label={`${members.length} member${members.length!==1?'s':''}`}
+          sub={`You are ${isAdmin?'Admin':'Member'}`}
           right={<Badge label={isAdmin?'Admin':'Member'} color={isAdmin?C.rose:C.dim} />} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
           <p style={{ fontSize:13, color:C.muted, margin:'10px 0 6px',
@@ -1895,7 +1929,8 @@ export default function App() {
   const [showAdd,      setShowAdd]      = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [syncStatus,   setSyncStatus]   = useState('loading');
-  const [workspace,    setWorkspace]    = useState(null); // {id, name, ownerId, role, members}
+  const [workspace,       setWorkspace]       = useState(null); // {id, name, ownerId, role, members}
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
 
   // ── Auth state ─────────────────────────────────────────────────
   const [user,       setUser]       = useState(null);   // Supabase user object
@@ -1980,6 +2015,7 @@ export default function App() {
         const ws = await dbLoadWorkspace(user.id);
         if (ws) setWorkspace(ws);
       } catch { /* silently ignore */ }
+      setWorkspaceLoaded(true); // mark as attempted regardless of success
 
       loadingRef.current = false;
     }
@@ -2481,7 +2517,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
-        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} setWorkspace={setWorkspace} userId={user?.id} />}
+        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
 
         {/* Create modal */}
         {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
