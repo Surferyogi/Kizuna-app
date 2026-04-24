@@ -373,6 +373,14 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
 
   // Shared entries from other users are read-only — no edit/delete
   const isOwn = !e.userId || e.userId === currentUserId;
+
+  // Past-due: entry has a date+time in the past and isn't marked done
+  const isPastDue = (() => {
+    if (e.done) return false;
+    if (!e.date) return false;
+    const dt = e.time ? new Date(`${e.date}T${e.time}`) : new Date(`${e.date}T23:59`);
+    return dt < new Date();
+  })();
   const openMenu  = ev => { ev.stopPropagation(); setOpen(true);  setConfirmDel(false); };
   const closeMenu = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); };
   const handleEdit   = ev => { ev.stopPropagation(); setOpen(false); onEdit   && onEdit(e); };
@@ -400,24 +408,26 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
       <div style={{ flex:1, minWidth:0 }}>
         {/* ── Title row — always visible ── */}
         <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
-          {e.type === 'task' && (
+          {/* Tick box — tasks use it for done state; other types use it for past-due clearing */}
+          {(e.type === 'task' || (isPastDue && isOwn)) && (
             <button onClick={() => isOwn && onToggle && onToggle(e.id)}
               style={{ width:26, height:26, borderRadius:7,
-                border:`2px solid ${e.done ? C.T : C.border}`,
-                background: e.done ? C.T+'22' : 'transparent',
+                border:`2px solid ${e.done ? C.T : isPastDue ? '#C46A14' : C.border}`,
+                background: e.done ? C.T+'22' : isPastDue ? '#C46A1408' : 'transparent',
                 cursor: isOwn ? 'pointer' : 'default',
                 flexShrink:0, marginTop:1,
                 display:'flex', alignItems:'center', justifyContent:'center',
-                color:C.T, fontSize:15, padding:0,
+                color: e.done ? C.T : '#C46A14', fontSize:15, padding:0,
                 transition:'background 0.15s, border-color 0.15s',
                 opacity: isOwn ? 1 : 0.5 }}>
-              {e.done ? '✓' : ''}
+              {e.done ? '✓' : isPastDue ? '!' : ''}
             </button>
           )}
           <span style={{ fontSize:17, fontWeight:600,
-            color: e.done ? C.muted : C.text,
-            textDecoration: e.done ? 'line-through' : 'none',
-            lineHeight:'1.4', flex:1, minWidth:0 }}>
+            color: e.done ? C.muted : isPastDue ? C.dim : C.text,
+            textDecoration: (e.done || isPastDue) ? 'line-through' : 'none',
+            lineHeight:'1.4', flex:1, minWidth:0,
+            opacity: isPastDue && !e.done ? 0.6 : 1 }}>
             {e.title}
           </span>
           {e.priority && <Badge label={e.priority} color={PC[e.priority]} />}
@@ -503,8 +513,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
 }
 
 // ─── FLIGHT HERO CARD ────────────────────────────────────────────
-// Separate component so useLiveFlightStatus hook runs cleanly per flight
-function FlightHeroCard({ flight, todayStr }) {
+function FlightHeroCard({ flight, todayStr, onEdit, onDelete }) {
   const { status, lastUpdated, loading } = useLiveFlightStatus(flight);
   const depName = airportCity(flight.depCity);
   const arrName = airportCity(flight.arrCity);
@@ -607,13 +616,37 @@ function FlightHeroCard({ flight, todayStr }) {
         ))}
       </div>
 
-      {/* Last updated timestamp — shows data freshness */}
+      {/* Last updated timestamp */}
       {lastUpdated && status?.source !== 'local' && (
         <p style={{ margin:'10px 0 0', fontSize:11, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
           Live data · updated {Math.floor((Date.now()-lastUpdated)/60000) < 1
             ? 'just now'
             : `${Math.floor((Date.now()-lastUpdated)/60000)}m ago`}
         </p>
+      )}
+
+      {/* Edit / Delete actions */}
+      {(onEdit || onDelete) && (
+        <div style={{ display:'flex', gap:8, marginTop:12, justifyContent:'flex-end' }}>
+          {onEdit && (
+            <button onClick={() => onEdit(flight)}
+              style={{ background:'#ffffff80', border:`1px solid ${C.F}30`,
+                borderRadius:10, padding:'6px 16px', fontSize:14, fontWeight:600,
+                color:DTC.flight, cursor:'pointer', fontFamily:'inherit',
+                backdropFilter:'blur(4px)' }}>
+              Edit
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={() => onDelete(flight.id)}
+              style={{ background:'#ffffff80', border:`1px solid #C46A1440`,
+                borderRadius:10, padding:'6px 16px', fontSize:14, fontWeight:600,
+                color:'#C46A14', cursor:'pointer', fontFamily:'inherit',
+                backdropFilter:'blur(4px)' }}>
+              Delete
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -676,7 +709,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
       {/* Next Flight */}
       {nextFlight && (<>
         <Sec label="Next Flight" />
-        <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
+        <FlightHeroCard flight={nextFlight} todayStr={todayStr} onEdit={onEdit} onDelete={onDelete} />
       </>)}
 
       {/* Priority Tasks */}
@@ -2210,7 +2243,7 @@ export default function App() {
         </h1>
         <p style={{ margin:'0 0 36px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
-          the thread that bonds hearts
+          an invisible thread that connects hearts
         </p>
 
         {authStep === 'email' ? (<>
@@ -2308,7 +2341,7 @@ export default function App() {
         </h1>
         <p style={{ margin:'0 0 32px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
-          the thread that bonds hearts
+          an invisible thread that connects hearts
         </p>
         <p style={{ margin:'0 0 12px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
           What's your name?
@@ -2387,11 +2420,11 @@ export default function App() {
             {/* Meaning — two lines, poetic, italic */}
             <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              Love, Loyalty &amp; Trust —
+              Bonding with trust, loyalty & love —
             </p>
             <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              the thread that bonds hearts across time and distance
+              an invisible thread that connects hearts across time & distance
             </p>
           </div>
           {/* Right — Sakura icon */}
@@ -2401,30 +2434,50 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Nav tabs — below the Kizuna header ──────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', height:52,
+      {/* ── Nav tabs + FAB integrated ───────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', height:56,
         borderBottom:`1px solid ${C.border}`, background:C.card,
         flexShrink:0, boxShadow:SH.subtle }}>
-        {NAV.map(n => (
+        {/* Home + Calendar tabs */}
+        {NAV.slice(0,2).map(n => (
           <button key={n.key} onClick={() => setTab(n.key)}
             style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
               display:'flex', flexDirection:'column', alignItems:'center', gap:3,
               padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
               transition:'border-color 0.15s' }}>
-            <span style={{ fontSize:20,
-              color:tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>{n.icon}</span>
+            <span style={{ fontSize:20, color:tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
             <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
-              color:tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>
-              {n.label}
-            </span>
+              color:tab===n.key ? C.rose : C.muted }}>{n.label}</span>
           </button>
         ))}
-        {/* Sync status pill — right side */}
+
+        {/* Centre FAB — thumb-friendly, always visible */}
+        <button onClick={() => setShowAdd(true)}
+          style={{ width:52, height:52, borderRadius:16, flexShrink:0,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            border:'none', boxShadow:`0 4px 16px ${C.rose}50`,
+            cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', margin:'0 6px', zIndex:10 }}>
+          <span style={{ fontSize:26, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
+        </button>
+
+        {/* Search + Settings tabs */}
+        {NAV.slice(2).map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
+              transition:'border-color 0.15s' }}>
+            <span style={{ fontSize:20, color:tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
+            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
+              color:tab===n.key ? C.rose : C.muted }}>{n.label}</span>
+          </button>
+        ))}
+
+        {/* Sync status pill */}
         <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
           textTransform:'uppercase', color:syncColor, background:syncColor+'18',
-          borderRadius:10, padding:'2px 9px', marginRight:10, flexShrink:0 }}>
+          borderRadius:10, padding:'2px 9px', marginRight:8, flexShrink:0 }}>
           {syncLabel}
         </span>
       </div>
@@ -2436,20 +2489,9 @@ export default function App() {
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} setWorkspace={setWorkspace} userId={user?.id} />}
 
-        {/* FAB */}
-        <button onClick={() => setShowAdd(true)}
-          style={{ position:'absolute', bottom:20, right:20, width:58, height:58,
-            borderRadius:29,
-            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            border:'none', boxShadow:`0 6px 24px ${C.rose}50`,
-            cursor:'pointer', display:'flex', alignItems:'center',
-            justifyContent:'center', zIndex:10 }}>
-          <span style={{ fontSize:28, color:'#fff', fontWeight:300, lineHeight:1, marginTop:-1 }}>+</span>
-        </button>
-
         {/* Create modal */}
         {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
-        {/* Edit modal — pre-fills form, shows "Edit [type]" + "Save Changes" */}
+        {/* Edit modal */}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
     </div>
