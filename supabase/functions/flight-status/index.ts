@@ -64,25 +64,24 @@ function parseAeroResponse(data: any, flightNumber: string, date: string) {
     date:            date,
     // ── Auto-fill fields for the flight entry form ──────────────
     airlineName:     f.airline?.name ?? f.airline?.iata ?? null,
-    // Try multiple response paths — AeroDataBox structure varies by API tier
-    depIata:         dep.airport?.iata ?? dep.iata ?? dep.icao ?? null,
-    arrIata:         arr.airport?.iata ?? arr.iata ?? arr.icao ?? null,
-    // Scheduled times (what user entered)
-    scheduledDep:    dep.scheduledTimeLocal ?? null,
-    scheduledArr:    arr.scheduledTimeLocal ?? null,
-    // Actual/revised times (live from AeroDataBox)
-    revisedDep:      dep.revisedTimeLocal   ?? dep.scheduledTimeLocal ?? null,
-    revisedArr:      arr.revisedTimeLocal   ?? arr.scheduledTimeLocal ?? null,
+    // AeroDataBox nests airport under departure.airport or departure directly
+    depIata:         dep.airport?.iata ?? dep.airport?.icao ?? dep.iata ?? dep.icao ?? f.origin?.iata ?? null,
+    arrIata:         arr.airport?.iata ?? arr.airport?.icao ?? arr.iata ?? arr.icao ?? f.destination?.iata ?? null,
+    // Times
+    scheduledDep:    dep.scheduledTimeLocal ?? dep.scheduledTimeUtc ?? null,
+    scheduledArr:    arr.scheduledTimeLocal ?? arr.scheduledTimeUtc ?? null,
+    revisedDep:      dep.revisedTimeLocal   ?? dep.actualTimeLocal   ?? dep.scheduledTimeLocal ?? null,
+    revisedArr:      arr.revisedTimeLocal   ?? arr.actualTimeLocal   ?? arr.scheduledTimeLocal ?? null,
     // Delay
     delayMins:       delayMins,
     delayLabel:      delayMins > 0 ? `+${delayMins} min` : delayMins < 0 ? `${delayMins} min` : 'On time',
     onTime:          Math.abs(delayMins) < 5,
-    // Gate/terminal (may update live)
+    // Gate/terminal
     terminal:        dep.terminal   ?? null,
     gate:            dep.gate       ?? null,
     arrTerminal:     arr.terminal   ?? null,
     // Aircraft
-    aircraft:        f.aircraft?.model ?? null,
+    aircraft:        f.aircraft?.model ?? f.aircraft?.type ?? null,
     // Meta
     fetchedAt:       new Date().toISOString(),
     source:          'AeroDataBox',
