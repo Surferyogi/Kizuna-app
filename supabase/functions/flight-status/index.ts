@@ -63,9 +63,10 @@ function parseAeroResponse(data: any, flightNumber: string, date: string) {
     flightNumber:    f.number ?? flightNumber,
     date:            date,
     // ── Auto-fill fields for the flight entry form ──────────────
-    airlineName:     f.airline?.name ?? null,
-    depIata:         dep.airport?.iata ?? null,
-    arrIata:         arr.airport?.iata ?? null,
+    airlineName:     f.airline?.name ?? f.airline?.iata ?? null,
+    // Try multiple response paths — AeroDataBox structure varies by API tier
+    depIata:         dep.airport?.iata ?? dep.iata ?? dep.icao ?? null,
+    arrIata:         arr.airport?.iata ?? arr.iata ?? arr.icao ?? null,
     // Scheduled times (what user entered)
     scheduledDep:    dep.scheduledTimeLocal ?? null,
     scheduledArr:    arr.scheduledTimeLocal ?? null,
