@@ -1364,7 +1364,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
       {/* Workspace */}
       <SS title="Workspace">
-        <SR label="My Team"
+        <SR label={workspace?.name || 'Workspace'}
           sub={`${members.length} member${members.length!==1?'s':''} · You are ${isAdmin?'Admin':'Member'}`}
           right={<Badge label={isAdmin?'Admin':'Member'} color={isAdmin?C.rose:C.dim} />} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
@@ -1595,7 +1595,7 @@ function EForm({ form, set }) {
         <Row2>
           <FL label="Flight No.">
             <FI field="flightNum" placeholder="SQ321" autoFocus
-              onChange={e=>set('flightNum',e.target.value.toUpperCase())} />
+              onChange={e=>set('flightNum',e.target.value.replace(/\s+/g,'').toUpperCase())} />
           </FL>
           <FL label="Date"><FI field="date" type="date" /></FL>
         </Row2>
@@ -1621,12 +1621,12 @@ function EForm({ form, set }) {
         </Row2>
         <FL label="Airline"><FI field="airline" placeholder="Singapore Airlines" /></FL>
         <Row2>
-          <FL label="Seat"><FI field="seat" placeholder="1A" /></FL>
+          <FL label="Seat"><FI field="seat" placeholder="1A" inputMode="text" /></FL>
           <FL label="Dep. Time"><FI field="time" type="time" /></FL>
         </Row2>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
-          <FL label="Terminal"><FI field="terminal" placeholder="T3" /></FL>
-          <FL label="Gate"><FI field="gate" placeholder="G22" /></FL>
+          <FL label="Terminal"><FI field="terminal" placeholder="T3" inputMode="numeric" /></FL>
+          <FL label="Gate"><FI field="gate" placeholder="G22" inputMode="numeric" /></FL>
         </div>
         <FL label="Priority">
           <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
@@ -2434,52 +2434,46 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Nav tabs + FAB integrated ───────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', height:56,
-        borderBottom:`1px solid ${C.border}`, background:C.card,
-        flexShrink:0, boxShadow:SH.subtle }}>
-        {/* Home + Calendar tabs */}
-        {NAV.slice(0,2).map(n => (
-          <button key={n.key} onClick={() => setTab(n.key)}
-            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-              padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
-              transition:'border-color 0.15s' }}>
-            <span style={{ fontSize:20, color:tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
-            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
-              color:tab===n.key ? C.rose : C.muted }}>{n.label}</span>
-          </button>
-        ))}
+      {/* ── Bottom nav bar ─────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', height:64,
+        borderTop:`1px solid ${C.border}`, background:C.card,
+        flexShrink:0, paddingBottom:8,
+        boxShadow:`0 -2px 12px rgba(44,38,32,0.06)` }}>
 
-        {/* Centre FAB — thumb-friendly, always visible */}
-        <button onClick={() => setShowAdd(true)}
-          style={{ width:52, height:52, borderRadius:16, flexShrink:0,
-            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            border:'none', boxShadow:`0 4px 16px ${C.rose}50`,
-            cursor:'pointer', display:'flex', alignItems:'center',
-            justifyContent:'center', margin:'0 6px', zIndex:10 }}>
-          <span style={{ fontSize:26, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
-        </button>
-
-        {/* Search + Settings tabs */}
-        {NAV.slice(2).map(n => (
-          <button key={n.key} onClick={() => setTab(n.key)}
-            style={{ flex:1, background:'transparent', border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-              padding:'6px 0', borderBottom: tab===n.key ? `2.5px solid ${C.rose}` : '2.5px solid transparent',
-              transition:'border-color 0.15s' }}>
-            <span style={{ fontSize:20, color:tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
-            <span style={{ fontSize:12, fontWeight:tab===n.key?700:400,
-              color:tab===n.key ? C.rose : C.muted }}>{n.label}</span>
-          </button>
-        ))}
-
-        {/* Sync status pill */}
+        {/* Sync pill — left side */}
         <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
           textTransform:'uppercase', color:syncColor, background:syncColor+'18',
-          borderRadius:10, padding:'2px 9px', marginRight:8, flexShrink:0 }}>
+          borderRadius:10, padding:'2px 8px', marginLeft:10, flexShrink:0 }}>
           {syncLabel}
         </span>
+
+        {/* Nav tabs */}
+        {NAV.map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background: tab===n.key ? C.rose+'15' : 'transparent',
+              border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+              padding:'6px 4px', borderRadius:14, margin:'0 3px',
+              transition:'background 0.15s' }}>
+            <span style={{ fontSize:22,
+              color: tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>{n.icon}</span>
+            <span style={{ fontSize:11, fontWeight: tab===n.key ? 800 : 400,
+              color: tab===n.key ? C.rose : C.muted,
+              letterSpacing: tab===n.key ? '0.03em' : 0,
+              transition:'color 0.15s' }}>{n.label}</span>
+          </button>
+        ))}
+
+        {/* FAB — right side, thumb-friendly corner */}
+        <button onClick={() => setShowAdd(true)}
+          style={{ width:48, height:48, borderRadius:14, flexShrink:0,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            border:'none', boxShadow:`0 4px 14px ${C.rose}50`,
+            cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', marginRight:10 }}>
+          <span style={{ fontSize:26, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
+        </button>
       </div>
 
       {/* Main content */}
@@ -2493,6 +2487,47 @@ export default function App() {
         {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
         {/* Edit modal */}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
+      </div>
+
+      {/* ── Bottom nav bar ─────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', height:64,
+        borderTop:`1px solid ${C.border}`, background:C.card,
+        flexShrink:0, paddingBottom:8,
+        boxShadow:`0 -2px 12px rgba(44,38,32,0.06)` }}>
+
+        {/* Sync pill — left side */}
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
+          textTransform:'uppercase', color:syncColor, background:syncColor+'18',
+          borderRadius:10, padding:'2px 8px', marginLeft:10, flexShrink:0 }}>
+          {syncLabel}
+        </span>
+
+        {/* Nav tabs */}
+        {NAV.map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background: tab===n.key ? C.rose+'15' : 'transparent',
+              border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+              padding:'6px 4px', borderRadius:14, margin:'0 3px',
+              transition:'background 0.15s' }}>
+            <span style={{ fontSize:22,
+              color: tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>{n.icon}</span>
+            <span style={{ fontSize:11, fontWeight: tab===n.key ? 800 : 400,
+              color: tab===n.key ? C.rose : C.muted,
+              transition:'color 0.15s' }}>{n.label}</span>
+          </button>
+        ))}
+
+        {/* FAB — right corner, always thumb-reachable */}
+        <button onClick={() => setShowAdd(true)}
+          style={{ width:48, height:48, borderRadius:14, flexShrink:0,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            border:'none', boxShadow:`0 4px 14px ${C.rose}50`,
+            cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', marginRight:10 }}>
+          <span style={{ fontSize:26, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
+        </button>
       </div>
     </div>
   );
