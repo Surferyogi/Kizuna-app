@@ -1552,38 +1552,46 @@ function EForm({ form, set }) {
   }, [form.depCity, form.arrCity, form.type]);
 
   // ── Flight auto-fill — lookup via AeroDataBox when No. + Date filled ──
-  const [lookupStatus, setLookupStatus] = useState(''); // '' | 'loading' | 'found' | 'not_found'
+  const [lookupStatus, setLookupStatus] = useState('');
   const lastLookupRef = useRef('');
   useEffect(() => {
     if (form.type !== 'flight') return;
     if (!form.flightNum || form.flightNum.length < 3 || !form.date) return;
-    const key = `${form.flightNum}_${form.date}`;
-    if (key === lastLookupRef.current) return; // already looked up this combo
+    const clean = form.flightNum.replace(/\s+/g,'').toUpperCase();
+    const key = `${clean}_${form.date}`;
+    if (key === lastLookupRef.current) return;
     lastLookupRef.current = key;
 
-    if (!supabaseConfigured) return;
+    if (!supabase) return; // not configured
     let cancelled = false;
     setLookupStatus('loading');
 
-    supabase.functions.invoke('flight-status', {
-      body: { flightNumber: form.flightNum, date: form.date }
-    }).then(({ data, error }) => {
-      if (cancelled || error || data?.error) {
-        setLookupStatus('not_found'); return;
-      }
-      // Auto-populate only empty fields — never overwrite what user typed
-      if (data.depIata   && !form.depCity)  set('depCity',  data.depIata);
-      if (data.arrIata   && !form.arrCity)  set('arrCity',  data.arrIata);
-      if (data.airlineName && !form.airline) set('airline', data.airlineName);
-      if (data.terminal  && !form.terminal) set('terminal', data.terminal);
-      if (data.gate      && !form.gate)     set('gate',     data.gate);
-      // Extract HH:mm from scheduledDep ISO string
+    // Call Edge Function via fetch (works in both normal and DEV_BYPASS mode)
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/flight-status`;
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ flightNumber: clean, date: form.date })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (cancelled) return;
+      if (data?.error) { setLookupStatus('not_found'); return; }
+      if (data.depIata    && !form.depCity)  set('depCity',  data.depIata);
+      if (data.arrIata    && !form.arrCity)  set('arrCity',  data.arrIata);
+      if (data.airlineName && !form.airline) set('airline',  data.airlineName);
+      if (data.terminal   && !form.terminal) set('terminal', data.terminal);
+      if (data.gate       && !form.gate)     set('gate',     data.gate);
+      if (data.aircraft   && !form.notes)    set('notes',    data.aircraft);
       if (data.scheduledDep && !form.time) {
-        const t = data.scheduledDep.split('T')[1]?.slice(0, 5);
+        const t = data.scheduledDep.split('T')[1]?.slice(0,5);
         if (t) set('time', t);
       }
-      setLookupStatus(data.depIata ? 'found' : 'not_found');
-    }).catch(() => { if (!cancelled) setLookupStatus('not_found'); });
+      // Flight is found if we got any status back — IATA codes may be absent in some tiers
+      setLookupStatus(data.label ? 'found' : 'not_found');
+    })
+    .catch(() => { if (!cancelled) setLookupStatus('not_found'); });
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
