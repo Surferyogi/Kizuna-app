@@ -704,7 +704,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
 }
 
 // ─── AGENDA VIEW ─────────────────────────────────────────────────
-function AgendaView({ entries, onToggle, onEdit, onDelete }) {
+function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
   const grouped = useMemo(() => {
     const sorted = [...entries].sort((a,b) =>
       a.date.localeCompare(b.date) || (a.time||'99:99').localeCompare(b.time||'99:99'));
@@ -749,7 +749,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete }) {
 }
 
 // ─── DAY VIEW ────────────────────────────────────────────────────
-function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete }) {
+function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
   const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
   const hours  = Array.from({ length:18 }, (_,i) => i+6);
   const dt     = new Date(selDate+'T00:00:00');
@@ -876,7 +876,7 @@ function WeekView({ entries, selDate, setSelDate }) {
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete }) {
+function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
   const initDt      = new Date(selDate+'T00:00:00');
   const [vm, setVm] = useState({ y:initDt.getFullYear(), m:initDt.getMonth() });
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
@@ -1243,7 +1243,8 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, setWorkspace, userId }) {
-  const isAdmin = workspace?.role === 'admin' || workspace?.ownerId === userId;
+  // Default to true when workspace hasn't loaded yet — every user is admin of their own account
+  const isAdmin = workspace === null ? true : (workspace?.role === 'admin' || workspace?.ownerId === userId);
   const NOTIF_KEY = 'kizuna_notifs_v1';
   const DND_KEY   = 'kizuna_dnd_v1';
 
