@@ -1770,14 +1770,14 @@ function EForm({ form, set }) {
           border:'1px solid #2A6E3A20', marginBottom:14 }}>
           <p style={{ margin:'0 0 10px', fontSize:12, color:'#2A6E3A', fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.08em' }}>✓ Auto-filled</p>
-          <FL label="Airline"><FI field="airline" placeholder="Singapore Airlines" /></FL>
+          <FL label="Airline"><FI field="airline" placeholder="" /></FL>
           <Row2>
-            <FL label="From"><FI field="depCity" placeholder="HND" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
-            <FL label="To"><FI field="arrCity" placeholder="SIN" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
+            <FL label="From"><FI field="depCity" placeholder="" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
+            <FL label="To"><FI field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
           </Row2>
           <Row2>
-            <FL label="Terminal"><FI field="terminal" placeholder="3" inputMode="numeric" /></FL>
-            <FL label="Gate"><FI field="gate" placeholder="G22" inputMode="numeric" /></FL>
+            <FL label="Terminal"><FI field="terminal" placeholder="" inputMode="numeric" /></FL>
+            <FL label="Gate"><FI field="gate" placeholder="" inputMode="numeric" /></FL>
           </Row2>
         </div>
 
@@ -2053,8 +2053,8 @@ const NAV = [
 // ─── DEV BYPASS ──────────────────────────────────────────────────
 // Set to true to skip login during debugging.
 // Set back to false before going live.
-const DEV_BYPASS      = true;
-const DEV_BYPASS_NAME = 'Koksum'; // name shown in dev mode
+const DEV_BYPASS      = false;
+const DEV_BYPASS_NAME = 'Koksum';
 
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
@@ -2581,43 +2581,6 @@ export default function App() {
         button { font-family: 'Nunito', system-ui, sans-serif; }
       `}</style>
 
-      {/* ── Kizuna brand header ─────────────────────────────────── */}
-      <div style={{ flexShrink:0, background:C.card,
-        borderBottom:'none', boxShadow:'none',
-        padding:'12px 20px 10px' }}>
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
-          {/* Left — name + meaning */}
-          <div style={{ flex:1, minWidth:0 }}>
-            {/* App name row */}
-            <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:5 }}>
-              <h1 style={{ margin:0, fontSize:26, fontWeight:600, color:C.text,
-                fontFamily:'Cormorant Garamond,serif', lineHeight:1, flexShrink:0 }}>
-                Kizuna&thinsp;絆
-              </h1>
-              {/* Tab label — hidden on Home (empty string) */}
-              {TAB_TITLES[tab] && (
-                <span style={{ fontSize:14, fontWeight:700, color:C.rose,
-                  textTransform:'uppercase', letterSpacing:'0.13em', flexShrink:0 }}>
-                  {TAB_TITLES[tab]}
-                </span>
-              )}
-            </div>
-            {/* Meaning — two lines, poetic, italic */}
-            <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              Bonding with trust, loyalty & love —
-            </p>
-            <p style={{ margin:0, fontSize:13, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              an invisible thread that connects hearts across time & distance
-            </p>
-          </div>
-          {/* Right — Sakura icon */}
-          <div style={{ marginTop:2, flexShrink:0 }}>
-            <KizunaIcon />
-          </div>
-        </div>
-      </div>
 
       {/* ── Bottom nav bar ─────────────────────────────────────── */}
       <div style={{ display:'flex', alignItems:'center', height:64,
