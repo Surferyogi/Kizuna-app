@@ -4,15 +4,24 @@ import { VitePWA }   from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/Kizuna-app/',
+
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Force new service worker to take control immediately
+      // without waiting for all tabs to close
+      workbox: {
+        clientsClaim: true,
+        skipWaiting:  true,
+        // Don't cache API calls or Supabase
+        navigateFallbackDenylist: [/^\/functions\//, /supabase/],
+      },
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name:             'Kizuna 絆',
         short_name:       'Kizuna',
-        description:      'Warmth, loyalty & invisible strength — the thread that connects hearts across time and distance.',
+        description:      'Bonding with trust, loyalty & love — an invisible thread that connects hearts.',
         theme_color:      '#B8715C',
         background_color: '#F8F5F1',
         display:          'standalone',
