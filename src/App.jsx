@@ -1637,17 +1637,18 @@ function EForm({ form, set }) {
   const [lookupData,   setLookupData]   = useState(null);
   const lastLookupKey  = useRef('');
 
-  // Apply lookup data to form fields whenever fresh data arrives
+  // Apply lookup data — always overwrite with live data, user can edit after
   useEffect(() => {
     if (!lookupData) return;
-    if (lookupData.terminal    && !form.terminal) set('terminal', lookupData.terminal);
-    if (lookupData.gate        && !form.gate)     set('gate',     lookupData.gate);
-    if (lookupData.airlineName && !form.airline)  set('airline',  lookupData.airlineName);
-    if (lookupData.depIata     && !form.depCity)  set('depCity',  lookupData.depIata);
-    if (lookupData.arrIata     && !form.arrCity)  set('arrCity',  lookupData.arrIata);
-    if (lookupData.aircraft)                      set('notes',    lookupData.aircraft);
+    // Auto-filled fields from APIs
+    if (lookupData.terminal)    set('terminal',  lookupData.terminal);
+    if (lookupData.gate)        set('gate',      lookupData.gate);
+    if (lookupData.airlineName) set('airline',   lookupData.airlineName);
+    if (lookupData.depIata)     set('depCity',   lookupData.depIata);
+    if (lookupData.arrIata)     set('arrCity',   lookupData.arrIata);
+    if (lookupData.aircraft)    set('notes',     lookupData.aircraft);
     const t = lookupData.scheduledDep ?? lookupData.revisedDep;
-    if (t && !form.time) {
+    if (t) {
       const hhmm = t.includes('T') ? t.split('T')[1]?.slice(0,5) : t.slice(0,5);
       if (hhmm) set('time', hhmm);
     }
@@ -1661,7 +1662,8 @@ function EForm({ form, set }) {
     if (clean.length < 3 || !form.date) return;
 
     // Airline from static table — instant, no network
-    if (!form.airline) {
+    // Always apply — no stale closure guards
+    {
       const name = airlineFromCode(clean);
       if (name) set('airline', name);
     }
@@ -1669,8 +1671,8 @@ function EForm({ form, set }) {
     // FROM/TO from static route table — instant, no network
     const route = routeLookup(clean);
     if (route) {
-      if (!form.depCity) set('depCity', route.dep);
-      if (!form.arrCity) set('arrCity', route.arr);
+      set('depCity', route.dep);
+      set('arrCity', route.arr);
     }
 
     const key = `${clean}_${form.date}`;
@@ -1737,50 +1739,65 @@ function EForm({ form, set }) {
       )}
 
       {form.type === 'flight' ? (<>
-        {/* Flight No. + Date first — triggers AeroDataBox lookup */}
+        {/* ── Step 1: Search keys — triggers auto-fill ── */}
         <Row2>
           <FL label="Flight No.">
-            <FI field="flightNum" placeholder="SQ321" autoFocus
+            <FI field="flightNum" placeholder="SQ633" autoFocus
               onChange={e=>set('flightNum',e.target.value.replace(/\s+/g,'').toUpperCase())} />
           </FL>
           <FL label="Date"><FI field="date" type="date" /></FL>
         </Row2>
-        {/* Lookup status indicator */}
+
+        {/* Lookup status */}
         {lookupStatus === 'loading' && (
           <p style={{ margin:'-6px 0 12px', fontSize:13, color:C.dim, fontStyle:'italic' }}>
-            ✈ Looking up SQ flight details…
+            ✈ Looking up flight details…
           </p>
         )}
         {lookupStatus === 'found' && (
           <p style={{ margin:'-6px 0 12px', fontSize:13, color:'#2A6E3A' }}>
-            ✓ Found — airline &amp; terminal filled. Enter FROM / TO manually.
+            ✓ Flight found — details filled in below
           </p>
         )}
         {lookupStatus === 'not_found' && (
           <p style={{ margin:'-6px 0 12px', fontSize:13, color:C.muted, fontStyle:'italic' }}>
-            Not found via AeroDataBox — please fill in manually
+            Not found — please fill in manually
           </p>
         )}
-        <Row2>
-          <FL label="From"><FI field="depCity" placeholder="SIN" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
-          <FL label="To"><FI field="arrCity" placeholder="LHR" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
-        </Row2>
-        <FL label="Airline"><FI field="airline" placeholder="Singapore Airlines" /></FL>
-        <Row2>
-          <FL label="Seat"><FI field="seat" placeholder="1A" inputMode="text" /></FL>
-          <FL label="Dep. Time"><FI field="time" type="time" /></FL>
-        </Row2>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
-          <FL label="Terminal"><FI field="terminal" placeholder="T3" inputMode="numeric" /></FL>
-          <FL label="Gate"><FI field="gate" placeholder="G22" inputMode="numeric" /></FL>
+
+        {/* ── AUTO-FILLED fields — from lookup ── */}
+        <div style={{ background:'#2A6E3A08', borderRadius:14, padding:'12px 14px',
+          border:'1px solid #2A6E3A20', marginBottom:14 }}>
+          <p style={{ margin:'0 0 10px', fontSize:12, color:'#2A6E3A', fontWeight:700,
+            textTransform:'uppercase', letterSpacing:'0.08em' }}>✓ Auto-filled</p>
+          <FL label="Airline"><FI field="airline" placeholder="Singapore Airlines" /></FL>
+          <Row2>
+            <FL label="From"><FI field="depCity" placeholder="HND" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
+            <FL label="To"><FI field="arrCity" placeholder="SIN" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
+          </Row2>
+          <Row2>
+            <FL label="Terminal"><FI field="terminal" placeholder="3" inputMode="numeric" /></FL>
+            <FL label="Gate"><FI field="gate" placeholder="G22" inputMode="numeric" /></FL>
+          </Row2>
         </div>
-        <FL label="Priority">
-          <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
-            {['low','medium','high','critical'].map(p => (
-              <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
-            ))}
-          </select>
-        </FL>
+
+        {/* ── MANUAL fields ── */}
+        <div style={{ background:C.elevated, borderRadius:14, padding:'12px 14px',
+          border:`1px solid ${C.border}`, marginBottom:14 }}>
+          <p style={{ margin:'0 0 10px', fontSize:12, color:C.dim, fontWeight:700,
+            textTransform:'uppercase', letterSpacing:'0.08em' }}>✎ Enter manually</p>
+          <Row2>
+            <FL label="Dep. Time"><FI field="time" type="time" /></FL>
+            <FL label="Seat"><FI field="seat" placeholder="1A" /></FL>
+          </Row2>
+          <FL label="Priority">
+            <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
+              {['low','medium','high','critical'].map(p => (
+                <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
+              ))}
+            </select>
+          </FL>
+        </div>
       </>) : form.type === 'task' ? (<>
         <Row2>
           <FL label="Due Date (optional)"><FI field="date" type="date" /></FL>
