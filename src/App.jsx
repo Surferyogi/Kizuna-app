@@ -85,7 +85,62 @@ const airlineFromCode = code => {
   return m ? (AIRLINES[m[1]] || null) : null;
 };
 
-// ─── FLIGHT STATUS — AeroDataBox via Supabase Edge Function ──────
+// ─── STATIC FLIGHT ROUTES ────────────────────────────────────────
+// Common flight number → { dep, arr } routes.
+// Covers top Asian, Middle East, European and Oceanian routes.
+// Zero API calls — works offline, instant, never fails.
+const FLIGHT_ROUTES = {
+  // Singapore Airlines (SQ)
+  SQ633:'HND-SIN', SQ634:'SIN-HND', SQ011:'SIN-LHR', SQ012:'LHR-SIN',
+  SQ021:'SIN-JFK', SQ022:'JFK-SIN', SQ231:'SIN-SYD', SQ232:'SYD-SIN',
+  SQ211:'SIN-MEL', SQ212:'MEL-SIN', SQ221:'SIN-BNE', SQ222:'BNE-SIN',
+  SQ317:'SIN-DXB', SQ318:'DXB-SIN', SQ321:'SIN-LHR', SQ322:'LHR-SIN',
+  SQ334:'SIN-AMS', SQ335:'AMS-SIN', SQ351:'SIN-FRA', SQ352:'FRA-SIN',
+  SQ401:'SIN-HKG', SQ402:'HKG-SIN', SQ411:'SIN-PVG', SQ412:'PVG-SIN',
+  SQ421:'SIN-PEK', SQ422:'PEK-SIN', SQ501:'SIN-BKK', SQ502:'BKK-SIN',
+  SQ507:'SIN-BKK', SQ508:'BKK-SIN', SQ511:'SIN-KUL', SQ512:'KUL-SIN',
+  SQ521:'SIN-CGK', SQ522:'CGK-SIN', SQ551:'SIN-MNL', SQ552:'MNL-SIN',
+  SQ571:'SIN-ICN', SQ572:'ICN-SIN', SQ601:'SIN-DEL', SQ602:'DEL-SIN',
+  SQ621:'SIN-BOM', SQ622:'BOM-SIN', SQ701:'SIN-LAX', SQ702:'LAX-SIN',
+  SQ033:'SIN-SFO', SQ034:'SFO-SIN', SQ037:'SIN-IAH', SQ038:'IAH-SIN',
+  // ANA (NH)
+  NH843:'HND-SIN', NH844:'SIN-HND', NH803:'NRT-LHR', NH804:'LHR-NRT',
+  NH001:'NRT-JFK', NH002:'JFK-NRT', NH005:'NRT-LAX', NH006:'LAX-NRT',
+  // Japan Airlines (JL)
+  JL041:'NRT-LHR', JL042:'LHR-NRT', JL061:'NRT-JFK', JL062:'JFK-NRT',
+  JL009:'NRT-LAX', JL010:'LAX-NRT', JL705:'NRT-SIN', JL706:'SIN-NRT',
+  // Cathay Pacific (CX)
+  CX101:'HKG-LHR', CX102:'LHR-HKG', CX841:'HKG-SIN', CX842:'SIN-HKG',
+  CX531:'HKG-NRT', CX532:'NRT-HKG', CX471:'HKG-LAX', CX472:'LAX-HKG',
+  // Emirates (EK)
+  EK351:'DXB-SIN', EK352:'SIN-DXB', EK001:'DXB-LHR', EK002:'LHR-DXB',
+  EK003:'DXB-LHR', EK004:'LHR-DXB', EK211:'DXB-JFK', EK212:'JFK-DXB',
+  EK431:'DXB-BKK', EK432:'BKK-DXB', EK404:'DXB-KUL', EK403:'KUL-DXB',
+  // Qatar Airways (QR)
+  QR007:'DOH-LHR', QR008:'LHR-DOH', QR549:'DOH-SIN', QR550:'SIN-DOH',
+  // British Airways (BA)
+  BA011:'LHR-JFK', BA012:'JFK-LHR', BA013:'LHR-JFK', BA014:'JFK-LHR',
+  BA017:'LHR-LAX', BA018:'LAX-LHR', BA031:'LHR-SIN', BA032:'SIN-LHR',
+  // Qantas (QF)
+  QF001:'SYD-LHR', QF002:'LHR-SYD', QF007:'SYD-LAX', QF008:'LAX-SYD',
+  // Malaysia Airlines (MH)
+  MH601:'KUL-SIN', MH602:'SIN-KUL', MH003:'KUL-LHR', MH004:'LHR-KUL',
+  // Thai Airways (TG)
+  TG411:'BKK-SIN', TG412:'SIN-BKK', TG917:'BKK-NRT', TG918:'NRT-BKK',
+  // Korean Air (KE)
+  KE641:'ICN-SIN', KE642:'SIN-ICN', KE001:'ICN-JFK', KE002:'JFK-ICN',
+  // EVA Air (BR)
+  BR225:'TPE-SIN', BR226:'SIN-TPE', BR011:'TPE-LAX', BR012:'LAX-TPE',
+};
+
+// Look up FROM/TO for a flight number — returns {dep, arr} or null
+const routeLookup = (flightNum) => {
+  const key = flightNum.replace(/\s+/g,'').toUpperCase();
+  const route = FLIGHT_ROUTES[key];
+  if (!route) return null;
+  const [dep, arr] = route.split('-');
+  return { dep, arr };
+};
 // Calls the flight-status Edge Function which:
 //   1. Checks a 10-minute Supabase cache first
 //   2. Calls AeroDataBox if cache is stale
@@ -1609,6 +1664,13 @@ function EForm({ form, set }) {
     if (!form.airline) {
       const name = airlineFromCode(clean);
       if (name) set('airline', name);
+    }
+
+    // FROM/TO from static route table — instant, no network
+    const route = routeLookup(clean);
+    if (route) {
+      if (!form.depCity) set('depCity', route.dep);
+      if (!form.arrCity) set('arrCity', route.arr);
     }
 
     const key = `${clean}_${form.date}`;
