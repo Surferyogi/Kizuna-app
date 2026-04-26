@@ -737,27 +737,49 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
     <div style={{ overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
       {/* ── Kizuna Brand Header ─────────────────────────────────── */}
-      <div style={{ background:C.card, padding:'16px 20px 14px',
+      <div style={{ background:`linear-gradient(160deg, #FFFEFB 0%, #FDF5EE 60%, #F8EDE4 100%)`,
+        padding:'22px 22px 18px',
         borderBottom:`1px solid ${C.border}`,
-        boxShadow:`0 2px 8px rgba(44,38,32,0.06)` }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <h1 style={{ margin:0, fontSize:28, fontWeight:600, color:C.text,
-                fontFamily:'Cormorant Garamond,serif', lineHeight:1 }}>
-                Kizuna&thinsp;絆
-              </h1>
-            </div>
-            <p style={{ margin:'3px 0 0', fontSize:12, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
+        position:'relative', overflow:'hidden',
+        boxShadow:`0 3px 12px rgba(184,113,92,0.08)` }}>
+
+        {/* Decorative rose glow — top right */}
+        <div style={{ position:'absolute', top:-30, right:-20, width:160, height:160,
+          background:`radial-gradient(circle, ${C.rose}18 0%, transparent 70%)`,
+          pointerEvents:'none' }} />
+        {/* Decorative glow — bottom left */}
+        <div style={{ position:'absolute', bottom:-20, left:-10, width:100, height:100,
+          background:`radial-gradient(circle, ${C.M}12 0%, transparent 70%)`,
+          pointerEvents:'none' }} />
+
+        <div style={{ display:'flex', alignItems:'flex-start',
+          justifyContent:'space-between', position:'relative' }}>
+          <div style={{ flex:1 }}>
+            {/* App name */}
+            <h1 style={{ margin:'0 0 2px', fontSize:38, fontWeight:700, color:C.text,
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1,
+              letterSpacing:'-0.01em' }}>
+              Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
+            </h1>
+            {/* Tagline — line 1 */}
+            <p style={{ margin:'8px 0 0', fontSize:14, color:C.dim, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               Bonding with trust, loyalty & love
             </p>
-            <p style={{ margin:'1px 0 0', fontSize:12, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
-              — nurturing the invisible thread that connects hearts across time and distance
+            {/* Tagline — line 2 */}
+            <p style={{ margin:'0', fontSize:13, color:C.muted, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
+              — nurturing the invisible thread that connects hearts
+            </p>
+            <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
+              across time and distance
             </p>
           </div>
-          <KizunaIcon />
+          {/* Sakura icon — larger */}
+          <div style={{ flexShrink:0, marginTop:2, transform:'scale(1.3)', transformOrigin:'top right' }}>
+            <KizunaIcon />
+          </div>
         </div>
       </div>
 
