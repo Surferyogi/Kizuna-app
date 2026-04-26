@@ -776,8 +776,12 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
               </h1>
             </div>
             <p style={{ margin:'3px 0 0', fontSize:12, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.4 }}>
-              Bonding with trust, loyalty & love — nurturing the invisible thread that connects hearts across time and distance
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
+              Bonding with trust, loyalty & love
+            </p>
+            <p style={{ margin:'1px 0 0', fontSize:12, color:C.dim, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5 }}>
+              — nurturing the invisible thread that connects hearts across time and distance
             </p>
           </div>
           <KizunaIcon />
@@ -1224,12 +1228,13 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         <div style={{ display:'flex', gap:6, marginTop:7, overflowX:'auto', paddingBottom:2 }}>
           {['all','meeting','task','flight','reminder','event'].map(t => (
             <button key={t} onClick={() => setTypeF(t)}
-              style={{ background: typeF===t ? (t==='all'?C.rose:TC[t]+'28') : C.elevated,
-                border:`1px solid ${typeF===t ? (t==='all'?C.rose:TC[t]) : C.border}`,
-                color: typeF===t ? (t==='all'?'#fff':DTC[t]||TC[t]) : C.dim,
-                borderRadius:20, padding:'4px 13px', fontSize:14, fontWeight:600,
+              style={{ background: typeF===t ? (t==='all' ? C.rose : TC[t]) : C.elevated,
+                border:`1px solid ${typeF===t ? (t==='all' ? C.rose : TC[t]) : C.border}`,
+                color: typeF===t ? '#fff' : C.dim,
+                borderRadius:20, padding:'5px 14px', fontSize:14, fontWeight: typeF===t ? 700 : 500,
                 cursor:'pointer', whiteSpace:'nowrap', textTransform:'capitalize',
-                transition:'background 0.15s' }}>
+                boxShadow: typeF===t ? `0 2px 8px ${t==='all'?C.rose:TC[t]}50` : 'none',
+                transition:'all 0.15s' }}>
               {t==='all'?'All':TL[t]||t}
             </button>
           ))}
@@ -1557,10 +1562,13 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
         <SR label="Daily Digest" sub={`Fires at ${pt(digestTime)} each morning`}
           right={<Tog on={notifs.digest} onChange={v => saveNotifs({...notifs,digest:v})} />} />
         {notifs.digest && (
-          <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}` }}>
-            <label style={{ fontSize:15, color:C.dim }}>Digest time</label>
+          <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
+            display:'flex', flexDirection:'column', alignItems:'center' }}>
+            <label style={{ fontSize:13, color:C.dim, marginBottom:6,
+              textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>Digest Time</label>
             <input type="time" value={digestTime} onChange={e=>saveDnd('digestTime',e.target.value)}
-              style={InputStyle} />
+              style={{ ...InputStyle, width:'auto', minWidth:140, textAlign:'center',
+                fontSize:22, fontWeight:600, letterSpacing:'0.05em', padding:'12px 24px' }} />
           </div>
         )}
         <SR label="Pre-Event Reminders" sub="Contextual alerts per item"
@@ -1579,13 +1587,15 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
             borderRadius:10, padding:'2px 10px' }}>
             {notifs.digest ? '● Active' : '○ Off'}
           </span>} />
-        <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
-          display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div style={{ padding:'10px 18px 16px', borderTop:`1px solid ${C.border}`,
+          display:'flex', gap:16, justifyContent:'center' }}>
           {[['Start','dndStart',dndStart],['End','dndEnd',dndEnd]].map(([l,k,v]) => (
-            <div key={l}>
-              <label style={{ fontSize:15, color:C.dim }}>{l}</label>
+            <div key={l} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+              <label style={{ fontSize:13, color:C.dim, textTransform:'uppercase',
+                letterSpacing:'0.08em', fontWeight:700 }}>{l}</label>
               <input type="time" value={v} onChange={e=>saveDnd(k,e.target.value)}
-                style={InputStyle} />
+                style={{ ...InputStyle, width:'auto', minWidth:130, textAlign:'center',
+                  fontSize:20, fontWeight:600, letterSpacing:'0.05em', padding:'11px 20px' }} />
             </div>
           ))}
         </div>
