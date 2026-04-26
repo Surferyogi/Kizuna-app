@@ -705,7 +705,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd }) {
   const now      = new Date();
   const todayStr = fd(now);
 
@@ -819,9 +819,13 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
             <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
               A peaceful day ahead
             </p>
-            <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>
-              Tap + to schedule something
-            </p>
+            <button onClick={onAdd}
+              style={{ marginTop:10, background:C.rose, border:'none', color:'#fff',
+                borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
+                cursor:'pointer', fontFamily:'inherit',
+                boxShadow:`0 4px 14px ${C.rose}40` }}>
+              + Schedule something
+            </button>
           </div>
         ) : (
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
@@ -2706,7 +2710,7 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} />}
+        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => setShowAdd(true)} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
@@ -2720,7 +2724,10 @@ export default function App() {
         flexShrink:0, paddingBottom:10,
         boxShadow:`0 -2px 16px rgba(44,38,32,0.08)` }}>
 
-        {/* Home + Calendar */}
+        {/* Sync status — tiny dot left of Home tab */}
+        <div style={{ width:8, height:8, borderRadius:4, marginLeft:8, flexShrink:0,
+          background: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
+          boxShadow:`0 0 5px ${syncStatus==='synced' ? C.T+'80' : C.rose+'80'}` }} />
         {NAV.slice(0,2).map(n => (
           <button key={n.key} onClick={() => setTab(n.key)}
             style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
@@ -2759,11 +2766,6 @@ export default function App() {
           </button>
         ))}
 
-        {/* Sync indicator — subtle dot */}
-        <div style={{ position:'absolute', bottom:76, right:12,
-          width:8, height:8, borderRadius:4,
-          background: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
-          boxShadow: `0 0 6px ${syncStatus==='synced' ? C.T : C.rose}` }} />
       </div>
     </div>
   );
