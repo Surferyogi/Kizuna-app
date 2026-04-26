@@ -762,16 +762,16 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
             </h1>
             {/* Tagline — line 1 */}
-            <p style={{ margin:'8px 0 0', fontSize:14, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:'10px 0 0', fontSize:16, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               Bonding with trust, loyalty & love
             </p>
             {/* Tagline — line 2 */}
-            <p style={{ margin:'0', fontSize:13, color:C.muted, fontStyle:'italic',
+            <p style={{ margin:'2px 0 0', fontSize:15, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               — nurturing the invisible thread that connects hearts
             </p>
-            <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic',
+            <p style={{ margin:0, fontSize:15, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               across time and distance
             </p>
@@ -787,10 +787,20 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
         {/* Greeting */}
         <div style={{ marginBottom:18 }}>
           <p style={{ fontSize:14, color:C.dim, margin:'0 0 2px', fontStyle:'italic' }}>{greet}</p>
-          <h2 style={{ fontSize:34, fontFamily:'Cormorant Garamond,Georgia,serif',
-            fontWeight:600, color:C.rose, margin:0, lineHeight:1.1 }}>
-            {userName || 'Welcome'}
-          </h2>
+          <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
+            <h2 style={{ fontSize:34, fontFamily:'Cormorant Garamond,Georgia,serif',
+              fontWeight:600, color:C.rose, margin:0, lineHeight:1.1 }}>
+              {userName || 'Welcome'}
+            </h2>
+            {/* Sync status — word label right of name */}
+            <span style={{ fontSize:12, fontWeight:700, letterSpacing:'0.05em',
+              color: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
+              background: syncStatus==='synced' ? C.T+'18' : syncStatus==='error' ? '#C46A1415' : C.rose+'18',
+              borderRadius:BR.pill, padding:'3px 10px', flexShrink:0,
+              border:`1px solid ${syncStatus==='synced' ? C.T+'40' : syncStatus==='error' ? '#C46A1440' : C.rose+'40'}` }}>
+              {syncStatus==='loading' ? 'Syncing…' : syncStatus==='synced' ? 'Synced' : 'Sync Error'}
+            </span>
+          </div>
           <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
             {DAY[now.getDay()]}, {MFULL[now.getMonth()]} {now.getDate()} · {todayEs.length} items today
           </p>
@@ -2177,7 +2187,7 @@ const NAV = [
 // ─── DEV BYPASS ──────────────────────────────────────────────────
 // Set to true to skip login during debugging.
 // Set back to false before going live.
-const DEV_BYPASS      = true;  // ← set false when going live
+const DEV_BYPASS      = false; // ← set true to skip login during debugging
 const DEV_BYPASS_NAME = 'Koksum';
 
 // ─── APP ROOT ────────────────────────────────────────────────────
@@ -2752,10 +2762,7 @@ export default function App() {
         flexShrink:0, paddingBottom:10,
         boxShadow:`0 -2px 16px rgba(44,38,32,0.08)` }}>
 
-        {/* Sync status — tiny dot left of Home tab */}
-        <div style={{ width:8, height:8, borderRadius:4, marginLeft:8, flexShrink:0,
-          background: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
-          boxShadow:`0 0 5px ${syncStatus==='synced' ? C.T+'80' : C.rose+'80'}` }} />
+        {/* Home + Calendar */}
         {NAV.slice(0,2).map(n => (
           <button key={n.key} onClick={() => setTab(n.key)}
             style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
