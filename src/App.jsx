@@ -183,15 +183,22 @@ function useLiveFlightStatus(flight) {
     async function fetchStatus() {
       setLoading(true);
       try {
-        const res = await supabase.functions.invoke('flight-status', {
-          body: { flightNumber: flight.flightNum, date: flight.date }
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !anonKey) throw new Error('not configured');
+        const res = await fetch(`${supabaseUrl}/functions/v1/flight-status`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json',
+                     'Authorization':`Bearer ${anonKey}` },
+          body: JSON.stringify({ flightNumber: flight.flightNum, date: flight.date }),
         });
         if (cancelled) return;
-        if (res.error || res.data?.error) throw new Error(res.data?.error || 'fetch failed');
-        setStatus(res.data);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data?.error) throw new Error(data.error);
+        setStatus(data);
         setLastUpdated(new Date());
       } catch {
-        // Silently fall back to local status — no error shown to user
         setStatus(flightStatusLocal(flight));
       } finally {
         if (!cancelled) setLoading(false);
@@ -231,9 +238,6 @@ const C = {
   R:       '#A07840',   // warm toffee        — reminders (was sand, now richer)
   E:       '#8A72B8',   // deeper lavender    — events    (more contrast)
 };
-// Convenience aliases kept for backwards compat with existing refs
-C.gold  = C.rose;
-C.goldL = C.roseL;
 
 const TC = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E };
 const TI = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈' };
@@ -263,15 +267,27 @@ const SH = {
   subtle:  '0 1px 6px  rgba(44,38,32,0.05)',
 };
 
-// ─── STORAGE + SYNC ──────────────────────────────────────────
-const SK_USER        = 'exec_user_v1';
+// Border radius tokens — consistent across entire app
+const BR = {
+  card:  20,   // large content cards, hero cards
+  panel: 16,   // modal sheets, settings sections
+  input: 14,   // inputs, small cards, chips
+  btn:   12,   // buttons, compact inputs, dropdowns
+  pill:  10,   // badges, tags, status pills
+  dot:   6,    // small indicators
+};
+
+// Type scale — follow this for all new text
+// 28+ : display (greeting name, Kizuna header)
+// 18-22: card/section titles
+// 16  : body text, input text, primary labels
+// 14  : secondary info, metadata, button labels
+// 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
 const APP_VERSION    = 'v2.1.0';
 const APP_BUILD_DATE = 'April 23, 2026';
 
-// Load all entries for signed-in user (own + shared from workspace)
-// Load entries — own entries + shared entries from workspace members.
-// Load own entries — simple, reliable, no cross-table dependency
+// Load own entries from Supabase — simple, reliable query
 async function dbLoadEntries(userId) {
   const { data, error } = await supabase
     .from('entries')
@@ -397,7 +413,7 @@ const Sec = ({ label, count }) => (
   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, marginTop:30 }}>
     <span style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase', letterSpacing:'0.14em', whiteSpace:'nowrap' }}>{label}</span>
     {count != null && (
-      <span style={{ fontSize:14, color:C.dim, background:C.elevated, borderRadius:10,
+      <span style={{ fontSize:14, color:C.dim, background:C.elevated, borderRadius:BR.pill,
         padding:'3px 10px', boxShadow:SH.subtle }}>{count}</span>
     )}
     <div style={{ flex:1, height:'1px', background:C.border }} />
@@ -405,14 +421,14 @@ const Sec = ({ label, count }) => (
 );
 
 const Badge = ({ label, color }) => (
-  <span style={{ fontSize:14, fontWeight:700, color, background:color+'28', borderRadius:20,
+  <span style={{ fontSize:14, fontWeight:700, color, background:color+'28', borderRadius:BR.card,
     padding:'4px 12px', textTransform:'capitalize', letterSpacing:'0.02em', flexShrink:0,
     border:`1px solid ${color}30` }}>{label}</span>
 );
 
 const Tog = ({ on, onChange }) => (
   <button onClick={() => onChange(!on)}
-    style={{ width:56, height:32, borderRadius:16, background:on?C.rose:C.elevated,
+    style={{ width:56, height:32, borderRadius:BR.panel, background:on?C.rose:C.elevated,
       border:`1.5px solid ${on?C.rose:C.border}`,
       cursor:'pointer', position:'relative', flexShrink:0, padding:0,
       transition:'background 0.2s, border-color 0.2s', boxShadow:SH.subtle }}>
@@ -427,7 +443,7 @@ const SS = ({ title, children }) => (
   <div style={{ marginBottom:14 }}>
     <p style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase',
       letterSpacing:'0.14em', margin:'28px 0 10px' }}>{title}</p>
-    <div style={{ background:C.card, borderRadius:22, overflow:'hidden',
+    <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
       boxShadow:SH.card, border:`1px solid ${C.border}` }}>
       {children}
     </div>
@@ -438,7 +454,7 @@ const SR = ({ label, sub, right, noBorder }) => (
   <div style={{ display:'flex', alignItems:'center', padding:'18px 20px',
     borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:14 }}>
     <div style={{ flex:1 }}>
-      <p style={{ margin:0, fontSize:17, color:C.text, fontWeight:500 }}>{label}</p>
+      <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500 }}>{label}</p>
       {sub && <p style={{ margin:0, fontSize:15, color:C.dim, marginTop:3 }}>{sub}</p>}
     </div>
     {right}
@@ -504,7 +520,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
               {e.done ? '✓' : isPastDue ? '!' : ''}
             </button>
           )}
-          <span style={{ fontSize:17, fontWeight:600,
+          <span style={{ fontSize:16, fontWeight:600,
             color: e.done ? C.muted : isPastDue ? C.dim : C.text,
             textDecoration: (e.done || isPastDue) ? 'line-through' : 'none',
             lineHeight:'1.4', flex:1, minWidth:0,
@@ -531,15 +547,23 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
             {e.message   && <span style={{ fontSize:15, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
             {/* Own shared entry — rose badge */}
             {e.visibility==='shared' && isOwn && (
-              <span style={{ fontSize:14, color:C.rose,
-                background:C.rose+'15', borderRadius:10, padding:'1px 8px' }}>
+              <span style={{ fontSize:13, color:C.rose,
+                background:C.rose+'15', borderRadius:BR.pill, padding:'1px 8px' }}>
                 ◯ Shared
               </span>
             )}
-            {/* Teammate's shared entry — blue badge, read-only */}
+            {/* Private entry — lock badge */}
+            {(e.visibility==='private' || !e.visibility) && isOwn && (
+              <span style={{ fontSize:13, color:C.muted,
+                background:C.elevated, borderRadius:BR.pill, padding:'1px 8px',
+                border:`1px solid ${C.border}` }}>
+                🔒 Private
+              </span>
+            )}
+            {/* Teammate's shared entry — blue badge */}
             {e.visibility==='shared' && !isOwn && (
               <span style={{ fontSize:13, color:DTC.meeting,
-                background:C.M+'18', borderRadius:10, padding:'1px 8px' }}>
+                background:C.M+'18', borderRadius:BR.pill, padding:'1px 8px' }}>
                 👤 Team
               </span>
             )}
@@ -548,7 +572,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                   background:'transparent', border:`1px solid ${C.border}`,
-                  borderRadius:14, padding:'6px 13px', cursor:'pointer',
+                  borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
                   letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>
                 ···
               </button>
@@ -594,7 +618,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
 }
 
 // ─── FLIGHT HERO CARD ────────────────────────────────────────────
-function FlightHeroCard({ flight, todayStr, onEdit, onDelete }) {
+function FlightHeroCard({ flight, todayStr }) {
   const { status, lastUpdated, loading } = useLiveFlightStatus(flight);
   const depName = airportCity(flight.depCity);
   const arrName = airportCity(flight.arrCity);
@@ -602,7 +626,7 @@ function FlightHeroCard({ flight, todayStr, onEdit, onDelete }) {
   return (
     <div style={{ background:`linear-gradient(135deg,#EDF5FD,#E2EFF8)`,
       border:`1px solid ${C.F}50`,
-      borderRadius:20, padding:18, marginBottom:6,
+      borderRadius:BR.card, padding:18, marginBottom:6,
       position:'relative', overflow:'hidden',
       boxShadow:`0 4px 20px ${C.F}20` }}>
       <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100,
@@ -621,7 +645,7 @@ function FlightHeroCard({ flight, todayStr, onEdit, onDelete }) {
           )}
           {status && (
             <span style={{ fontSize:12, fontWeight:700, color:'#fff',
-              background:status.color, borderRadius:20, padding:'3px 12px',
+              background:status.color, borderRadius:BR.card, padding:'3px 12px',
               letterSpacing:'0.04em', flexShrink:0 }}>
               {status.label}
             </span>
@@ -688,11 +712,11 @@ function FlightHeroCard({ flight, todayStr, onEdit, onDelete }) {
           ['Gate',     status?.gate     || flight.gate],
           ['Seat',     flight.seat],
         ].filter(([,v])=>v).map(([k,v]) => (
-          <div key={k} style={{ background:'#ffffff60', borderRadius:12,
+          <div key={k} style={{ background:'#ffffff60', borderRadius:BR.btn,
             padding:'7px 12px', backdropFilter:'blur(4px)',
             border:`1px solid ${C.F}25` }}>
             <p style={{ fontSize:12, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
-            <p style={{ fontSize:17, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
+            <p style={{ fontSize:16, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
           </div>
         ))}
       </div>
@@ -704,30 +728,6 @@ function FlightHeroCard({ flight, todayStr, onEdit, onDelete }) {
             ? 'just now'
             : `${Math.floor((Date.now()-lastUpdated)/60000)}m ago`}
         </p>
-      )}
-
-      {/* Edit / Delete actions */}
-      {(onEdit || onDelete) && (
-        <div style={{ display:'flex', gap:8, marginTop:12, justifyContent:'flex-end' }}>
-          {onEdit && (
-            <button onClick={() => onEdit(flight)}
-              style={{ background:'#ffffff80', border:`1px solid ${C.F}30`,
-                borderRadius:10, padding:'6px 16px', fontSize:14, fontWeight:600,
-                color:DTC.flight, cursor:'pointer', fontFamily:'inherit',
-                backdropFilter:'blur(4px)' }}>
-              Edit
-            </button>
-          )}
-          {onDelete && (
-            <button onClick={() => onDelete(flight.id)}
-              style={{ background:'#ffffff80', border:`1px solid #C46A1440`,
-                borderRadius:10, padding:'6px 16px', fontSize:14, fontWeight:600,
-                color:'#C46A14', cursor:'pointer', fontFamily:'inherit',
-                backdropFilter:'blur(4px)' }}>
-              Delete
-            </button>
-          )}
-        </div>
       )}
     </div>
   );
@@ -788,7 +788,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
         </div>
       </div>
 
-      <div style={{ padding:'16px 18px 100px' }}>
+      <div style={{ padding:'16px 18px 90px' }}>
         {/* Greeting */}
         <div style={{ marginBottom:18 }}>
           <p style={{ fontSize:14, color:C.dim, margin:'0 0 2px', fontStyle:'italic' }}>{greet}</p>
@@ -804,7 +804,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
         {/* Stats strip */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
           {[[todayEs.length,'Today',C.M],[openTasks,'Open Tasks',C.T],[next48,'Next 48h',C.E]].map(([v,l,c]) => (
-            <div key={l} style={{ background:C.card, borderRadius:18, padding:'18px 10px',
+            <div key={l} style={{ background:C.card, borderRadius:BR.card, padding:'18px 10px',
               textAlign:'center', boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               <div style={{ fontSize:30, fontWeight:700,
                 fontFamily:'Cormorant Garamond,serif', color:c, lineHeight:1 }}>{v}</div>
@@ -816,13 +816,13 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
         {/* Next Flight */}
         {nextFlight && (<>
           <Sec label="Next Flight" />
-          <FlightHeroCard flight={nextFlight} todayStr={todayStr} onEdit={onEdit} onDelete={onDelete} />
+          <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
         </>)}
 
         {/* Priority Tasks */}
         {topTasks.length > 0 && (<>
           <Sec label="Priority Tasks" count={openTasks} />
-          <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+          <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
             {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
           </div>
@@ -834,7 +834,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
           ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
               Nothing scheduled for today
             </p>
-          : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+          : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
@@ -863,7 +863,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         return (
           <div key={d} style={{ marginTop:20 }}>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
-              <div style={{ width:44, height:44, borderRadius:14, flexShrink:0,
+              <div style={{ width:44, height:44, borderRadius:BR.input, flexShrink:0,
                 background: isT ? `linear-gradient(135deg,${C.rose},${C.roseL})` : C.card,
                 boxShadow: isT ? `0 4px 16px ${C.rose}35` : SH.subtle,
                 border: isT ? 'none' : `1px solid ${C.border}`,
@@ -878,7 +878,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
                 {isT ? 'Today — ' : ''}{MFULL[dt.getMonth()]} {dt.getFullYear()}
               </span>
             </div>
-            <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+            <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
@@ -898,7 +898,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
 
   const NavBtn = ({ children, onClick }) => (
     <button onClick={onClick} style={{ background:C.card, border:`1px solid ${C.border}`,
-      color:C.text, borderRadius:12, padding:'7px 16px', cursor:'pointer',
+      color:C.text, borderRadius:BR.btn, padding:'7px 16px', cursor:'pointer',
       fontSize:20, boxShadow:SH.subtle }}>{children}</button>
   );
 
@@ -908,7 +908,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <NavBtn onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-1); setSelDate(fd(d)); }}>‹</NavBtn>
         <div style={{ flex:1, textAlign:'center' }}>
-          <p style={{ margin:0, fontSize:17, fontWeight:600, color:C.text }}>
+          <p style={{ margin:0, fontSize:16, fontWeight:600, color:C.text }}>
             {DAY[dt.getDay()]}, {MFULL[dt.getMonth()]} {dt.getDate()}
           </p>
           {selDate===fd(new Date()) && (
@@ -920,7 +920,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
       <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px', boxSizing:'border-box' }}>
         {/* All-day entries (no time) shown at top */}
         {allDayEs.length > 0 && (
-          <div style={{ background:C.card, borderRadius:14, padding:'0 12px',
+          <div style={{ background:C.card, borderRadius:BR.input, padding:'0 12px',
             border:`1px solid ${C.border}`, margin:'8px 0 4px',
             boxShadow:SH.subtle }}>
             <p style={{ fontSize:12, color:C.muted, margin:'8px 0 2px',
@@ -941,7 +941,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
               </div>
               <div style={{ flex:1, borderTop:`1px solid ${C.border}`, paddingTop:4, paddingBottom:4 }}>
                 {hEs.length > 0 && (
-                  <div style={{ background:C.card, borderRadius:14, padding:'0 12px',
+                  <div style={{ background:C.card, borderRadius:BR.input, padding:'0 12px',
                     boxShadow:SH.card, border:`1px solid ${C.border}` }}>
                     {hEs.map(e => (
                       <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
@@ -984,13 +984,13 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()-7); setSelDate(fd(d)); }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
+            borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
         <span style={{ flex:1, textAlign:'center', fontSize:16, color:C.dim, fontWeight:600 }}>
           {MON[weekStart.getMonth()]} {weekStart.getDate()} – {MON[days[6].getMonth()]} {days[6].getDate()}
         </span>
         <button onClick={() => { const d=new Date(selDate+'T00:00:00'); d.setDate(d.getDate()+7); setSelDate(fd(d)); }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
+            borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
 
       {/* 7-day picker row */}
@@ -1008,7 +1008,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
                 textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 {DAY[d.getDay()]}
               </div>
-              <div style={{ width:32, height:32, borderRadius:16, margin:'0 auto',
+              <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                 background: isSel?C.rose : isT?C.rose+'22':'transparent',
                 border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
                 boxShadow: isSel?`0 2px 10px ${C.rose}40`:'none',
@@ -1037,7 +1037,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
             </p>
           </div>
         ) : (
-          <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+          <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
             {selDayEs.map(e => (
               <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
@@ -1066,14 +1066,14 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => setVm(p => p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1})}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
+            borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
         <span style={{ flex:1, textAlign:'center', fontSize:19, fontWeight:600,
           color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
           {MFULL[vm.m]} {vm.y}
         </span>
         <button onClick={() => setVm(p => p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1})}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
-            borderRadius:12, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
+            borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
       {/* Weekday labels */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
@@ -1094,7 +1094,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
               <button key={ds} onClick={() => setSelDate(ds)}
                 style={{ background:'transparent', border:'none', cursor:'pointer',
                   padding:'3px 1px', textAlign:'center' }}>
-                <div style={{ width:32, height:32, borderRadius:16, margin:'0 auto',
+                <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                   background: isSel?C.rose : isT?C.rose+'20':'transparent',
                   border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
                   boxShadow: isSel?`0 2px 12px ${C.rose}35`:'none',
@@ -1113,7 +1113,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
         </div>
       </div>
       {/* Selected day entries */}
-      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 80px',
+      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px',
         borderTop:`1px solid ${C.border}`, marginTop:8, boxSizing:'border-box' }}>
         <p style={{ fontSize:14, color:C.dim, margin:'10px 0 8px',
           textTransform:'uppercase', letterSpacing:'0.1em', fontWeight:700 }}>
@@ -1123,7 +1123,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
           ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'24px 0', fontStyle:'italic' }}>
               Nothing on this day
             </p>
-          : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+          : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
@@ -1144,7 +1144,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         {['agenda','day','week','month'].map(v => (
           <button key={v} onClick={() => setView(v)}
-            style={{ flex:1, padding:'9px 2px', borderRadius:12, border:'none', cursor:'pointer',
+            style={{ flex:1, padding:'9px 2px', borderRadius:BR.btn, border:'none', cursor:'pointer',
               background: view===v ? C.rose : C.elevated,
               color: view===v ? '#fff' : C.dim,
               fontSize:15, fontWeight:view===v?600:400, textTransform:'capitalize',
@@ -1170,7 +1170,6 @@ const QUICK_FILTERS = [
   { k:'week',    l:'This Week',        f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date(),w=ad(n,7); return d>=n&&d<=w; } },
   { k:'flights', l:'Upcoming Flights', f: e => e.type==='flight' && e.date>=fd(new Date()) },
   { k:'tasks',   l:'Pending Tasks',    f: e => e.type==='task' && !e.done },
-  { k:'shared',  l:'Shared',          f: e => e.visibility==='shared' },
 ];
 
 function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
@@ -1197,7 +1196,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         flexShrink:0, background:C.card }}>
         {/* Search input */}
         <div style={{ display:'flex', alignItems:'center', gap:10, background:C.elevated,
-          borderRadius:16, padding:'11px 16px', border:`1px solid ${C.border}`,
+          borderRadius:BR.panel, padding:'11px 16px', border:`1px solid ${C.border}`,
           boxShadow:SH.subtle }}>
           <span style={{ color:C.muted, fontSize:19 }}>🔍</span>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search all entries…"
@@ -1216,7 +1215,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
               style={{ background: quickF===qf.k ? C.rose : C.elevated,
                 border:`1px solid ${quickF===qf.k ? C.rose : C.border}`,
                 color: quickF===qf.k ? '#fff' : C.dim,
-                borderRadius:20, padding:'5px 14px',
+                borderRadius:BR.card, padding:'5px 14px',
                 fontSize:15, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
                 boxShadow: quickF===qf.k?`0 2px 10px ${C.rose}35`:SH.subtle,
                 transition:'background 0.15s' }}>
@@ -1231,7 +1230,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
               style={{ background: typeF===t ? (t==='all' ? C.rose : TC[t]) : C.elevated,
                 border:`1px solid ${typeF===t ? (t==='all' ? C.rose : TC[t]) : C.border}`,
                 color: typeF===t ? '#fff' : C.dim,
-                borderRadius:20, padding:'5px 14px', fontSize:14, fontWeight: typeF===t ? 700 : 500,
+                borderRadius:BR.card, padding:'5px 14px', fontSize:14, fontWeight: typeF===t ? 700 : 500,
                 cursor:'pointer', whiteSpace:'nowrap', textTransform:'capitalize',
                 boxShadow: typeF===t ? `0 2px 8px ${t==='all'?C.rose:TC[t]}50` : 'none',
                 transition:'all 0.15s' }}>
@@ -1248,7 +1247,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'50px 0', fontStyle:'italic' }}>
               Nothing found
             </p>
-          : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+          : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
@@ -1267,19 +1266,19 @@ function ResetSection({ onReset }) {
     <div style={{ marginBottom:40 }}>
       <p style={{ fontSize:13, fontWeight:700, color:'#C46A14', textTransform:'uppercase',
         letterSpacing:'0.14em', margin:'24px 0 8px' }}>Danger Zone</p>
-      <div style={{ background:C.card, borderRadius:20, overflow:'hidden',
+      <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
         boxShadow:SH.card, border:`1px solid ${'#C46A14'}40` }}>
         {!confirming ? (
           <div style={{ display:'flex', alignItems:'center', padding:'16px 18px', gap:12 }}>
             <div style={{ flex:1 }}>
-              <p style={{ margin:0, fontSize:17, color:C.text, fontWeight:500 }}>Reset App Data</p>
+              <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500 }}>Reset App Data</p>
               <p style={{ margin:0, fontSize:15, color:C.dim, marginTop:2 }}>
                 Wipe all entries, audit log and storage. Cannot be undone.
               </p>
             </div>
             <button onClick={() => setConfirming(true)}
               style={{ background:'transparent', border:`1.5px solid ${'#C46A14'}`,
-                color:'#C46A14', borderRadius:12, padding:'8px 16px',
+                color:'#C46A14', borderRadius:BR.btn, padding:'8px 16px',
                 fontSize:15, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap' }}>
               Reset…
@@ -1297,13 +1296,13 @@ function ResetSection({ onReset }) {
             <div style={{ display:'flex', gap:10 }}>
               <button onClick={() => setConfirming(false)}
                 style={{ flex:1, background:C.elevated, border:`1px solid ${C.border}`,
-                  color:C.dim, borderRadius:12, padding:'11px 0',
+                  color:C.dim, borderRadius:BR.btn, padding:'11px 0',
                   fontSize:16, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
                 Cancel
               </button>
               <button onClick={() => { setConfirming(false); onReset(); }}
                 style={{ flex:1, background:'#A04E08', border:'none',
-                  color:'#fff', borderRadius:12, padding:'11px 0',
+                  color:'#fff', borderRadius:BR.btn, padding:'11px 0',
                   fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                   boxShadow:`0 4px 16px ${'#A04E08'}40` }}>
                 Yes, Wipe Everything
@@ -1374,10 +1373,10 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
             onKeyDown={e=>e.key==='Enter'&&sendInvite()}
             placeholder="colleague@email.com" type="email"
             style={{ flex:1, background:C.elevated, border:`1px solid ${inviteError?'#C46A14':C.border}`,
-              borderRadius:12, padding:'11px 14px', fontSize:16, color:C.text,
+              borderRadius:BR.btn, padding:'11px 14px', fontSize:16, color:C.text,
               outline:'none', fontFamily:'inherit' }} />
           <button onClick={sendInvite} disabled={inviteLoading}
-            style={{ background:C.rose, border:'none', color:'#fff', borderRadius:12,
+            style={{ background:C.rose, border:'none', color:'#fff', borderRadius:BR.btn,
               padding:'11px 18px', fontSize:15, fontWeight:700, cursor:'pointer',
               fontFamily:'inherit', opacity:inviteLoading?0.7:1, flexShrink:0 }}>
             {inviteLoading ? '…' : 'Invite'}
@@ -1388,7 +1387,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
         {/* QR code */}
         <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
-          <div style={{ background:C.elevated, borderRadius:16, padding:14,
+          <div style={{ background:C.elevated, borderRadius:BR.panel, padding:14,
             border:`1px solid ${C.border}`, boxShadow:SH.card }}>
             <img src={qr} alt="QR Code" width="160" height="160"
               style={{ display:'block', borderRadius:8 }} />
@@ -1396,7 +1395,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
         </div>
         {/* URL + copy */}
         <div style={{ display:'flex', gap:8, alignItems:'center',
-          background:C.elevated, borderRadius:12, padding:'10px 14px',
+          background:C.elevated, borderRadius:BR.btn, padding:'10px 14px',
           border:`1px solid ${C.border}`, marginBottom:14 }}>
           <span style={{ flex:1, fontSize:14, color:C.dim, overflow:'hidden',
             textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
@@ -1470,7 +1469,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
   const InputStyle = {
     display:'block', marginTop:6, width:'100%', boxSizing:'border-box',
     background:C.card, border:`1.5px solid ${C.border}`,
-    borderRadius:14, padding:'14px 16px', color:C.text,
+    borderRadius:BR.input, padding:'14px 16px', color:C.text,
     fontSize:16, fontFamily:'inherit', outline:'none',
     transition:'border-color 0.15s',
   };
@@ -1483,7 +1482,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
       {/* Profile card */}
       <div style={{ paddingTop:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:16, padding:20,
-          background:C.card, borderRadius:22,
+          background:C.card, borderRadius:BR.card,
           boxShadow:SH.card, border:`1px solid ${C.border}` }}>
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ margin:0, fontSize:21, fontWeight:600, color:C.text,
@@ -1492,13 +1491,13 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
           </div>
           <button onClick={onChangeName}
             style={{ background:C.elevated, border:`1px solid ${C.border}`,
-              borderRadius:12, padding:'8px 14px', fontSize:14, color:C.dim,
+              borderRadius:BR.btn, padding:'8px 14px', fontSize:14, color:C.dim,
               cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
             Edit
           </button>
           <button onClick={onSignOut}
             style={{ background:'transparent', border:`1px solid ${C.border}`,
-              borderRadius:12, padding:'8px 14px', fontSize:14, color:C.muted,
+              borderRadius:BR.btn, padding:'8px 14px', fontSize:14, color:C.muted,
               cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
             Sign Out
           </button>
@@ -1518,7 +1517,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
               gap:10, padding:'6px 0',
               borderBottom:`1px solid ${C.border}` }}>
               {/* Avatar */}
-              <div style={{ width:32, height:32, borderRadius:16, background:C.elevated,
+              <div style={{ width:32, height:32, borderRadius:BR.panel, background:C.elevated,
                 border:`1px solid ${C.border}`, flexShrink:0,
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <span style={{ fontSize:15, color:C.dim }}>{m.name[0]}</span>
@@ -1548,7 +1547,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
           <button onClick={() => setShowInvite(true)}
             style={{ marginTop:14, background:'transparent',
               border:`1.5px dashed ${C.rose}60`,
-              borderRadius:12, padding:'10px 14px', color:C.rose,
+              borderRadius:BR.btn, padding:'10px 14px', color:C.rose,
               fontSize:16, cursor:'pointer', width:'100%',
               fontFamily:'inherit', transition:'border-color 0.15s',
               display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
@@ -1559,7 +1558,11 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
       {/* Notifications */}
       <SS title="Notifications">
-        <SR label="Daily Digest" sub={`Fires at ${pt(digestTime)} each morning`}
+        <p style={{ margin:'0 0 4px', padding:'10px 18px 0', fontSize:13,
+          color:C.muted, fontStyle:'italic' }}>
+          Push notifications coming soon — preferences saved for when they launch.
+        </p>
+        <SR label="Daily Digest" sub="Morning summary of your day"
           right={<Tog on={notifs.digest} onChange={v => saveNotifs({...notifs,digest:v})} />} />
         {notifs.digest && (
           <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
@@ -1571,11 +1574,11 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
                 fontSize:22, fontWeight:600, letterSpacing:'0.05em', padding:'12px 24px' }} />
           </div>
         )}
-        <SR label="Pre-Event Reminders" sub="Contextual alerts per item"
+        <SR label="Pre-Event Reminders" sub="Alerts before meetings & events"
           right={<Tog on={notifs.preEvent} onChange={v=>saveNotifs({...notifs,preEvent:v})} />} />
-        <SR label="Flight Alerts" sub="Auto: T-24h, T-3h, T-1h"
+        <SR label="Flight Alerts" sub="T-24h, T-3h, T-1h before departure"
           right={<Tog on={notifs.flights} onChange={v=>saveNotifs({...notifs,flights:v})} />} />
-        <SR label="Shared Reminders" sub="Workspace push notifications" noBorder
+        <SR label="Shared Reminders" sub="Alerts when teammates share entries" noBorder
           right={<Tog on={notifs.shared} onChange={v=>saveNotifs({...notifs,shared:v})} />} />
       </SS>
 
@@ -1584,7 +1587,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
         <SR label="DND Window" sub={`${pt(dndStart)} – ${pt(dndEnd)} · No notifications`}
           right={<span style={{ fontSize:15, color:notifs.digest?C.T:C.muted,
             background:notifs.digest?C.T+'20':C.elevated,
-            borderRadius:10, padding:'2px 10px' }}>
+            borderRadius:BR.pill, padding:'2px 10px' }}>
             {notifs.digest ? '● Active' : '○ Off'}
           </span>} />
         <div style={{ padding:'10px 18px 16px', borderTop:`1px solid ${C.border}`,
@@ -1616,13 +1619,13 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
       {/* Data & Privacy */}
       <SS title="Data & Privacy">
         <SR label="End-to-End Encryption" sub="All entries encrypted at rest"
-          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:BR.pill, padding:'2px 10px' }}>✓ Active</span>} />
         <SR label="GDPR Compliance" sub="Data stored per EU regulations"
-          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ Active</span>} />
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:BR.pill, padding:'2px 10px' }}>✓ Active</span>} />
         <SR label="Persistent Storage" sub={`Schema v${SCHEMA_VERSION} · Auto-saves on every change`}
-          right={<span style={{ fontSize:15, color:C.rose, background:C.rose+'18', borderRadius:10, padding:'2px 10px' }}>◯ Live</span>} />
+          right={<span style={{ fontSize:15, color:C.rose, background:C.rose+'18', borderRadius:BR.pill, padding:'2px 10px' }}>◯ Live</span>} />
         <SR label="Audit Trail" sub="All changes tracked · Append-only" noBorder
-          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:10, padding:'2px 10px' }}>✓ On</span>} />
+          right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:BR.pill, padding:'2px 10px' }}>✓ On</span>} />
       </SS>
 
       {/* About */}
@@ -1653,15 +1656,15 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 // React sees a new component type each render and resets focus.
 const inputBase = {
   width:'100%', boxSizing:'border-box',
-  background:'#FFFEFB',
-  border:'1.5px solid #E8E0D8',
-  borderRadius:14, padding:'14px 16px',
-  color:'#2C2620', fontSize:16,
+  background:C.card,
+  border:`1.5px solid ${C.border}`,
+  borderRadius:BR.input, padding:'14px 16px',
+  color:C.text, fontSize:16,
   outline:'none', fontFamily:'inherit',
   transition:'border-color 0.15s',
 };
 const inputSm = {
-  ...inputBase, padding:'11px 13px', fontSize:15, borderRadius:12,
+  ...inputBase, padding:'11px 13px', fontSize:15, borderRadius:BR.btn,
 };
 function FI({ form, set, field, compact=false, ...props }) {
   return (
@@ -1687,9 +1690,6 @@ function FL({ label, children, tight=false }) {
 }
 function Row2({ children }) {
   return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>;
-}
-function Row3({ children }) {
-  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>{children}</div>;
 }
 const mkBlank = () => ({
   type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
@@ -1784,15 +1784,6 @@ function EForm({ form, set }) {
   // Convenience wrappers binding form+set — call as plain JSX, not components
   // These are NOT component definitions — just objects/fns to avoid re-renders
   const selStyle = { ...inputBase, appearance:'none', WebkitAppearance:'none' };
-  // Bind form+set into fi/ta helpers for clean call sites
-  const fi = useCallback((field, props={}) => (
-    <FI form={form} set={set} field={field} {...props} />
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [form, set]);
-  const ta = useCallback((field, props={}) => (
-    <TA form={form} set={set} field={field} {...props} />
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [form, set]);
 
   return (
     <div style={{ paddingTop:8 }}>
@@ -1831,29 +1822,41 @@ function EForm({ form, set }) {
         )}
 
         {/* ── AUTO-FILLED fields — from lookup ── */}
-        <div style={{ background:'#2A6E3A08', borderRadius:14, padding:'12px 14px',
-          border:'1px solid #2A6E3A20', marginBottom:14 }}>
+        <div style={{ marginBottom:14 }}>
           <p style={{ margin:'0 0 10px', fontSize:12, color:'#2A6E3A', fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.08em' }}>✓ Auto-filled</p>
-          <FL label="Airline"><FI form={form} set={set} field="airline" placeholder="" /></FL>
+          <FL label="Airline">
+            <FI form={form} set={set} field="airline" placeholder="" />
+          </FL>
           <Row2>
-            <FL label="From"><FI form={form} set={set} field="depCity" placeholder="" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
-            <FL label="To"><FI form={form} set={set} field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
+            <FL label="From" tight>
+              <FI form={form} set={set} field="depCity" placeholder="" onChange={e=>set('depCity',e.target.value.toUpperCase())} />
+            </FL>
+            <FL label="To" tight>
+              <FI form={form} set={set} field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} />
+            </FL>
           </Row2>
           <Row2>
-            <FL label="Terminal" tight><FI form={form} set={set} field="terminal" placeholder="" inputMode="numeric" compact /></FL>
-            <FL label="Gate" tight><FI form={form} set={set} field="gate" placeholder="" inputMode="numeric" compact /></FL>
+            <FL label="Terminal" tight>
+              <FI form={form} set={set} field="terminal" placeholder="" inputMode="numeric" />
+            </FL>
+            <FL label="Gate" tight>
+              <FI form={form} set={set} field="gate" placeholder="" inputMode="numeric" />
+            </FL>
           </Row2>
         </div>
 
         {/* ── MANUAL fields ── */}
-        <div style={{ background:C.elevated, borderRadius:14, padding:'12px 14px',
-          border:`1px solid ${C.border}`, marginBottom:14 }}>
+        <div style={{ marginBottom:14 }}>
           <p style={{ margin:'0 0 10px', fontSize:12, color:C.dim, fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.08em' }}>✎ Enter manually</p>
           <Row2>
-            <FL label="Dep. Time" tight><FI form={form} set={set} field="time" type="time" compact /></FL>
-            <FL label="Seat" tight><FI form={form} set={set} field="seat" placeholder="1A" compact /></FL>
+            <FL label="Dep. Time" tight>
+              <FI form={form} set={set} field="time" type="time" />
+            </FL>
+            <FL label="Seat" tight>
+              <FI form={form} set={set} field="seat" placeholder="1A" />
+            </FL>
           </Row2>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
@@ -1960,14 +1963,14 @@ function AddModal({ onClose, onSave, editEntry = null }) {
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               <button onClick={onClose}
                 style={{ background:C.elevated, border:`1px solid ${C.border}`,
-                  color:C.dim, borderRadius:12, padding:'9px 16px',
+                  color:C.dim, borderRadius:BR.btn, padding:'9px 16px',
                   fontSize:15, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
                 Cancel
               </button>
               <button onClick={handleSave}
                 style={{ background:canSave?typeColor:C.elevated,
                   border:`1px solid ${canSave?typeColor:C.border}`,
-                  color:canSave?'#fff':C.muted, borderRadius:12,
+                  color:canSave?'#fff':C.muted, borderRadius:BR.btn,
                   padding:'9px 20px', fontSize:17, fontWeight:600,
                   cursor:canSave?'pointer':'default',
                   boxShadow:canSave?`0 4px 16px ${typeColor}40`:'none',
@@ -1978,7 +1981,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
           ) : (
             <button onClick={onClose}
               style={{ background:C.elevated, border:`1px solid ${C.border}`,
-                color:C.dim, width:32, height:32, borderRadius:16,
+                color:C.dim, width:32, height:32, borderRadius:BR.panel,
                 cursor:'pointer', fontSize:18, padding:0,
                 display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
           )}
@@ -1993,7 +1996,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                 {['meeting','task','flight','reminder','event'].map(t => (
                   <button key={t} onClick={() => { setForm({...mkBlank(),type:t}); setStep(1); }}
                     style={{ background:TC[t]+'15', border:`1px solid ${TC[t]+'35'}`,
-                      borderRadius:18, padding:'18px 14px', cursor:'pointer', textAlign:'left',
+                      borderRadius:BR.card, padding:'18px 14px', cursor:'pointer', textAlign:'left',
                       display:'flex', flexDirection:'column', gap:6,
                       boxShadow:`0 2px 12px ${TC[t]}15`,
                       transition:'transform 0.1s' }}>
@@ -2009,7 +2012,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                   </button>
                 ))}
                 <button style={{ background:C.elevated, border:`1px dashed ${C.border}`,
-                  borderRadius:18, padding:'18px 14px', cursor:'pointer',
+                  borderRadius:BR.card, padding:'18px 14px', cursor:'pointer',
                   display:'flex', flexDirection:'column', gap:6,
                   alignItems:'center', justifyContent:'center' }}>
                   <span style={{ fontSize:24 }}>🎤</span>
@@ -2430,9 +2433,8 @@ export default function App() {
     setSyncStatus('synced');
   }, [user]);
 
-  const TAB_TITLES = { home:'', calendar:'Calendar', search:'Search', settings:'Settings' };
-  const syncColor  = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
-  const syncLabel  = syncStatus==='loading' ? '◌ Syncing…' : syncStatus==='synced' ? '● Synced' : '⚠ Sync Error';
+  const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
+  const syncLabel = syncStatus==='loading' ? '◌ Syncing…' : syncStatus==='synced' ? '● Synced' : '⚠ Sync Error';
 
   const sharedStyle = {
     wrapper: { width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
@@ -2511,7 +2513,7 @@ export default function App() {
             type="email"
             autoFocus
             style={{ width:'100%', boxSizing:'border-box', background:C.card,
-              border:`1.5px solid ${C.border}`, borderRadius:16, padding:'16px 18px',
+              border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
               fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
               boxShadow:SH.card, marginBottom: authError ? 8 : 16 }}
           />
@@ -2522,7 +2524,7 @@ export default function App() {
           )}
           <button onClick={sendOtp} disabled={authLoading}
             style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-              border:'none', borderRadius:16, padding:'18px',
+              border:'none', borderRadius:BR.panel, padding:'18px',
               fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
               fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
               opacity: authLoading ? 0.7 : 1 }}>
@@ -2544,7 +2546,7 @@ export default function App() {
             inputMode="numeric"
             autoFocus
             style={{ width:'100%', boxSizing:'border-box', background:C.card,
-              border:`1.5px solid ${C.border}`, borderRadius:16, padding:'16px 18px',
+              border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
               fontSize:28, fontWeight:700, color:C.text, outline:'none',
               fontFamily:'inherit', boxShadow:SH.card,
               letterSpacing:'0.3em', textAlign:'center',
@@ -2557,7 +2559,7 @@ export default function App() {
           )}
           <button onClick={verifyOtp} disabled={authLoading}
             style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-              border:'none', borderRadius:16, padding:'18px',
+              border:'none', borderRadius:BR.panel, padding:'18px',
               fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
               fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
               opacity: authLoading ? 0.7 : 1 }}>
@@ -2603,7 +2605,7 @@ export default function App() {
           placeholder="Enter your full name"
           autoFocus
           style={{ width:'100%', boxSizing:'border-box', background:C.card,
-            border:`1.5px solid ${nameSaveError ? '#C46A14' : C.border}`, borderRadius:16, padding:'16px 18px',
+            border:`1.5px solid ${nameSaveError ? '#C46A14' : C.border}`, borderRadius:BR.panel, padding:'16px 18px',
             fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
             boxShadow:SH.card, marginBottom: nameSaveError ? 8 : 16 }}
         />
@@ -2614,7 +2616,7 @@ export default function App() {
         )}
         <button onClick={saveUserName} disabled={nameSaving}
           style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            border:'none', borderRadius:16, padding:'18px',
+            border:'none', borderRadius:BR.panel, padding:'18px',
             fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
             fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
             opacity: nameSaving ? 0.7 : 1 }}>
@@ -2669,7 +2671,7 @@ export default function App() {
             style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
               border:'none', cursor:'pointer',
               display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-              padding:'8px 4px', borderRadius:16, margin:'0 4px',
+              padding:'8px 4px', borderRadius:BR.panel, margin:'0 4px',
               transition:'background 0.15s' }}>
             <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
             <span style={{ fontSize:12, fontWeight: tab===n.key ? 800 : 500,
@@ -2679,7 +2681,7 @@ export default function App() {
 
         {/* FAB — centre, prominent */}
         <button onClick={() => setShowAdd(true)}
-          style={{ width:56, height:56, borderRadius:18, flexShrink:0,
+          style={{ width:56, height:56, borderRadius:BR.card, flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             border:'none', boxShadow:`0 6px 20px ${C.rose}60`,
             cursor:'pointer', display:'flex', alignItems:'center',
@@ -2693,7 +2695,7 @@ export default function App() {
             style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
               border:'none', cursor:'pointer',
               display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-              padding:'8px 4px', borderRadius:16, margin:'0 4px',
+              padding:'8px 4px', borderRadius:BR.panel, margin:'0 4px',
               transition:'background 0.15s' }}>
             <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
             <span style={{ fontSize:12, fontWeight: tab===n.key ? 800 : 500,
