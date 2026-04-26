@@ -761,58 +761,81 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
   const greet = hr<12?'Good Morning':hr<17?'Good Afternoon':'Good Evening';
 
   return (
-    <div style={{ padding:'0 18px 90px', overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
+    <div style={{ overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
-      {/* Greeting */}
-      <div style={{ paddingTop:14, marginBottom:20 }}>
-        <p style={{ fontSize:15, color:C.dim, margin:'0 0 3px', fontStyle:'italic' }}>{greet}</p>
-        <h1 style={{ fontSize:36, fontFamily:'Cormorant Garamond,Georgia,serif',
-          fontWeight:600, color:C.text, margin:0, lineHeight:1.2 }}>
-          <span style={{ color:C.rose }}>{userName || 'Welcome'}</span>
-        </h1>
-        <p style={{ fontSize:16, color:C.dim, margin:'5px 0 0' }}>
-          {DAY[now.getDay()]}, {MFULL[now.getMonth()]} {now.getDate()} · {todayEs.length} items today
-        </p>
-      </div>
-
-      {/* Stats strip */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:6 }}>
-        {[[todayEs.length,'Today',C.M],[openTasks,'Open Tasks',C.T],[next48,'Next 48h',C.E]].map(([v,l,c]) => (
-          <div key={l} style={{ background:C.card, borderRadius:18, padding:'20px 10px',
-            textAlign:'center', boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            <div style={{ fontSize:32, fontWeight:700,
-              fontFamily:'Cormorant Garamond,serif', color:c, lineHeight:1 }}>{v}</div>
-            <div style={{ fontSize:14, color:C.dim, marginTop:6 }}>{l}</div>
+      {/* ── Kizuna Brand Header ─────────────────────────────────── */}
+      <div style={{ background:C.card, padding:'16px 20px 14px',
+        borderBottom:`1px solid ${C.border}`,
+        boxShadow:`0 2px 8px rgba(44,38,32,0.06)` }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <h1 style={{ margin:0, fontSize:28, fontWeight:600, color:C.text,
+                fontFamily:'Cormorant Garamond,serif', lineHeight:1 }}>
+                Kizuna&thinsp;絆
+              </h1>
+            </div>
+            <p style={{ margin:'3px 0 0', fontSize:12, color:C.dim, fontStyle:'italic',
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.4 }}>
+              Bonding with trust, loyalty & love
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Next Flight */}
-      {nextFlight && (<>
-        <Sec label="Next Flight" />
-        <FlightHeroCard flight={nextFlight} todayStr={todayStr} onEdit={onEdit} onDelete={onDelete} />
-      </>)}
-
-      {/* Priority Tasks */}
-      {topTasks.length > 0 && (<>
-        <Sec label="Priority Tasks" count={openTasks} />
-        <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
-          boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-          {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+          <KizunaIcon />
         </div>
-      </>)}
+      </div>
 
-      {/* Today's Schedule */}
-      <Sec label="Today's Schedule" count={todayEs.length} />
-      {todayEs.length === 0
-        ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
-            Nothing scheduled for today
+      <div style={{ padding:'16px 18px 100px' }}>
+        {/* Greeting */}
+        <div style={{ marginBottom:18 }}>
+          <p style={{ fontSize:14, color:C.dim, margin:'0 0 2px', fontStyle:'italic' }}>{greet}</p>
+          <h2 style={{ fontSize:34, fontFamily:'Cormorant Garamond,Georgia,serif',
+            fontWeight:600, color:C.rose, margin:0, lineHeight:1.1 }}>
+            {userName || 'Welcome'}
+          </h2>
+          <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
+            {DAY[now.getDay()]}, {MFULL[now.getMonth()]} {now.getDate()} · {todayEs.length} items today
           </p>
-        : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+        </div>
+
+        {/* Stats strip */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
+          {[[todayEs.length,'Today',C.M],[openTasks,'Open Tasks',C.T],[next48,'Next 48h',C.E]].map(([v,l,c]) => (
+            <div key={l} style={{ background:C.card, borderRadius:18, padding:'18px 10px',
+              textAlign:'center', boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:30, fontWeight:700,
+                fontFamily:'Cormorant Garamond,serif', color:c, lineHeight:1 }}>{v}</div>
+              <div style={{ fontSize:13, color:C.dim, marginTop:5 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Next Flight */}
+        {nextFlight && (<>
+          <Sec label="Next Flight" />
+          <FlightHeroCard flight={nextFlight} todayStr={todayStr} onEdit={onEdit} onDelete={onDelete} />
+        </>)}
+
+        {/* Priority Tasks */}
+        {topTasks.length > 0 && (<>
+          <Sec label="Priority Tasks" count={openTasks} />
+          <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
           </div>
-      }
+        </>)}
+
+        {/* Today's Schedule */}
+        <Sec label="Today's Schedule" count={todayEs.length} />
+        {todayEs.length === 0
+          ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
+              Nothing scheduled for today
+            </p>
+          : <div style={{ background:C.card, borderRadius:20, padding:'0 14px',
+              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+            </div>
+        }
+      </div>
     </div>
   );
 }
@@ -2053,7 +2076,7 @@ const NAV = [
 // ─── DEV BYPASS ──────────────────────────────────────────────────
 // Set to true to skip login during debugging.
 // Set back to false before going live.
-const DEV_BYPASS      = false;
+const DEV_BYPASS      = true;  // ← set false when going live
 const DEV_BYPASS_NAME = 'Koksum';
 
 // ─── APP ROOT ────────────────────────────────────────────────────
@@ -2582,100 +2605,65 @@ export default function App() {
       `}</style>
 
 
-      {/* ── Bottom nav bar ─────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', height:64,
-        borderTop:`1px solid ${C.border}`, background:C.card,
-        flexShrink:0, paddingBottom:8,
-        boxShadow:`0 -2px 12px rgba(44,38,32,0.06)` }}>
-
-        {/* Sync pill — left side */}
-        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
-          textTransform:'uppercase', color:syncColor, background:syncColor+'18',
-          borderRadius:10, padding:'2px 8px', marginLeft:10, flexShrink:0 }}>
-          {syncLabel}
-        </span>
-
-        {/* Nav tabs */}
-        {NAV.map(n => (
-          <button key={n.key} onClick={() => setTab(n.key)}
-            style={{ flex:1, background: tab===n.key ? C.rose+'15' : 'transparent',
-              border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:2,
-              padding:'6px 4px', borderRadius:14, margin:'0 3px',
-              transition:'background 0.15s' }}>
-            <span style={{ fontSize:22,
-              color: tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>{n.icon}</span>
-            <span style={{ fontSize:11, fontWeight: tab===n.key ? 800 : 400,
-              color: tab===n.key ? C.rose : C.muted,
-              letterSpacing: tab===n.key ? '0.03em' : 0,
-              transition:'color 0.15s' }}>{n.label}</span>
-          </button>
-        ))}
-
-        {/* FAB — right side, thumb-friendly corner */}
-        <button onClick={() => setShowAdd(true)}
-          style={{ width:48, height:48, borderRadius:14, flexShrink:0,
-            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            border:'none', boxShadow:`0 4px 14px ${C.rose}50`,
-            cursor:'pointer', display:'flex', alignItems:'center',
-            justifyContent:'center', marginRight:10 }}>
-          <span style={{ fontSize:26, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
-        </button>
-      </div>
-
-      {/* Main content */}
+      {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
         {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
-
-        {/* Create modal */}
         {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
-        {/* Edit modal */}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
 
       {/* ── Bottom nav bar ─────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', height:64,
+      <div style={{ display:'flex', alignItems:'center', height:72,
         borderTop:`1px solid ${C.border}`, background:C.card,
-        flexShrink:0, paddingBottom:8,
-        boxShadow:`0 -2px 12px rgba(44,38,32,0.06)` }}>
+        flexShrink:0, paddingBottom:10,
+        boxShadow:`0 -2px 16px rgba(44,38,32,0.08)` }}>
 
-        {/* Sync pill — left side */}
-        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'0.07em',
-          textTransform:'uppercase', color:syncColor, background:syncColor+'18',
-          borderRadius:10, padding:'2px 8px', marginLeft:10, flexShrink:0 }}>
-          {syncLabel}
-        </span>
-
-        {/* Nav tabs */}
-        {NAV.map(n => (
+        {/* Home + Calendar */}
+        {NAV.slice(0,2).map(n => (
           <button key={n.key} onClick={() => setTab(n.key)}
-            style={{ flex:1, background: tab===n.key ? C.rose+'15' : 'transparent',
+            style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
               border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:2,
-              padding:'6px 4px', borderRadius:14, margin:'0 3px',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              padding:'8px 4px', borderRadius:16, margin:'0 4px',
               transition:'background 0.15s' }}>
-            <span style={{ fontSize:22,
-              color: tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>{n.icon}</span>
-            <span style={{ fontSize:11, fontWeight: tab===n.key ? 800 : 400,
-              color: tab===n.key ? C.rose : C.muted,
-              transition:'color 0.15s' }}>{n.label}</span>
+            <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
+            <span style={{ fontSize:12, fontWeight: tab===n.key ? 800 : 500,
+              color: tab===n.key ? C.rose : C.muted }}>{n.label}</span>
           </button>
         ))}
 
-        {/* FAB — right corner, always thumb-reachable */}
+        {/* FAB — centre, prominent */}
         <button onClick={() => setShowAdd(true)}
-          style={{ width:48, height:48, borderRadius:14, flexShrink:0,
+          style={{ width:56, height:56, borderRadius:18, flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            border:'none', boxShadow:`0 4px 14px ${C.rose}50`,
+            border:'none', boxShadow:`0 6px 20px ${C.rose}60`,
             cursor:'pointer', display:'flex', alignItems:'center',
-            justifyContent:'center', marginRight:10 }}>
-          <span style={{ fontSize:26, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
+            justifyContent:'center', margin:'0 6px' }}>
+          <span style={{ fontSize:30, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
         </button>
+
+        {/* Search + Settings */}
+        {NAV.slice(2).map(n => (
+          <button key={n.key} onClick={() => setTab(n.key)}
+            style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
+              border:'none', cursor:'pointer',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              padding:'8px 4px', borderRadius:16, margin:'0 4px',
+              transition:'background 0.15s' }}>
+            <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
+            <span style={{ fontSize:12, fontWeight: tab===n.key ? 800 : 500,
+              color: tab===n.key ? C.rose : C.muted }}>{n.label}</span>
+          </button>
+        ))}
+
+        {/* Sync indicator — subtle dot */}
+        <div style={{ position:'absolute', bottom:76, right:12,
+          width:8, height:8, borderRadius:4,
+          background: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
+          boxShadow: `0 0 6px ${syncStatus==='synced' ? C.T : C.rose}` }} />
       </div>
     </div>
   );
