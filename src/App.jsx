@@ -1860,37 +1860,35 @@ function EForm({ form, set }) {
             <p style={{ margin:0, fontSize:12, color:'#3A7AAC', fontWeight:700,
               textTransform:'uppercase', letterSpacing:'0.1em' }}>Enter manually</p>
           </div>
-          <Row2>
-            <FL label="Dep. Time" tight>
-              <input
-                type="time"
-                value={form.time||''}
-                onChange={e => set('time', e.target.value)}
-                style={{ ...inputBase,
-                  background:'#fff',
-                  border:`1.5px solid ${C.F}60`,
-                  borderRadius:BR.input,
-                  fontSize:18, fontWeight:600,
-                  textAlign:'center',
-                  letterSpacing:'0.04em',
-                  color:C.text }} />
-            </FL>
-            <FL label="Seat" tight>
-              <input
-                type="text"
-                value={form.seat||''}
-                onChange={e => set('seat', e.target.value)}
-                placeholder=""
-                style={{ ...inputBase,
-                  background:'#fff',
-                  border:`1.5px solid ${C.F}60`,
-                  borderRadius:BR.input,
-                  fontSize:18, fontWeight:600,
-                  textAlign:'center',
-                  letterSpacing:'0.08em',
-                  color:C.text }} />
-            </FL>
-          </Row2>
+          <FL label="Dep. Time" tight>
+            <input
+              type="time"
+              value={form.time||''}
+              onChange={e => set('time', e.target.value)}
+              style={{ ...inputBase,
+                background:'#fff',
+                border:`1.5px solid ${C.F}60`,
+                borderRadius:BR.input,
+                fontSize:18, fontWeight:600,
+                textAlign:'center',
+                letterSpacing:'0.04em',
+                color:C.text }} />
+          </FL>
+          <FL label="Seat" tight>
+            <input
+              type="text"
+              value={form.seat||''}
+              onChange={e => set('seat', e.target.value)}
+              placeholder=""
+              style={{ ...inputBase,
+                background:'#fff',
+                border:`1.5px solid ${C.F}60`,
+                borderRadius:BR.input,
+                fontSize:18, fontWeight:600,
+                textAlign:'center',
+                letterSpacing:'0.08em',
+                color:C.text }} />
+          </FL>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)}
               style={{ ...selStyle,
