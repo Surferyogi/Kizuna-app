@@ -1,5 +1,5 @@
 # 絆 Kizuna
 
-> Bonding with trust, loyalty & love — nuturing an invisible thread that connects hearts across time and distance :-*
+> Bonding with trust, loyalty & love — nuturing the invisible thread that connects hearts across time and distance :-*
 
 
