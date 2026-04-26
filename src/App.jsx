@@ -1617,14 +1617,25 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
       {/* About */}
       <SS title="About">
-        <SR label="絆 Kizuna"
-          sub={`${APP_VERSION} · Released ${APP_BUILD_DATE}`}
-          right={
-            <span style={{ fontSize:14, color:C.dim, background:C.elevated,
-              borderRadius:10, padding:'3px 10px', border:`1px solid ${C.border}` }}>
-              {APP_VERSION}
-            </span>
-          } />
+        {/* Kizuna tagline */}
+        <div style={{ padding:'20px 18px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+            <KizunaIcon />
+            <span style={{ fontSize:22, fontWeight:600, color:C.text,
+              fontFamily:'Cormorant Garamond,serif' }}>Kizuna 絆</span>
+          </div>
+          <p style={{ margin:'0 0 6px', fontSize:16, color:C.text,
+            fontFamily:'Cormorant Garamond,serif', fontStyle:'italic', lineHeight:1.6 }}>
+            Bonding with trust, loyalty & love —
+          </p>
+          <p style={{ margin:'0 0 12px', fontSize:16, color:C.text,
+            fontFamily:'Cormorant Garamond,serif', fontStyle:'italic', lineHeight:1.6 }}>
+            nurturing the invisible thread that connects hearts across time and distance
+          </p>
+          <p style={{ margin:0, fontSize:13, color:C.muted }}>
+            {APP_VERSION} · Released {APP_BUILD_DATE}
+          </p>
+        </div>
         <SR label="Schema Version" sub={`Storage format v${SCHEMA_VERSION}`} noBorder
           right={<span style={{ fontSize:15, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
       </SS>
