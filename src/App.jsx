@@ -285,7 +285,7 @@ const BR = {
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
 const APP_VERSION    = 'v2.1.0';
-const APP_BUILD_DATE = 'April 23, 2026';
+const APP_BUILD_DATE = 'April 26, 2026';
 
 // Load own entries from Supabase — simple, reliable query
 async function dbLoadEntries(userId) {
@@ -311,21 +311,21 @@ async function dbLoadAudit(userId) {
 async function dbUpsertEntry(userId, entry) {
   const { error } = await supabase.from('entries')
     .upsert({ id: entry.id, user_id: userId, data: entry, updated_at: new Date().toISOString() });
-  if (error) console.error('upsert entry:', error.message);
+  
 }
 
 // Delete a single entry
 async function dbDeleteEntry(userId, entryId) {
   const { error } = await supabase.from('entries').delete()
     .eq('id', entryId).eq('user_id', userId);
-  if (error) console.error('delete entry:', error.message);
+  
 }
 
 // Append audit event
 async function dbAppendAudit(userId, event) {
   const { error } = await supabase.from('audit_log')
     .upsert({ id: event.id, user_id: userId, data: event });
-  if (error) console.error('append audit:', error.message);
+  
 }
 
 // Wipe all data (Reset App Data)
@@ -2258,7 +2258,7 @@ export default function App() {
         setEntries(loadedEntries);
         setSyncStatus('synced');
       } catch (err) {
-        console.error('entries load failed:', err.message);
+        console.warn('entries load failed:', err.message);
         setSyncStatus('error');
       }
 
@@ -2271,7 +2271,7 @@ export default function App() {
           setNameReady(true);
         }
       } catch (err) {
-        console.error('name load failed:', err.message);
+        console.warn('name load failed:', err.message);
         // Fall back to localStorage
         const cached = localStorage.getItem(`exec_user_v1_${user.id}`);
         if (cached) { setUserName(cached); setNameInput(cached); setNameReady(true); }
@@ -2424,11 +2424,15 @@ export default function App() {
   const signOut = async () => {
     const uid = user?.id;
     await supabase.auth.signOut();
-    setUser(null); setEntries([]); setAuditLog([]); setWorkspace(null);
+    // Reset all state — order matters
+    setUser(null); setEntries([]); setAuditLog([]);
+    setWorkspace(null); setWorkspaceLoaded(false);
     setUserName(''); setNameInput(''); setNameReady(false);
     setAuthStep('email'); setOtpCode(''); setAuthError(''); setEmail('');
+    setSyncStatus('loading');
+    loadingRef.current = false; // allow data reload on next login
     if (uid) localStorage.removeItem(`exec_user_v1_${uid}`);
-    localStorage.removeItem('exec_user_v1'); // clear legacy key if present
+    localStorage.removeItem('exec_user_v1');
   };
 
   // ── Name save ──────────────────────────────────────────────────
@@ -2576,7 +2580,8 @@ export default function App() {
         </h1>
         <p style={{ margin:'0 0 36px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
-          an invisible thread that connects hearts
+          Bonding with trust, loyalty & love —<br/>
+          nurturing the invisible thread that connects hearts
         </p>
 
         {authStep === 'email' ? (<>
@@ -2672,9 +2677,10 @@ export default function App() {
           fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
           Kizuna&thinsp;絆
         </h1>
-        <p style={{ margin:'0 0 32px', fontSize:14, color:C.dim, fontStyle:'italic',
+        <p style={{ margin:'0 0 36px', fontSize:14, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif', textAlign:'center', lineHeight:1.6 }}>
-          an invisible thread that connects hearts
+          Bonding with trust, loyalty & love —<br/>
+          nurturing the invisible thread that connects hearts
         </p>
         <p style={{ margin:'0 0 12px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
           What's your name?
