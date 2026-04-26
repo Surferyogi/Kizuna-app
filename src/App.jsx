@@ -1823,8 +1823,12 @@ function EForm({ form, set }) {
 
         {/* ── AUTO-FILLED fields — from lookup ── */}
         <div style={{ marginBottom:14 }}>
-          <p style={{ margin:'0 0 10px', fontSize:12, color:'#2A6E3A', fontWeight:700,
-            textTransform:'uppercase', letterSpacing:'0.08em' }}>✓ Auto-filled</p>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
+            <div style={{ width:3, height:16, borderRadius:2,
+              background:'#2A6E3A', flexShrink:0 }} />
+            <p style={{ margin:0, fontSize:12, color:'#2A6E3A', fontWeight:700,
+              textTransform:'uppercase', letterSpacing:'0.1em' }}>Auto-filled</p>
+          </div>
           <FL label="Airline">
             <FI form={form} set={set} field="airline" placeholder="" />
           </FL>
@@ -1846,20 +1850,52 @@ function EForm({ form, set }) {
           </Row2>
         </div>
 
-        {/* ── MANUAL fields ── */}
-        <div style={{ marginBottom:14 }}>
-          <p style={{ margin:'0 0 10px', fontSize:12, color:C.dim, fontWeight:700,
-            textTransform:'uppercase', letterSpacing:'0.08em' }}>✎ Enter manually</p>
+        {/* ── MANUAL fields — enter manually ── */}
+        <div style={{ background:`linear-gradient(135deg,#EDF5FD,#F0F7FF)`,
+          border:`1.5px solid ${C.F}40`, borderRadius:BR.card,
+          padding:'16px 16px 6px', marginBottom:14 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+            <div style={{ width:3, height:16, borderRadius:2,
+              background:C.F, flexShrink:0 }} />
+            <p style={{ margin:0, fontSize:12, color:'#3A7AAC', fontWeight:700,
+              textTransform:'uppercase', letterSpacing:'0.1em' }}>Enter manually</p>
+          </div>
           <Row2>
             <FL label="Dep. Time" tight>
-              <FI form={form} set={set} field="time" type="time" />
+              <input
+                type="time"
+                value={form.time||''}
+                onChange={e => set('time', e.target.value)}
+                style={{ ...inputBase,
+                  background:'#fff',
+                  border:`1.5px solid ${C.F}60`,
+                  borderRadius:BR.input,
+                  fontSize:18, fontWeight:600,
+                  textAlign:'center',
+                  letterSpacing:'0.04em',
+                  color:C.text }} />
             </FL>
             <FL label="Seat" tight>
-              <FI form={form} set={set} field="seat" placeholder="1A" />
+              <input
+                type="text"
+                value={form.seat||''}
+                onChange={e => set('seat', e.target.value)}
+                placeholder=""
+                style={{ ...inputBase,
+                  background:'#fff',
+                  border:`1.5px solid ${C.F}60`,
+                  borderRadius:BR.input,
+                  fontSize:18, fontWeight:600,
+                  textAlign:'center',
+                  letterSpacing:'0.08em',
+                  color:C.text }} />
             </FL>
           </Row2>
           <FL label="Priority">
-            <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
+            <select value={form.priority} onChange={e=>set('priority',e.target.value)}
+              style={{ ...selStyle,
+                background:'#fff',
+                border:`1.5px solid ${C.F}60` }}>
               {['low','medium','high','critical'].map(p => (
                 <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
               ))}
