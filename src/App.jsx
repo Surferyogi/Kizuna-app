@@ -1464,10 +1464,10 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
   const InputStyle = {
     display:'block', marginTop:6, width:'100%', boxSizing:'border-box',
-    background:C.elevated, border:`1px solid ${C.border}`,
-    borderRadius:12, padding:'10px 13px', color:C.text,
-    fontSize:17, fontFamily:'inherit', outline:'none',
-    boxShadow:SH.subtle,
+    background:C.card, border:`1.5px solid ${C.border}`,
+    borderRadius:14, padding:'14px 16px', color:C.text,
+    fontSize:16, fontFamily:'inherit', outline:'none',
+    transition:'border-color 0.15s',
   };
 
   return (
@@ -1737,31 +1737,55 @@ function EForm({ form, set }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.flightNum, form.date, form.type]);
 
+  // ── Input design system ───────────────────────────────────────
   const inputBase = {
-    width:'100%', boxSizing:'border-box', background:C.elevated,
-    border:`1px solid ${C.border}`, borderRadius:12, padding:'12px 14px',
-    color:C.text, fontSize:17, outline:'none', fontFamily:'inherit',
-    boxShadow:SH.subtle,
+    width:'100%', boxSizing:'border-box',
+    background:C.card,
+    border:`1.5px solid ${C.border}`,
+    borderRadius:14,
+    padding:'14px 16px',       // tall enough for comfortable thumb tap
+    color:C.text,
+    fontSize:16,
+    outline:'none',
+    fontFamily:'inherit',
+    transition:'border-color 0.15s',
+    boxShadow:'none',
   };
-  const FI = ({ field, ...props }) => (
+  // Compact variant — for 2-column grids (Terminal, Gate, Seat, Dep Time)
+  const inputSm = {
+    ...inputBase,
+    padding:'11px 13px',
+    fontSize:15,
+    borderRadius:12,
+  };
+  // Full-width field
+  const FI = ({ field, compact=false, ...props }) => (
     <input value={form[field]||''} onChange={e => set(field, e.target.value)} {...props}
-      style={{ ...inputBase, ...props.style }} />
+      style={{ ...(compact ? inputSm : inputBase), ...props.style }} />
   );
+  // Textarea
   const TA = ({ field, ...props }) => (
-    <textarea value={form[field]||''} onChange={e => set(field, e.target.value)} rows={2} {...props}
-      style={{ ...inputBase, resize:'vertical' }} />
+    <textarea value={form[field]||''} onChange={e => set(field, e.target.value)} rows={3} {...props}
+      style={{ ...inputBase, resize:'vertical', lineHeight:1.5 }} />
   );
-  const FL = ({ label, children }) => (
-    <div style={{ marginBottom:14 }}>
-      <label style={{ fontSize:14, color:C.dim, display:'block', marginBottom:5,
-        fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</label>
+  // Field label wrapper
+  const FL = ({ label, children, tight=false }) => (
+    <div style={{ marginBottom: tight ? 10 : 14 }}>
+      <label style={{ fontSize:12, color:C.dim, display:'block',
+        marginBottom:5, fontWeight:700,
+        textTransform:'uppercase', letterSpacing:'0.1em' }}>{label}</label>
       {children}
     </div>
   );
+  // Two-column row — compact gap
   const Row2 = ({ children }) => (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>
   );
-  const selStyle = { ...inputBase, appearance:'none' };
+  // Three-column row
+  const Row3 = ({ children }) => (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>{children}</div>
+  );
+  const selStyle = { ...inputBase, appearance:'none', WebkitAppearance:'none' };
 
   return (
     <div style={{ paddingTop:8 }}>
@@ -1810,8 +1834,8 @@ function EForm({ form, set }) {
             <FL label="To"><FI field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
           </Row2>
           <Row2>
-            <FL label="Terminal"><FI field="terminal" placeholder="" inputMode="numeric" /></FL>
-            <FL label="Gate"><FI field="gate" placeholder="" inputMode="numeric" /></FL>
+            <FL label="Terminal" tight><FI field="terminal" placeholder="" inputMode="numeric" compact /></FL>
+            <FL label="Gate" tight><FI field="gate" placeholder="" inputMode="numeric" compact /></FL>
           </Row2>
         </div>
 
@@ -1821,8 +1845,8 @@ function EForm({ form, set }) {
           <p style={{ margin:'0 0 10px', fontSize:12, color:C.dim, fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.08em' }}>✎ Enter manually</p>
           <Row2>
-            <FL label="Dep. Time"><FI field="time" type="time" /></FL>
-            <FL label="Seat"><FI field="seat" placeholder="1A" /></FL>
+            <FL label="Dep. Time" tight><FI field="time" type="time" compact /></FL>
+            <FL label="Seat" tight><FI field="seat" placeholder="1A" compact /></FL>
           </Row2>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
@@ -1834,7 +1858,7 @@ function EForm({ form, set }) {
         </div>
       </>) : form.type === 'task' ? (<>
         <Row2>
-          <FL label="Due Date (optional)"><FI field="date" type="date" /></FL>
+          <FL label="Due Date (optional)" tight><FI field="date" type="date" compact /></FL>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
               {['low','medium','high','critical'].map(p => (
@@ -1846,16 +1870,16 @@ function EForm({ form, set }) {
         <FL label="Tags"><FI field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <Row2>
-          <FL label="Date (optional)"><FI field="date" type="date" /></FL>
-          <FL label="Time"><FI field="time" type="time" /></FL>
+          <FL label="Date (optional)" tight><FI field="date" type="date" compact /></FL>
+          <FL label="Time" tight><FI field="time" type="time" compact /></FL>
         </Row2>
         <FL label="Message"><TA field="message" placeholder="Reminder details…" /></FL>
       </>) : (<>
         <Row2>
           <FL label="Date"><FI field="date" type="date" /></FL>
-          <FL label="Start Time"><FI field="time" type="time" /></FL>
+          <FL label="Start Time" tight><FI field="time" type="time" compact /></FL>
         </Row2>
-        <FL label="End Time"><FI field="endTime" type="time" /></FL>
+        <FL label="End Time" tight><FI field="endTime" type="time" compact /></FL>
         <FL label="Location"><FI field="location" placeholder="Room, address, or virtual" /></FL>
         {form.type==='meeting' && (
           <FL label="Attendees"><FI field="attendees" placeholder="Names or emails, comma-separated" /></FL>
