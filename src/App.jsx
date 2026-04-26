@@ -2349,7 +2349,7 @@ export default function App() {
     setUserName(''); setNameInput(''); setNameReady(false);
     setAuthStep('email'); setOtpCode(''); setAuthError(''); setEmail('');
     if (uid) localStorage.removeItem(`exec_user_v1_${uid}`);
-    localStorage.removeItem(SK_USER); // also clear old key if exists
+    localStorage.removeItem('exec_user_v1'); // clear legacy key if present
   };
 
   // ── Name save ──────────────────────────────────────────────────
