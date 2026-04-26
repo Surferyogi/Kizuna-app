@@ -455,7 +455,7 @@ const SR = ({ label, sub, right, noBorder }) => (
     borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:14 }}>
     <div style={{ flex:1 }}>
       <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500 }}>{label}</p>
-      {sub && <p style={{ margin:0, fontSize:15, color:C.dim, marginTop:3 }}>{sub}</p>}
+      {sub && <p style={{ margin:0, fontSize:14, color:C.dim, marginTop:3 }}>{sub}</p>}
     </div>
     {right}
   </div>
@@ -540,11 +540,11 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
         {!open ? (
           /* META STATE */
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
-            {e.time      && <span style={{ fontSize:15, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
-            {e.location  && <span style={{ fontSize:15, color:C.dim }}>📍 {e.location}</span>}
-            {e.flightNum && <span style={{ fontSize:15, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
-            {e.tags      && <span style={{ fontSize:15, color:C.dim }}>🏷 {e.tags}</span>}
-            {e.message   && <span style={{ fontSize:15, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
+            {e.time      && <span style={{ fontSize:14, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
+            {e.location  && <span style={{ fontSize:14, color:C.dim }}>📍 {e.location}</span>}
+            {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
+            {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
+            {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
             {/* Own shared entry — rose badge */}
             {e.visibility==='shared' && isOwn && (
               <span style={{ fontSize:13, color:C.rose,
