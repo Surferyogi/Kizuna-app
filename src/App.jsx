@@ -468,51 +468,51 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
   const [open,       setOpen]       = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
-  // Shared entries from other users are read-only — no edit/delete
   const isOwn = !e.userId || e.userId === currentUserId;
 
-  // Past-due: entry has a date+time in the past and isn't marked done
+  // F12: flights are never past-due — they've been taken, not missed
   const isPastDue = (() => {
-    if (e.done) return false;
+    if (e.done || e.type === 'flight') return false;
     if (!e.date) return false;
     const dt = e.time ? new Date(`${e.date}T${e.time}`) : new Date(`${e.date}T23:59`);
     return dt < new Date();
   })();
-  const openMenu  = ev => { ev.stopPropagation(); setOpen(true);  setConfirmDel(false); };
-  const closeMenu = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); };
-  const handleEdit   = ev => { ev.stopPropagation(); setOpen(false); onEdit   && onEdit(e); };
-  const handleDelReq = ev => { ev.stopPropagation(); setConfirmDel(true); };
-  const handleDelOk  = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); onDelete && onDelete(e.id); };
 
-  // Shared pill button style factory
+  const openMenu    = ev => { ev.stopPropagation(); setOpen(true);  setConfirmDel(false); };
+  const closeMenu   = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); };
+  const handleEdit  = ev => { ev.stopPropagation(); setOpen(false); onEdit   && onEdit(e); };
+  const handleDelReq= ev => { ev.stopPropagation(); setConfirmDel(true); };
+  const handleDelOk = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); onDelete && onDelete(e.id); };
+
   const pill = (bg, fg, border) => ({
-    background: bg, color: fg,
-    border: `1px solid ${border}`,
-    borderRadius: 22, padding: '8px 18px',
-    fontSize: 14, fontWeight: 700,
-    cursor: 'pointer', fontFamily: 'inherit',
-    whiteSpace: 'nowrap', flexShrink: 0,
+    background:bg, color:fg, border:`1px solid ${border}`,
+    borderRadius:22, padding:'8px 18px', fontSize:14, fontWeight:700,
+    cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0,
   });
 
-  return (
-    <div style={{ display:'flex', gap:14, padding:'20px 0',
-      borderBottom:`1px solid ${C.border}` }}>
+  // V2: priority-based visual hierarchy — critical gets tinted background
+  const cardBg = e.priority==='critical' ? '#FFF5F2'
+               : e.priority==='high'     ? '#FFFAF8'
+               : 'transparent';
 
-      {/* Left colour stripe */}
-      <div style={{ width:5, minHeight:24, borderRadius:4,
-        background: col+'90', flexShrink:0, marginTop:4 }} />
+  return (
+    <div style={{ display:'flex', gap:14, padding:'18px 0',
+      borderBottom:`1px solid ${C.border}`,
+      background:cardBg }}>
+
+      {/* V6: thicker stripe — 7px, full opacity, type colour */}
+      <div style={{ width:7, minHeight:28, borderRadius:4,
+        background:col, flexShrink:0, marginTop:2 }} />
 
       <div style={{ flex:1, minWidth:0 }}>
-        {/* ── Title row — always visible ── */}
+        {/* Title row */}
         <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
-          {/* Tick box — tasks use it for done state; other types use it for past-due clearing */}
           {(e.type === 'task' || (isPastDue && isOwn)) && (
             <button onClick={() => isOwn && onToggle && onToggle(e.id)}
               style={{ width:26, height:26, borderRadius:7,
                 border:`2px solid ${e.done ? C.T : isPastDue ? '#C46A14' : C.border}`,
                 background: e.done ? C.T+'22' : isPastDue ? '#C46A1408' : 'transparent',
-                cursor: isOwn ? 'pointer' : 'default',
-                flexShrink:0, marginTop:1,
+                cursor: isOwn ? 'pointer' : 'default', flexShrink:0, marginTop:1,
                 display:'flex', alignItems:'center', justifyContent:'center',
                 color: e.done ? C.T : '#C46A14', fontSize:15, padding:0,
                 transition:'background 0.15s, border-color 0.15s',
@@ -527,89 +527,62 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
             opacity: isPastDue && !e.done ? 0.6 : 1 }}>
             {e.title}
           </span>
-          {e.priority && <Badge label={e.priority} color={PC[e.priority]} />}
+          {/* V8: priority badge — larger, solid background for critical/high */}
+          {e.priority && e.priority !== 'low' && (
+            <span style={{
+              fontSize: e.priority==='critical'||e.priority==='high' ? 13 : 12,
+              fontWeight:700, color:'#fff',
+              background: PC[e.priority],
+              borderRadius:BR.pill, padding:'4px 12px',
+              textTransform:'capitalize', flexShrink:0,
+              boxShadow: e.priority==='critical' ? `0 2px 8px ${PC.critical}50` : 'none',
+            }}>{e.priority}</span>
+          )}
           {e.type === 'flight' && (
-            <span style={{ fontSize:15, fontWeight:700, color:dcol,
-              letterSpacing:'0.04em', flexShrink:0 }}>
-              {e.depCity}→{e.arrCity}
+            <span style={{ fontSize:14, fontWeight:700, color:dcol,
+              letterSpacing:'0.04em', flexShrink:0,
+              background:col+'15', borderRadius:BR.pill, padding:'3px 10px' }}>
+              {e.depCity||'?'}→{e.arrCity||'?'}
             </span>
           )}
         </div>
 
-        {/* ── Bottom row — morphs between: meta / actions / confirm ── */}
+        {/* Meta / Actions / Confirm */}
         {!open ? (
-          /* META STATE */
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
             {e.time      && <span style={{ fontSize:14, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
             {e.location  && <span style={{ fontSize:14, color:C.dim }}>📍 {e.location}</span>}
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
-            {/* Own shared entry — rose badge */}
             {e.visibility==='shared' && isOwn && (
-              <span style={{ fontSize:13, color:C.rose,
-                background:C.rose+'15', borderRadius:BR.pill, padding:'1px 8px' }}>
-                ◯ Shared
-              </span>
+              <span style={{ fontSize:12, color:C.rose, background:C.rose+'15', borderRadius:BR.pill, padding:'2px 8px' }}>◯ Shared</span>
             )}
-            {/* Private entry — lock badge */}
             {(e.visibility==='private' || !e.visibility) && isOwn && (
-              <span style={{ fontSize:13, color:C.muted,
-                background:C.elevated, borderRadius:BR.pill, padding:'1px 8px',
-                border:`1px solid ${C.border}` }}>
-                🔒 Private
-              </span>
+              <span style={{ fontSize:12, color:C.muted, background:C.elevated, borderRadius:BR.pill, padding:'2px 8px', border:`1px solid ${C.border}` }}>🔒 Private</span>
             )}
-            {/* Teammate's shared entry — blue badge */}
             {e.visibility==='shared' && !isOwn && (
-              <span style={{ fontSize:13, color:DTC.meeting,
-                background:C.M+'18', borderRadius:BR.pill, padding:'1px 8px' }}>
-                👤 Team
-              </span>
+              <span style={{ fontSize:12, color:DTC.meeting, background:C.M+'18', borderRadius:BR.pill, padding:'2px 8px' }}>👤 Team</span>
             )}
-            {/* ··· only shown for own entries */}
             {isOwn && (
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                   background:'transparent', border:`1px solid ${C.border}`,
                   borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
-                  letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>
-                ···
-              </button>
+                  letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>···</button>
             )}
           </div>
-
         ) : !confirmDel ? (
-          /* ACTION STATE — Edit + Delete + close */
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={handleEdit}
-              style={pill(col+'18', dcol, col+'50')}>
-              ✎ Edit
-            </button>
-            <button onClick={handleDelReq}
-              style={pill('#C46A1415', '#C46A14', '#C46A1450')}>
-              ✕ Delete
-            </button>
-            <button onClick={closeMenu}
-              style={{ ...pill(C.elevated, C.muted, C.border), marginLeft:'auto', padding:'4px 10px' }}>
-              ×
-            </button>
+            <button onClick={handleEdit}  style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
+            <button onClick={handleDelReq} style={pill('#C46A1415','#C46A14','#C46A1450')}>✕ Delete</button>
+            <button onClick={closeMenu}   style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
           </div>
-
         ) : (
-          /* CONFIRM STATE — "Remove?" with Cancel + confirm */
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>
-              Remove this entry?
-            </span>
-            <button onClick={closeMenu}
-              style={pill(C.elevated, C.dim, C.border)}>
-              Cancel
-            </button>
-            <button onClick={handleDelOk}
-              style={pill('#A04E08', '#fff', '#A04E08')}>
-              Remove
-            </button>
+            <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>Remove this entry?</span>
+            <button onClick={closeMenu}   style={pill(C.elevated,C.dim,C.border)}>Cancel</button>
+            <button onClick={handleDelOk} style={pill('#A04E08','#fff','#A04E08')}>Remove</button>
           </div>
         )}
       </div>
@@ -801,14 +774,22 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
           </p>
         </div>
 
-        {/* Stats strip */}
+        {/* V3: Stat cards — icon + number + label + subtle gradient */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
-          {[[todayEs.length,'Today',C.M],[openTasks,'Open Tasks',C.T],[next48,'Next 48h',C.E]].map(([v,l,c]) => (
-            <div key={l} style={{ background:C.card, borderRadius:BR.card, padding:'18px 10px',
-              textAlign:'center', boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:30, fontWeight:700,
-                fontFamily:'Cormorant Garamond,serif', color:c, lineHeight:1 }}>{v}</div>
-              <div style={{ fontSize:13, color:C.dim, marginTop:5 }}>{l}</div>
+          {[
+            [todayEs.length, 'Today',      C.M,  DTC.meeting, '📋'],
+            [openTasks,      'Open Tasks', C.T,  DTC.task,    '✓'],
+            [next48,         'Next 48h',   C.E,  DTC.event,   '⏱'],
+          ].map(([v,l,c,dc,icon]) => (
+            <div key={l} style={{ background:`linear-gradient(145deg,${C.card},${c}10)`,
+              borderRadius:BR.card, padding:'16px 10px 14px',
+              textAlign:'center', boxShadow:SH.card,
+              border:`1px solid ${c}25` }}>
+              <div style={{ fontSize:18, marginBottom:4, opacity:0.7 }}>{icon}</div>
+              <div style={{ fontSize:28, fontWeight:700,
+                fontFamily:'Cormorant Garamond,serif', color:dc, lineHeight:1 }}>{v}</div>
+              <div style={{ fontSize:12, color:C.dim, marginTop:5, fontWeight:600,
+                textTransform:'uppercase', letterSpacing:'0.07em' }}>{l}</div>
             </div>
           ))}
         </div>
@@ -830,15 +811,24 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
 
         {/* Today's Schedule */}
         <Sec label="Today's Schedule" count={todayEs.length} />
-        {todayEs.length === 0
-          ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'32px 0', fontStyle:'italic' }}>
-              Nothing scheduled for today
+        {todayEs.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'32px 18px',
+            background:C.card, borderRadius:BR.card,
+            border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+            <div style={{ fontSize:36, marginBottom:10, opacity:0.4 }}>🌸</div>
+            <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
+              A peaceful day ahead
             </p>
-          : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
-              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
-            </div>
-        }
+            <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>
+              Tap + to schedule something
+            </p>
+          </div>
+        ) : (
+          <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
+            boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+            {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -864,7 +854,11 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           <div key={d} style={{ marginTop:20 }}>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
               <div style={{ width:44, height:44, borderRadius:BR.input, flexShrink:0,
-                background: isT ? `linear-gradient(135deg,${C.rose},${C.roseL})` : C.card,
+                background: isT
+                  ? `linear-gradient(135deg,${C.rose},${C.roseL})`
+                  : new Date(d+'T00:00:00') < new Date()
+                    ? C.elevated
+                    : `linear-gradient(135deg,${C.card},${C.M}12)`,
                 boxShadow: isT ? `0 4px 16px ${C.rose}35` : SH.subtle,
                 border: isT ? 'none' : `1px solid ${C.border}`,
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
@@ -1017,9 +1011,10 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
                   color:isSel?'#fff':isT?C.rose:C.text }}>{d.getDate()}</span>
               </div>
               {/* Entry count dot or dots */}
-              <div style={{ display:'flex', justifyContent:'center', gap:2, marginTop:3, height:5 }}>
+              <div style={{ display:'flex', justifyContent:'center', gap:2, marginTop:4, height:7 }}>
                 {dots.map((col,j) => (
-                  <div key={j} style={{ width:5, height:5, borderRadius:3, background:col }} />
+                  <div key={j} style={{ width:7, height:7, borderRadius:4, background:col,
+                    boxShadow:`0 1px 3px ${col}50` }} />
                 ))}
               </div>
             </button>
@@ -1030,11 +1025,14 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
       {/* Selected day's entries */}
       <div style={{ flex:1, overflowY:'auto', padding:'8px 18px 90px', boxSizing:'border-box' }}>
         {selDayEs.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'40px 0' }}>
-            <p style={{ fontSize:28, opacity:0.25, margin:'0 0 8px' }}>◎</p>
-            <p style={{ fontSize:16, color:C.muted, fontStyle:'italic', margin:0 }}>
+          <div style={{ textAlign:'center', padding:'40px 18px',
+            background:C.card, borderRadius:BR.card, margin:'8px 0',
+            border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+            <div style={{ fontSize:32, marginBottom:8, opacity:0.4 }}>📅</div>
+            <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
               Nothing on {DAY[new Date(selDate+'T00:00:00').getDay()]}, {MFULL[new Date(selDate+'T00:00:00').getMonth()]} {new Date(selDate+'T00:00:00').getDate()}
             </p>
+            <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>Tap + to add something</p>
           </div>
         ) : (
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
@@ -1134,16 +1132,25 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
 }
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
+const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
 function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
-  const [view,    setView]    = useState('agenda');
+  // F10: persist selected view across tab switches and app restarts
+  const [view, setView] = useState(() =>
+    localStorage.getItem(CAL_VIEW_KEY) || 'agenda'
+  );
   const [selDate, setSelDate] = useState(fd(new Date()));
+
+  const switchView = (v) => {
+    setView(v);
+    localStorage.setItem(CAL_VIEW_KEY, v);
+  };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       <div style={{ display:'flex', gap:6, padding:'10px 18px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         {['agenda','day','week','month'].map(v => (
-          <button key={v} onClick={() => setView(v)}
+          <button key={v} onClick={() => switchView(v)}
             style={{ flex:1, padding:'9px 2px', borderRadius:BR.btn, border:'none', cursor:'pointer',
               background: view===v ? C.rose : C.elevated,
               color: view===v ? '#fff' : C.dim,
@@ -1187,7 +1194,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         [e.title,e.location,e.attendees,e.tags,e.notes,e.message,e.airline,e.flightNum,e.depCity,e.arrCity]
           .some(f => f && f.toLowerCase().includes(lq)));
     }
-    return r.sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'));
+    return r.sort((a,b) => (b.date||'0000').localeCompare(a.date||'0000'));
   }, [entries, q, typeF, quickF]);
 
   return (
@@ -1244,9 +1251,13 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           {results.length} result{results.length!==1?'s':''}
         </p>
         {results.length===0
-          ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'50px 0', fontStyle:'italic' }}>
-              Nothing found
-            </p>
+          ? <div style={{ textAlign:'center', padding:'50px 18px',
+              background:C.card, borderRadius:BR.card, marginTop:12,
+              border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+              <div style={{ fontSize:36, marginBottom:10, opacity:0.4 }}>🔍</div>
+              <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>Nothing found</p>
+              <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>Try a different search or filter</p>
+            </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
@@ -2131,10 +2142,10 @@ const KizunaIcon = () => {
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
 const NAV = [
-  { key:'home',     icon:'◯', label:'Home'     },
-  { key:'calendar', icon:'◫', label:'Calendar'  },
-  { key:'search',   icon:'◎', label:'Search'    },
-  { key:'settings', icon:'◈', label:'Settings'  },
+  { key:'home',     icon:'🏠', label:'Home'     },
+  { key:'calendar', icon:'📅', label:'Calendar'  },
+  { key:'search',   icon:'🔍', label:'Search'    },
+  { key:'settings', icon:'⚙️', label:'Settings'  },
 ];
 
 // ─── DEV BYPASS ──────────────────────────────────────────────────
@@ -2240,18 +2251,41 @@ export default function App() {
         if (cached) { setUserName(cached); setNameInput(cached); setNameReady(true); }
       }
 
-      // ③ Audit log — non-critical. Never triggers sync error.
+      // ③ Audit log — non-critical.
       try {
         const loadedAudit = await dbLoadAudit(user.id);
         setAuditLog(loadedAudit);
       } catch { /* silently ignore */ }
 
-      // ④ Workspace — non-critical. Never triggers sync error.
+      // ④ Workspace — non-critical.
       try {
         const ws = await dbLoadWorkspace(user.id);
-        if (ws) setWorkspace(ws);
+        if (ws) {
+          setWorkspace(ws);
+          // F2: load shared entries from workspace members after workspace is known
+          const memberIds = ws.members.map(m => m.id).filter(id => id !== user.id);
+          if (memberIds.length > 0 && supabase) {
+            try {
+              const sharedResults = await Promise.all(
+                memberIds.map(mid =>
+                  supabase.from('entries').select('data')
+                    .eq('user_id', mid)
+                    .filter('data->>visibility','eq','shared')
+                    .then(({ data }) => (data||[]).map(r=>r.data).filter(Boolean))
+                )
+              );
+              const shared = sharedResults.flat();
+              if (shared.length > 0) {
+                setEntries(prev => {
+                  const ids = new Set(prev.map(e => e.id));
+                  return [...prev, ...shared.filter(e => e?.id && !ids.has(e.id))];
+                });
+              }
+            } catch { /* shared entries non-critical */ }
+          }
+        }
       } catch { /* silently ignore */ }
-      setWorkspaceLoaded(true); // mark as attempted regardless of success
+      setWorkspaceLoaded(true);
 
       loadingRef.current = false;
     }
@@ -2447,7 +2481,9 @@ export default function App() {
   }, [logAudit, user]);
 
   const resetData = useCallback(async () => {
+    // F15: clear UI immediately — no flash of old data
     setEntries([]); setAuditLog([]);
+    setSyncStatus('loading');
     if (user) await dbResetUser(user.id);
     setSyncStatus('synced');
   }, [user]);
@@ -2698,14 +2734,15 @@ export default function App() {
           </button>
         ))}
 
-        {/* FAB — centre, prominent */}
+        {/* V5: FAB — true circle, elevated with glow */}
         <button onClick={() => setShowAdd(true)}
-          style={{ width:56, height:56, borderRadius:BR.card, flexShrink:0,
+          style={{ width:60, height:60, borderRadius:30, flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            border:'none', boxShadow:`0 6px 20px ${C.rose}60`,
+            border:'none',
+            boxShadow:`0 6px 24px ${C.rose}60, 0 0 0 4px ${C.rose}20`,
             cursor:'pointer', display:'flex', alignItems:'center',
-            justifyContent:'center', margin:'0 6px' }}>
-          <span style={{ fontSize:30, color:'#fff', fontWeight:300, lineHeight:1 }}>+</span>
+            justifyContent:'center', margin:'0 4px' }}>
+          <span style={{ fontSize:32, color:'#fff', fontWeight:300, lineHeight:1, marginTop:-2 }}>+</span>
         </button>
 
         {/* Search + Settings */}
