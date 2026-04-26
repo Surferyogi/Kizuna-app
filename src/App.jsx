@@ -360,12 +360,21 @@ async function dbLoadWorkspace(userId) {
   const { data: memberships, error } = await supabase
     .from('workspace_members')
     .select('workspace_id, role, workspaces(id, name, owner_id)')
-    .eq('user_id', userId)
-    .order('role', { ascending: true }); // 'admin' sorts before 'member'
+    .eq('user_id', userId);
   if (error || !memberships || memberships.length === 0) return null;
 
-  // Prefer admin workspace (their own), then fall back to first membership
-  const membership = memberships.find(m => m.role === 'admin') || memberships[0];
+  // Sort: prefer workspace where user is admin or owner
+  const sorted = [...memberships].sort((a, b) => {
+    const aAdmin = a.role === 'admin' || a.workspaces?.owner_id === userId;
+    const bAdmin = b.role === 'admin' || b.workspaces?.owner_id === userId;
+    return bAdmin - aAdmin; // admins first
+  });
+
+  const membership = sorted[0];
+
+  // Determine role — if user owns the workspace, always admin regardless of DB value
+  const isOwner = membership.workspaces?.owner_id === userId;
+  const resolvedRole = isOwner ? 'admin' : membership.role;
 
   const { data: members } = await supabase
     .from('workspace_members')
@@ -374,9 +383,9 @@ async function dbLoadWorkspace(userId) {
 
   return {
     id:      membership.workspace_id,
-    name:    membership.workspaces?.name || 'My Team',
+    name:    membership.workspaces?.name || 'Workspace',
     ownerId: membership.workspaces?.owner_id,
-    role:    membership.role,
+    role:    resolvedRole,
     members: (members || []).map(m => ({
       id:   m.user_id,
       name: m.profiles?.display_name || 'Unknown',
@@ -470,7 +479,20 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
 
   const isOwn = !e.userId || e.userId === currentUserId;
 
-  // F12: flights are never past-due — they've been taken, not missed
+  // F12: flights are past when departure time has passed
+  // Use arrival time if available for more accurate "landed" detection
+  const isFlightLanded = e.type === 'flight' && (() => {
+    if (!e.date) return false;
+    // If we have endTime (arrival), use that; otherwise use dep + 8h estimate
+    if (e.endTime) {
+      const arrDt = new Date(`${e.date}T${e.endTime}`);
+      return arrDt < new Date();
+    }
+    const depDt = e.time ? new Date(`${e.date}T${e.time}`) : new Date(`${e.date}T23:59`);
+    // Add 8h estimated flight time — don't mark as landed until likely arrived
+    return depDt.getTime() + (8 * 3600000) < Date.now();
+  })();
+
   const isPastDue = (() => {
     if (e.done || e.type === 'flight') return false;
     if (!e.date) return false;
@@ -491,18 +513,20 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
   });
 
   // V2: priority-based visual hierarchy — critical gets tinted background
-  const cardBg = e.priority==='critical' ? '#FFF5F2'
+  const cardBg = isFlightLanded  ? '#EDF5FD'
+               : e.priority==='critical' ? '#FFF5F2'
                : e.priority==='high'     ? '#FFFAF8'
                : 'transparent';
 
   return (
     <div style={{ display:'flex', gap:14, padding:'18px 0',
       borderBottom:`1px solid ${C.border}`,
-      background:cardBg }}>
+      background:cardBg, opacity: isFlightLanded ? 0.7 : 1 }}>
 
-      {/* V6: thicker stripe — 7px, full opacity, type colour */}
+      {/* V6: thicker stripe — 7px, full opacity */}
       <div style={{ width:7, minHeight:28, borderRadius:4,
-        background:col, flexShrink:0, marginTop:2 }} />
+        background: isFlightLanded ? C.T : col,
+        flexShrink:0, marginTop:2 }} />
 
       <div style={{ flex:1, minWidth:0 }}>
         {/* Title row */}
@@ -521,14 +545,22 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
             </button>
           )}
           <span style={{ fontSize:16, fontWeight:600,
-            color: e.done ? C.muted : isPastDue ? C.dim : C.text,
-            textDecoration: (e.done || isPastDue) ? 'line-through' : 'none',
+            color: (e.done || isFlightLanded) ? C.muted : isPastDue ? C.dim : C.text,
+            textDecoration: (e.done || isPastDue || isFlightLanded) ? 'line-through' : 'none',
             lineHeight:'1.4', flex:1, minWidth:0,
-            opacity: isPastDue && !e.done ? 0.6 : 1 }}>
+            opacity: (isPastDue && !e.done) || isFlightLanded ? 0.6 : 1 }}>
             {e.title}
           </span>
-          {/* V8: priority badge — larger, solid background for critical/high */}
-          {e.priority && e.priority !== 'low' && (
+          {/* Landed badge — green, shows for past flights */}
+          {isFlightLanded && (
+            <span style={{ fontSize:12, fontWeight:700, color:'#fff',
+              background:'#2A6E3A', borderRadius:BR.pill, padding:'4px 12px',
+              flexShrink:0, boxShadow:`0 2px 8px #2A6E3A40` }}>
+              Landed ✓
+            </span>
+          )}
+          {/* V8: priority badge */}
+          {!isFlightLanded && e.priority && e.priority !== 'low' && (
             <span style={{
               fontSize: e.priority==='critical'||e.priority==='high' ? 13 : 12,
               fontWeight:700, color:'#fff',
@@ -538,7 +570,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
               boxShadow: e.priority==='critical' ? `0 2px 8px ${PC.critical}50` : 'none',
             }}>{e.priority}</span>
           )}
-          {e.type === 'flight' && (
+          {!isFlightLanded && e.type === 'flight' && (
             <span style={{ fontSize:14, fontWeight:700, color:dcol,
               letterSpacing:'0.04em', flexShrink:0,
               background:col+'15', borderRadius:BR.pill, padding:'3px 10px' }}>
@@ -1183,14 +1215,25 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      <div style={{ display:'flex', gap:6, padding:'10px 18px',
-        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
+      <div style={{ display:'flex', gap:6, padding:'10px 14px',
+        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card,
+        alignItems:'center' }}>
+        {/* Today button — snaps back to current date */}
+        <button onClick={() => setSelDate(fd(new Date()))}
+          style={{ padding:'8px 14px', borderRadius:BR.btn, border:`1.5px solid ${C.rose}`,
+            background: selDate === fd(new Date()) ? C.rose : 'transparent',
+            color: selDate === fd(new Date()) ? '#fff' : C.rose,
+            fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0,
+            transition:'all 0.15s' }}>
+          Today
+        </button>
+        <div style={{ width:1, height:22, background:C.border, flexShrink:0 }} />
         {['agenda','day','week','month'].map(v => (
           <button key={v} onClick={() => switchView(v)}
-            style={{ flex:1, padding:'9px 2px', borderRadius:BR.btn, border:'none', cursor:'pointer',
+            style={{ flex:1, padding:'8px 2px', borderRadius:BR.btn, border:'none', cursor:'pointer',
               background: view===v ? C.rose : C.elevated,
               color: view===v ? '#fff' : C.dim,
-              fontSize:15, fontWeight:view===v?600:400, textTransform:'capitalize',
+              fontSize:14, fontWeight:view===v?600:400, textTransform:'capitalize',
               boxShadow: view===v?`0 2px 10px ${C.rose}35`:SH.subtle,
               transition:'background 0.15s' }}>
             {v}
@@ -1251,6 +1294,21 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
                 cursor:'pointer', fontSize:18, padding:0 }}>✕</button>
           )}
         </div>
+        {/* Today button — prominent, resets all filters to today */}
+        <button onClick={() => { setQ(''); setTypeF('all'); setQuickF('today'); }}
+          style={{ width:'100%', marginTop:10, padding:'11px 0',
+            background: quickF==='today' && !q && typeF==='all'
+              ? `linear-gradient(135deg,${C.rose},${C.roseL})`
+              : C.elevated,
+            border:`1.5px solid ${quickF==='today' && !q && typeF==='all' ? C.rose : C.border}`,
+            borderRadius:BR.input, fontSize:16, fontWeight:700,
+            color: quickF==='today' && !q && typeF==='all' ? '#fff' : C.dim,
+            cursor:'pointer', fontFamily:'inherit',
+            boxShadow: quickF==='today' && !q && typeF==='all'
+              ? `0 4px 16px ${C.rose}35` : SH.subtle,
+            transition:'all 0.15s' }}>
+          📅 Today
+        </button>
         {/* Quick filters */}
         <div style={{ display:'flex', gap:7, marginTop:10, overflowX:'auto', paddingBottom:2 }}>
           {QUICK_FILTERS.map(qf => (
@@ -2241,10 +2299,12 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Only update user on meaningful auth events — ignore token refreshes
-      // to prevent re-triggering the data load useEffect unnecessarily
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        setUser(session?.user ?? null);
+      // SIGNED_IN and TOKEN_REFRESHED both keep the user logged in
+      // TOKEN_REFRESHED must NOT trigger a full data reload — only update the user object
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user) setUser(prev => prev?.id === session.user.id ? prev : session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
       }
     });
     return () => subscription.unsubscribe();
