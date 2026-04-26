@@ -1647,11 +1647,54 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
   );
 }
 
-// ─── ADD MODAL ───────────────────────────────────────────────────
+// ─── FORM FIELD COMPONENTS ───────────────────────────────────────
+// Defined OUTSIDE EForm so React never unmounts/remounts them on re-render.
+// Cursor jumping is caused by defining components inside render functions —
+// React sees a new component type each render and resets focus.
+const inputBase = {
+  width:'100%', boxSizing:'border-box',
+  background:'#FFFEFB',
+  border:'1.5px solid #E8E0D8',
+  borderRadius:14, padding:'14px 16px',
+  color:'#2C2620', fontSize:16,
+  outline:'none', fontFamily:'inherit',
+  transition:'border-color 0.15s',
+};
+const inputSm = {
+  ...inputBase, padding:'11px 13px', fontSize:15, borderRadius:12,
+};
+function FI({ form, set, field, compact=false, ...props }) {
+  return (
+    <input value={form[field]||''} onChange={e => set(field, e.target.value)} {...props}
+      style={{ ...(compact ? inputSm : inputBase), ...props.style }} />
+  );
+}
+function TA({ form, set, field, ...props }) {
+  return (
+    <textarea value={form[field]||''} onChange={e => set(field, e.target.value)} rows={3} {...props}
+      style={{ ...inputBase, resize:'vertical', lineHeight:1.5 }} />
+  );
+}
+function FL({ label, children, tight=false }) {
+  return (
+    <div style={{ marginBottom: tight ? 10 : 14 }}>
+      <label style={{ fontSize:12, color:'#8C7B6E', display:'block',
+        marginBottom:5, fontWeight:700,
+        textTransform:'uppercase', letterSpacing:'0.1em' }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+function Row2({ children }) {
+  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>;
+}
+function Row3({ children }) {
+  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>{children}</div>;
+}
 const mkBlank = () => ({
   type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
-  terminal:'',gate:'',seat:'',visibility:'private',remind:'30min'
+  terminal:'',gate:'',seat:'',visibility:'shared',remind:'30min'
 });
 
 function EForm({ form, set }) {
@@ -1738,62 +1781,25 @@ function EForm({ form, set }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.flightNum, form.date, form.type]);
 
-  // ── Input design system ───────────────────────────────────────
-  const inputBase = {
-    width:'100%', boxSizing:'border-box',
-    background:C.card,
-    border:`1.5px solid ${C.border}`,
-    borderRadius:14,
-    padding:'14px 16px',       // tall enough for comfortable thumb tap
-    color:C.text,
-    fontSize:16,
-    outline:'none',
-    fontFamily:'inherit',
-    transition:'border-color 0.15s',
-    boxShadow:'none',
-  };
-  // Compact variant — for 2-column grids (Terminal, Gate, Seat, Dep Time)
-  const inputSm = {
-    ...inputBase,
-    padding:'11px 13px',
-    fontSize:15,
-    borderRadius:12,
-  };
-  // Full-width field
-  const FI = ({ field, compact=false, ...props }) => (
-    <input value={form[field]||''} onChange={e => set(field, e.target.value)} {...props}
-      style={{ ...(compact ? inputSm : inputBase), ...props.style }} />
-  );
-  // Textarea
-  const TA = ({ field, ...props }) => (
-    <textarea value={form[field]||''} onChange={e => set(field, e.target.value)} rows={3} {...props}
-      style={{ ...inputBase, resize:'vertical', lineHeight:1.5 }} />
-  );
-  // Field label wrapper
-  const FL = ({ label, children, tight=false }) => (
-    <div style={{ marginBottom: tight ? 10 : 14 }}>
-      <label style={{ fontSize:12, color:C.dim, display:'block',
-        marginBottom:5, fontWeight:700,
-        textTransform:'uppercase', letterSpacing:'0.1em' }}>{label}</label>
-      {children}
-    </div>
-  );
-  // Two-column row — compact gap
-  const Row2 = ({ children }) => (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>
-  );
-  // Three-column row
-  const Row3 = ({ children }) => (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>{children}</div>
-  );
+  // Convenience wrappers binding form+set — call as plain JSX, not components
+  // These are NOT component definitions — just objects/fns to avoid re-renders
   const selStyle = { ...inputBase, appearance:'none', WebkitAppearance:'none' };
+  // Bind form+set into fi/ta helpers for clean call sites
+  const fi = useCallback((field, props={}) => (
+    <FI form={form} set={set} field={field} {...props} />
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [form, set]);
+  const ta = useCallback((field, props={}) => (
+    <TA form={form} set={set} field={field} {...props} />
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [form, set]);
 
   return (
     <div style={{ paddingTop:8 }}>
       {/* Title shown for all types EXCEPT flight — flight title is auto-generated */}
       {form.type !== 'flight' && (
         <FL label="Title">
-          <FI field="title" placeholder={`${TL[form.type]} title`} autoFocus />
+          <FI form={form} set={set} field="title" placeholder={`${TL[form.type]} title`} autoFocus />
         </FL>
       )}
 
@@ -1801,10 +1807,10 @@ function EForm({ form, set }) {
         {/* ── Step 1: Search keys — triggers auto-fill ── */}
         <Row2>
           <FL label="Flight No.">
-            <FI field="flightNum" placeholder="SQ633" autoFocus
+            <FI form={form} set={set} field="flightNum" placeholder="SQ633" autoFocus compact
               onChange={e=>set('flightNum',e.target.value.replace(/\s+/g,'').toUpperCase())} />
           </FL>
-          <FL label="Date"><FI field="date" type="date" /></FL>
+          <FL label="Date"><FI form={form} set={set} field="date" type="date" compact /></FL>
         </Row2>
 
         {/* Lookup status */}
@@ -1829,14 +1835,14 @@ function EForm({ form, set }) {
           border:'1px solid #2A6E3A20', marginBottom:14 }}>
           <p style={{ margin:'0 0 10px', fontSize:12, color:'#2A6E3A', fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.08em' }}>✓ Auto-filled</p>
-          <FL label="Airline"><FI field="airline" placeholder="" /></FL>
+          <FL label="Airline"><FI form={form} set={set} field="airline" placeholder="" /></FL>
           <Row2>
-            <FL label="From"><FI field="depCity" placeholder="" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
-            <FL label="To"><FI field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
+            <FL label="From"><FI form={form} set={set} field="depCity" placeholder="" onChange={e=>set('depCity',e.target.value.toUpperCase())} /></FL>
+            <FL label="To"><FI form={form} set={set} field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} /></FL>
           </Row2>
           <Row2>
-            <FL label="Terminal" tight><FI field="terminal" placeholder="" inputMode="numeric" compact /></FL>
-            <FL label="Gate" tight><FI field="gate" placeholder="" inputMode="numeric" compact /></FL>
+            <FL label="Terminal" tight><FI form={form} set={set} field="terminal" placeholder="" inputMode="numeric" compact /></FL>
+            <FL label="Gate" tight><FI form={form} set={set} field="gate" placeholder="" inputMode="numeric" compact /></FL>
           </Row2>
         </div>
 
@@ -1846,8 +1852,8 @@ function EForm({ form, set }) {
           <p style={{ margin:'0 0 10px', fontSize:12, color:C.dim, fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.08em' }}>✎ Enter manually</p>
           <Row2>
-            <FL label="Dep. Time" tight><FI field="time" type="time" compact /></FL>
-            <FL label="Seat" tight><FI field="seat" placeholder="1A" compact /></FL>
+            <FL label="Dep. Time" tight><FI form={form} set={set} field="time" type="time" compact /></FL>
+            <FL label="Seat" tight><FI form={form} set={set} field="seat" placeholder="1A" compact /></FL>
           </Row2>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
@@ -1859,7 +1865,7 @@ function EForm({ form, set }) {
         </div>
       </>) : form.type === 'task' ? (<>
         <Row2>
-          <FL label="Due Date (optional)" tight><FI field="date" type="date" compact /></FL>
+          <FL label="Due Date (optional)" tight><FI form={form} set={set} field="date" type="date" compact /></FL>
           <FL label="Priority">
             <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
               {['low','medium','high','critical'].map(p => (
@@ -1868,24 +1874,24 @@ function EForm({ form, set }) {
             </select>
           </FL>
         </Row2>
-        <FL label="Tags"><FI field="tags" placeholder="Finance, Legal, M&A" /></FL>
+        <FL label="Tags"><FI form={form} set={set} field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <Row2>
-          <FL label="Date (optional)" tight><FI field="date" type="date" compact /></FL>
-          <FL label="Time" tight><FI field="time" type="time" compact /></FL>
+          <FL label="Date (optional)" tight><FI form={form} set={set} field="date" type="date" compact /></FL>
+          <FL label="Time" tight><FI form={form} set={set} field="time" type="time" compact /></FL>
         </Row2>
-        <FL label="Message"><TA field="message" placeholder="Reminder details…" /></FL>
+        <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : (<>
         <Row2>
-          <FL label="Date"><FI field="date" type="date" /></FL>
-          <FL label="Start Time" tight><FI field="time" type="time" compact /></FL>
+          <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
+          <FL label="Start Time" tight><FI form={form} set={set} field="time" type="time" compact /></FL>
         </Row2>
-        <FL label="End Time" tight><FI field="endTime" type="time" compact /></FL>
-        <FL label="Location"><FI field="location" placeholder="Room, address, or virtual" /></FL>
+        <FL label="End Time" tight><FI form={form} set={set} field="endTime" type="time" compact /></FL>
+        <FL label="Location"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
         {form.type==='meeting' && (
-          <FL label="Attendees"><FI field="attendees" placeholder="Names or emails, comma-separated" /></FL>
+          <FL label="Attendees"><FI form={form} set={set} field="attendees" placeholder="Names or emails, comma-separated" /></FL>
         )}
-        <FL label="Notes"><TA field="notes" placeholder="Additional details…" /></FL>
+        <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Additional details…" /></FL>
       </>)}
 
       <Row2>
