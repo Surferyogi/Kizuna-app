@@ -1870,8 +1870,6 @@ function EForm({ form, set }) {
                 border:`1.5px solid ${C.F}60`,
                 borderRadius:BR.input,
                 fontSize:18, fontWeight:600,
-                textAlign:'center',
-                letterSpacing:'0.04em',
                 color:C.text }} />
           </FL>
           <FL label="Seat" tight>
@@ -1901,29 +1899,23 @@ function EForm({ form, set }) {
           </FL>
         </div>
       </>) : form.type === 'task' ? (<>
-        <Row2>
-          <FL label="Due Date (optional)" tight><FI form={form} set={set} field="date" type="date" compact /></FL>
-          <FL label="Priority">
-            <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
-              {['low','medium','high','critical'].map(p => (
-                <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
-              ))}
-            </select>
-          </FL>
-        </Row2>
+        <FL label="Due Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
+        <FL label="Priority">
+          <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
+            {['low','medium','high','critical'].map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
+            ))}
+          </select>
+        </FL>
         <FL label="Tags"><FI form={form} set={set} field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
-        <Row2>
-          <FL label="Date (optional)" tight><FI form={form} set={set} field="date" type="date" compact /></FL>
-          <FL label="Time" tight><FI form={form} set={set} field="time" type="time" compact /></FL>
-        </Row2>
+        <FL label="Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
+        <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : (<>
-        <Row2>
-          <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
-          <FL label="Start Time" tight><FI form={form} set={set} field="time" type="time" compact /></FL>
-        </Row2>
-        <FL label="End Time" tight><FI form={form} set={set} field="endTime" type="time" compact /></FL>
+        <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
+        <FL label="Start Time"><FI form={form} set={set} field="time" type="time" /></FL>
+        <FL label="End Time"><FI form={form} set={set} field="endTime" type="time" /></FL>
         <FL label="Location"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
         {form.type==='meeting' && (
           <FL label="Attendees"><FI form={form} set={set} field="attendees" placeholder="Names or emails, comma-separated" /></FL>
@@ -1931,21 +1923,19 @@ function EForm({ form, set }) {
         <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Additional details…" /></FL>
       </>)}
 
-      <Row2>
-        <FL label="Remind me">
-          <select value={form.remind} onChange={e=>set('remind',e.target.value)} style={selStyle}>
-            {[['none','None'],['15min','15 min'],['30min','30 min'],['1h','1 hr'],['2h','2 hrs'],['1d','1 day']].map(([v,l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </FL>
-        <FL label="Visibility">
-          <select value={form.visibility} onChange={e=>set('visibility',e.target.value)} style={selStyle}>
-            <option value="private">🔒 Private</option>
-            <option value="shared">◯ Shared</option>
-          </select>
-        </FL>
-      </Row2>
+      <FL label="Remind me">
+        <select value={form.remind} onChange={e=>set('remind',e.target.value)} style={selStyle}>
+          {[['none','None'],['15min','15 min'],['30min','30 min'],['1h','1 hr'],['2h','2 hrs'],['1d','1 day']].map(([v,l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+      </FL>
+      <FL label="Visibility">
+        <select value={form.visibility} onChange={e=>set('visibility',e.target.value)} style={selStyle}>
+          <option value="private">🔒 Private</option>
+          <option value="shared">◯ Shared</option>
+        </select>
+      </FL>
     </div>
   );
 }
