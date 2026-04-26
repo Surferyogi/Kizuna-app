@@ -777,7 +777,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId 
             </div>
             <p style={{ margin:'3px 0 0', fontSize:12, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.4 }}>
-              Bonding with trust, loyalty & love
+              Bonding with trust, loyalty & love — nurturing the invisible thread that connects hearts across time and distance
             </p>
           </div>
           <KizunaIcon />
@@ -1617,21 +1617,12 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
       {/* About */}
       <SS title="About">
-        {/* Kizuna tagline */}
-        <div style={{ padding:'20px 18px', borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+        <div style={{ padding:'16px 18px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
             <KizunaIcon />
             <span style={{ fontSize:22, fontWeight:600, color:C.text,
               fontFamily:'Cormorant Garamond,serif' }}>Kizuna 絆</span>
           </div>
-          <p style={{ margin:'0 0 6px', fontSize:16, color:C.text,
-            fontFamily:'Cormorant Garamond,serif', fontStyle:'italic', lineHeight:1.6 }}>
-            Bonding with trust, loyalty & love —
-          </p>
-          <p style={{ margin:'0 0 12px', fontSize:16, color:C.text,
-            fontFamily:'Cormorant Garamond,serif', fontStyle:'italic', lineHeight:1.6 }}>
-            nurturing the invisible thread that connects hearts across time and distance
-          </p>
           <p style={{ margin:0, fontSize:13, color:C.muted }}>
             {APP_VERSION} · Released {APP_BUILD_DATE}
           </p>
