@@ -241,7 +241,7 @@ const C = {
 
 const TC = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E };
 const TI = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈' };
-const TL = { meeting:'Meeting', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event' };
+const TL = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event' };
 
 // DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
 // Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
@@ -1574,7 +1574,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
                 fontSize:22, fontWeight:600, letterSpacing:'0.05em', padding:'12px 24px' }} />
           </div>
         )}
-        <SR label="Pre-Event Reminders" sub="Alerts before meetings & events"
+        <SR label="Pre-Event Reminders" sub="Alerts before appointments & events"
           right={<Tog on={notifs.preEvent} onChange={v=>saveNotifs({...notifs,preEvent:v})} />} />
         <SR label="Flight Alerts" sub="T-24h, T-3h, T-1h before departure"
           right={<Tog on={notifs.flights} onChange={v=>saveNotifs({...notifs,flights:v})} />} />
@@ -1861,16 +1861,18 @@ function EForm({ form, set }) {
               textTransform:'uppercase', letterSpacing:'0.1em' }}>Enter manually</p>
           </div>
           <FL label="Dep. Time" tight>
-            <input
-              type="time"
-              value={form.time||''}
-              onChange={e => set('time', e.target.value)}
-              style={{ ...inputBase,
-                background:'#fff',
-                border:`1.5px solid ${C.F}60`,
-                borderRadius:BR.input,
-                fontSize:18, fontWeight:600,
-                color:C.text }} />
+            <div style={{ maxWidth:180 }}>
+              <input
+                type="time"
+                value={form.time||''}
+                onChange={e => set('time', e.target.value)}
+                style={{ ...inputBase,
+                  background:'#fff',
+                  border:`1.5px solid ${C.F}60`,
+                  borderRadius:BR.input,
+                  fontSize:18, fontWeight:600,
+                  color:C.text }} />
+            </div>
           </FL>
           <FL label="Seat" tight>
             <input
@@ -2027,7 +2029,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                     <span style={{ fontSize:24 }}>{TI[t]}</span>
                     <span style={{ fontSize:17, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
                     <span style={{ fontSize:15, color:C.dim, lineHeight:1.4 }}>
-                      {t==='meeting'?'Schedule a meeting'
+                      {t==='meeting'?'Schedule an appointment'
                         :t==='task'?'Add a to-do item'
                         :t==='flight'?'Log flight details'
                         :t==='reminder'?'Set a reminder'
@@ -2035,13 +2037,6 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                     </span>
                   </button>
                 ))}
-                <button style={{ background:C.elevated, border:`1px dashed ${C.border}`,
-                  borderRadius:BR.card, padding:'18px 14px', cursor:'pointer',
-                  display:'flex', flexDirection:'column', gap:6,
-                  alignItems:'center', justifyContent:'center' }}>
-                  <span style={{ fontSize:24 }}>🎤</span>
-                  <span style={{ fontSize:15, color:C.muted, fontStyle:'italic' }}>Voice Input</span>
-                </button>
               </div>
             </div>
           ) : (
