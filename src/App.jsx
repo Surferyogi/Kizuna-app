@@ -814,19 +814,18 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               letterSpacing:'-0.01em' }}>
               Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
             </h1>
-            {/* Tagline — line 1 */}
+            {/* Tagline */}
             <p style={{ margin:'10px 0 0', fontSize:16, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               Bonding with trust, loyalty & love
             </p>
-            {/* Tagline — line 2 */}
             <p style={{ margin:'2px 0 0', fontSize:15, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
-              — nurturing the invisible thread that connects hearts
+              Nurturing the invisible thread that
             </p>
             <p style={{ margin:0, fontSize:15, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
-              across time and distance
+              connects hearts across time and distance
             </p>
           </div>
           {/* Sakura icon — larger */}
@@ -2256,11 +2255,29 @@ const KizunaIcon = () => {
 };
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
+// Dynamic calendar icon showing today's date
+const CalIcon = () => {
+  const d = new Date().getDate();
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+      xmlns="http://www.w3.org/2000/svg" style={{ display:'block' }}>
+      <rect x="2" y="4" width="20" height="18" rx="3" fill="currentColor" opacity="0.15"/>
+      <rect x="2" y="4" width="20" height="18" rx="3" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+      <rect x="2" y="4" width="20" height="6" rx="3" fill="currentColor" opacity="0.6"/>
+      <rect x="2" y="7" width="20" height="3" fill="currentColor" opacity="0.6"/>
+      <line x1="7" y1="2" x2="7" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="17" y1="2" x2="17" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <text x="12" y="19" textAnchor="middle" fontSize="9" fontWeight="700"
+        fill="currentColor" fontFamily="system-ui,sans-serif">{d}</text>
+    </svg>
+  );
+};
+
 const NAV = [
-  { key:'home',     icon:'🏠', label:'Home'     },
-  { key:'calendar', icon:'📅', label:'Calendar'  },
-  { key:'search',   icon:'🔍', label:'Search'    },
-  { key:'settings', icon:'⚙️', label:'Settings'  },
+  { key:'home',     icon:'🏠',        label:'Home'     },
+  { key:'calendar', icon:<CalIcon/>,  label:'Calendar'  },
+  { key:'search',   icon:'🔍',        label:'Search'    },
+  { key:'settings', icon:'⚙️',        label:'Settings'  },
 ];
 
 // ─── DEV BYPASS ──────────────────────────────────────────────────
@@ -2876,8 +2893,10 @@ export default function App() {
               border:'none', cursor:'pointer',
               display:'flex', flexDirection:'column', alignItems:'center', gap:3,
               padding:'8px 4px', borderRadius:BR.panel, margin:'0 4px',
+              color: tab===n.key ? C.rose : C.muted,
               transition:'background 0.15s' }}>
-            <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
+            <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted,
+              display:'flex', alignItems:'center', height:24 }}>{n.icon}</span>
             <span style={{ fontSize:12, fontWeight: tab===n.key ? 800 : 500,
               color: tab===n.key ? C.rose : C.muted }}>{n.label}</span>
           </button>
