@@ -354,37 +354,55 @@ async function dbLoadName(userId) {
   return localStorage.getItem(`exec_user_v1_${userId}`) || '';
 }
 
-// Load workspace — handles users in multiple workspaces (own + invited)
-// Prefers the workspace where user is admin (their own); falls back to member workspace
+// Load workspace — two separate queries for reliability
+// Nested joins can be blocked by RLS; direct queries are safer
 async function dbLoadWorkspace(userId) {
+  // Step 1: find all workspace_members rows for this user
   const { data: memberships, error } = await supabase
     .from('workspace_members')
-    .select('workspace_id, role, workspaces(id, name, owner_id)')
+    .select('workspace_id, role')
     .eq('user_id', userId);
   if (error || !memberships || memberships.length === 0) return null;
 
-  // Sort: prefer workspace where user is admin or owner
-  const sorted = [...memberships].sort((a, b) => {
-    const aAdmin = a.role === 'admin' || a.workspaces?.owner_id === userId;
-    const bAdmin = b.role === 'admin' || b.workspaces?.owner_id === userId;
-    return bAdmin - aAdmin; // admins first
-  });
+  // Step 2: find if user owns any workspace directly
+  const { data: ownedWs } = await supabase
+    .from('workspaces')
+    .select('id, name, owner_id')
+    .eq('owner_id', userId)
+    .maybeSingle();
 
-  const membership = sorted[0];
+  // If user owns a workspace, use it — guaranteed admin
+  let workspaceId, resolvedRole, workspaceName, ownerId;
+  if (ownedWs) {
+    workspaceId   = ownedWs.id;
+    resolvedRole  = 'admin';
+    workspaceName = ownedWs.name;
+    ownerId       = ownedWs.owner_id;
+  } else {
+    // User is an invited member — use first membership
+    const m = memberships[0];
+    workspaceId  = m.workspace_id;
+    resolvedRole = m.role;
+    // Get workspace details separately
+    const { data: ws } = await supabase
+      .from('workspaces')
+      .select('id, name, owner_id')
+      .eq('id', m.workspace_id)
+      .maybeSingle();
+    workspaceName = ws?.name || 'Workspace';
+    ownerId       = ws?.owner_id;
+  }
 
-  // Determine role — if user owns the workspace, always admin regardless of DB value
-  const isOwner = membership.workspaces?.owner_id === userId;
-  const resolvedRole = isOwner ? 'admin' : membership.role;
-
+  // Step 3: get all members of the resolved workspace
   const { data: members } = await supabase
     .from('workspace_members')
     .select('user_id, role, profiles(display_name)')
-    .eq('workspace_id', membership.workspace_id);
+    .eq('workspace_id', workspaceId);
 
   return {
-    id:      membership.workspace_id,
-    name:    membership.workspaces?.name || 'Workspace',
-    ownerId: membership.workspaces?.owner_id,
+    id:      workspaceId,
+    name:    workspaceName || 'Workspace',
+    ownerId,
     role:    resolvedRole,
     members: (members || []).map(m => ({
       id:   m.user_id,
@@ -588,13 +606,16 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
             {e.visibility==='shared' && isOwn && (
-              <span style={{ fontSize:12, color:C.rose, background:C.rose+'15', borderRadius:BR.pill, padding:'2px 8px' }}>◯ Shared</span>
+              <span style={{ fontSize:12, color:C.rose, background:C.rose+'15', borderRadius:BR.pill, padding:'2px 8px' }}>◯ Shared by me</span>
             )}
             {(e.visibility==='private' || !e.visibility) && isOwn && (
               <span style={{ fontSize:12, color:C.muted, background:C.elevated, borderRadius:BR.pill, padding:'2px 8px', border:`1px solid ${C.border}` }}>🔒 Private</span>
             )}
             {e.visibility==='shared' && !isOwn && (
-              <span style={{ fontSize:12, color:DTC.meeting, background:C.M+'18', borderRadius:BR.pill, padding:'2px 8px' }}>👤 Team</span>
+              <span style={{ fontSize:12, color:DTC.meeting, background:C.M+'18',
+                borderRadius:BR.pill, padding:'2px 8px' }}>
+                👤 {e.userName || 'Team member'}
+              </span>
             )}
             {isOwn && (
               <button onClick={openMenu}
@@ -2293,10 +2314,36 @@ export default function App() {
 
     if (!supabase) { setAuthReady(true); return; }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthReady(true);
-    });
+    // On every app open: try to refresh the session silently.
+    // With refresh token expiry set to max in Supabase dashboard,
+    // this keeps the user logged in indefinitely — OTP only needed once per device.
+    const initSession = async () => {
+      try {
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (existing?.user) {
+          // Session found — refresh JWT silently (handles expired access tokens)
+          try {
+            const { data: { session: refreshed }, error: rErr } =
+              await supabase.auth.refreshSession();
+            if (!rErr && refreshed?.user) {
+              setUser(refreshed.user);
+            } else {
+              setUser(existing.user); // refresh failed but existing session usable
+            }
+          } catch {
+            setUser(existing.user); // network error — use existing session
+          }
+        } else {
+          setUser(null); // no session — show login
+        }
+      } catch {
+        setUser(null);
+      } finally {
+        setAuthReady(true);
+      }
+    };
+
+    initSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // SIGNED_IN and TOKEN_REFRESHED both keep the user logged in
@@ -2538,12 +2585,12 @@ export default function App() {
 
   // ── Entry mutations ────────────────────────────────────────────
   const addEntry = useCallback(e => {
-    // Stamp userId on entry so shared readers can identify ownership
-    const stamped = { ...e, userId: user?.id };
+    // Stamp userId AND userName so shared readers see who created it
+    const stamped = { ...e, userId: user?.id, userName };
     setEntries(prev => [...prev, stamped]);
     logAudit('created', stamped);
     if (user) dbUpsertEntry(user.id, stamped);
-  }, [logAudit, user]);
+  }, [logAudit, user, userName]);
 
   const toggleDone = useCallback(id => {
     const current = entriesRef.current.find(e => e.id === id);
