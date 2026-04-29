@@ -450,7 +450,7 @@ const Sec = ({ label, count }) => (
 const Badge = ({ label, color }) => (
   <span style={{ fontSize:14, fontWeight:700, color, background:color+'28', borderRadius:BR.card,
     padding:'4px 12px', textTransform:'capitalize', letterSpacing:'0.02em', flexShrink:0,
-    border:`1px solid ${color + '30'}` }}>{label}</span>
+    border:`1px solid ${color}30` }}>{label}</span>
 );
 
 const Tog = ({ on, onChange }) => (
@@ -585,7 +585,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
               background: PC[e.priority],
               borderRadius:BR.pill, padding:'4px 12px',
               textTransform:'capitalize', flexShrink:0,
-              boxShadow: e.priority==='critical' ? `0 2px 8px ${PC.critical + '50'}` : 'none',
+              boxShadow: e.priority==='critical' ? `0 2px 8px ${PC.critical}50` : 'none',
             }}>{e.priority}</span>
           )}
           {!isFlightLanded && e.type === 'flight' && (
@@ -651,12 +651,12 @@ function FlightHeroCard({ flight, todayStr }) {
 
   return (
     <div style={{ background:`linear-gradient(135deg,#EDF5FD,#E2EFF8)`,
-      border:`1px solid ${C.F + '50'}`,
+      border:`1px solid ${C.F}50`,
       borderRadius:BR.card, padding:18, marginBottom:6,
       position:'relative', overflow:'hidden',
-      boxShadow:`0 4px 20px ${C.F + '20'}` }}>
+      boxShadow:`0 4px 20px ${C.F}20` }}>
       <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100,
-        background:`radial-gradient(circle,${C.F + '30'} 0%,transparent 70%)`,
+        background:`radial-gradient(circle,${C.F}30 0%,transparent 70%)`,
         pointerEvents:'none' }} />
 
       {/* Airline + flight number + live status badge */}
@@ -700,9 +700,9 @@ function FlightHeroCard({ flight, todayStr }) {
             </div>
             {/* Route line */}
             <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
-              <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight + '60'},transparent)` }} />
+              <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight}60,transparent)` }} />
               <span style={{ fontSize:16, color:DTC.flight }}>✈</span>
-              <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight + '60'},transparent)` }} />
+              <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight}60,transparent)` }} />
             </div>
             {/* Arrival */}
             <div style={{ textAlign:'center' }}>
@@ -740,7 +740,7 @@ function FlightHeroCard({ flight, todayStr }) {
         ].filter(([,v])=>v).map(([k,v]) => (
           <div key={k} style={{ background:'#ffffff60', borderRadius:BR.btn,
             padding:'7px 12px', backdropFilter:'blur(4px)',
-            border:`1px solid ${C.F + '25'}` }}>
+            border:`1px solid ${C.F}25` }}>
             <p style={{ fontSize:12, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</p>
             <p style={{ fontSize:16, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
           </div>
@@ -798,11 +798,11 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
 
         {/* Decorative rose glow — top right */}
         <div style={{ position:'absolute', top:-30, right:-20, width:160, height:160,
-          background:`radial-gradient(circle, ${C.rose + '18'} 0%, transparent 70%)`,
+          background:`radial-gradient(circle, ${C.rose}18 0%, transparent 70%)`,
           pointerEvents:'none' }} />
         {/* Decorative glow — bottom left */}
         <div style={{ position:'absolute', bottom:-20, left:-10, width:100, height:100,
-          background:`radial-gradient(circle, ${C.M + '12'} 0%, transparent 70%)`,
+          background:`radial-gradient(circle, ${C.M}12 0%, transparent 70%)`,
           pointerEvents:'none' }} />
 
         <div style={{ display:'flex', alignItems:'flex-start',
@@ -849,7 +849,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               color: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
               background: syncStatus==='synced' ? C.T+'18' : syncStatus==='error' ? '#C46A1415' : C.rose+'18',
               borderRadius:BR.pill, padding:'3px 10px', flexShrink:0,
-              border:`1px solid ${syncStatus==='synced' ? C.T+'40' : syncStatus==='error' ? '#C46A1440' : C.rose+'40'}` }}>
+              border:`1px solid ${syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose}40` }}>
               {syncStatus==='loading' ? 'Syncing…' : syncStatus==='synced' ? 'Synced' : 'Sync Error'}
             </span>
           </div>
@@ -865,10 +865,10 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
             [openTasks,      'Open Tasks', C.T,  DTC.task,    '✓'],
             [next48,         'Next 48h',   C.E,  DTC.event,   '⏱'],
           ].map(([v,l,c,dc,icon]) => (
-            <div key={l} style={{ background:`linear-gradient(145deg,${C.card},${c + '10'})`,
+            <div key={l} style={{ background:`linear-gradient(145deg,${C.card},${c}10)`,
               borderRadius:BR.card, padding:'16px 10px 14px',
               textAlign:'center', boxShadow:SH.card,
-              border:`1px solid ${c + '25'}` }}>
+              border:`1px solid ${c}25` }}>
               <div style={{ fontSize:18, marginBottom:4, opacity:0.7 }}>{icon}</div>
               <div style={{ fontSize:28, fontWeight:700,
                 fontFamily:'Cormorant Garamond,serif', color:dc, lineHeight:1 }}>{v}</div>
@@ -907,7 +907,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               style={{ marginTop:10, background:C.rose, border:'none', color:'#fff',
                 borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
                 cursor:'pointer', fontFamily:'inherit',
-                boxShadow:`0 4px 14px ${C.rose + '40'}` }}>
+                boxShadow:`0 4px 14px ${C.rose}40` }}>
               + Schedule something
             </button>
           </div>
@@ -951,7 +951,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
             style={{ background:C.rose, border:'none', color:'#fff',
               borderRadius:BR.btn, padding:'12px 28px', fontSize:15, fontWeight:700,
               cursor:'pointer', fontFamily:'inherit',
-              boxShadow:`0 4px 14px ${C.rose + '40'}` }}>
+              boxShadow:`0 4px 14px ${C.rose}40` }}>
             + Schedule something
           </button>
         </div>
@@ -966,8 +966,8 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
                   ? `linear-gradient(135deg,${C.rose},${C.roseL})`
                   : new Date(d+'T00:00:00') < new Date()
                     ? C.elevated
-                    : `linear-gradient(135deg,${C.card},${C.M + '12'})`,
-                boxShadow: isT ? `0 4px 16px ${C.rose + '35'}` : SH.subtle,
+                    : `linear-gradient(135deg,${C.card},${C.M}12)`,
+                boxShadow: isT ? `0 4px 16px ${C.rose}35` : SH.subtle,
                 border: isT ? 'none' : `1px solid ${C.border}`,
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
                 <span style={{ fontSize:11, fontWeight:700, color:isT?'#fff':C.dim,
@@ -1111,8 +1111,8 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
               </div>
               <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                 background: isSel?C.rose : isT?C.rose+'22':'transparent',
-                border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
-                boxShadow: isSel?`0 2px 10px ${C.rose + '40'}`:'none',
+                border: isT&&!isSel?`1.5px solid ${C.rose}60`:'1.5px solid transparent',
+                boxShadow: isSel?`0 2px 10px ${C.rose}40`:'none',
                 display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <span style={{ fontSize:15, fontWeight:isSel?700:400,
                   color:isSel?'#fff':isT?C.rose:C.text }}>{d.getDate()}</span>
@@ -1121,7 +1121,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
               <div style={{ display:'flex', justifyContent:'center', gap:2, marginTop:4, height:7 }}>
                 {dots.map((col,j) => (
                   <div key={j} style={{ width:7, height:7, borderRadius:4, background:col,
-                    boxShadow:`0 1px 3px ${col + '50'}` }} />
+                    boxShadow:`0 1px 3px ${col}50` }} />
                 ))}
               </div>
             </button>
@@ -1201,8 +1201,8 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
                   padding:'3px 1px', textAlign:'center' }}>
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                   background: isSel?C.rose : isT?C.rose+'20':'transparent',
-                  border: isT&&!isSel?`1.5px solid ${C.rose+'60'}`:'1.5px solid transparent',
-                  boxShadow: isSel?`0 2px 12px ${C.rose + '35'}`:'none',
+                  border: isT&&!isSel?`1.5px solid ${C.rose}60`:'1.5px solid transparent',
+                  boxShadow: isSel?`0 2px 12px ${C.rose}35`:'none',
                   display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <span style={{ fontSize:16, fontWeight:isSel?700:400,
                     color: isSel?'#fff' : isT?C.rose:C.text }}>{day}</span>
@@ -1273,7 +1273,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
               background: view===v ? C.rose : C.elevated,
               color: view===v ? '#fff' : C.dim,
               fontSize:14, fontWeight:view===v?600:400, textTransform:'capitalize',
-              boxShadow: view===v?`0 2px 10px ${C.rose + '35'}`:SH.subtle,
+              boxShadow: view===v?`0 2px 10px ${C.rose}35`:SH.subtle,
               transition:'background 0.15s' }}>
             {v}
           </button>
@@ -1283,7 +1283,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
           style={{ width:36, height:36, borderRadius:BR.btn, border:'none', flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             color:'#fff', fontSize:22, fontWeight:300, cursor:'pointer',
-            boxShadow:`0 3px 10px ${C.rose + '40'}`, lineHeight:1,
+            boxShadow:`0 3px 10px ${C.rose}40`, lineHeight:1,
             display:'flex', alignItems:'center', justifyContent:'center' }}>
           +
         </button>
@@ -1349,7 +1349,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           {/* Live calendar icon with date */}
           <div style={{ width:44, height:44, borderRadius:BR.input, flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            boxShadow:`0 4px 12px ${C.rose + '35'}`,
+            boxShadow:`0 4px 12px ${C.rose}35`,
             display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
             <span style={{ fontSize:10, fontWeight:700, color:'#fff',
               textTransform:'uppercase', letterSpacing:'0.06em', lineHeight:1 }}>
@@ -1371,7 +1371,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
             style={{ marginLeft:'auto', background:C.rose, border:'none', color:'#fff',
               borderRadius:BR.btn, padding:'8px 16px', fontSize:14, fontWeight:700,
               cursor:'pointer', fontFamily:'inherit',
-              boxShadow:`0 3px 10px ${C.rose + '40'}` }}>
+              boxShadow:`0 3px 10px ${C.rose}40` }}>
             View Today
           </button>
         </div>
@@ -1384,7 +1384,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
                 color: quickF===qf.k ? '#fff' : C.dim,
                 borderRadius:BR.card, padding:'5px 14px',
                 fontSize:15, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
-                boxShadow: quickF===qf.k?`0 2px 10px ${C.rose + '35'}`:SH.subtle,
+                boxShadow: quickF===qf.k?`0 2px 10px ${C.rose}35`:SH.subtle,
                 transition:'background 0.15s' }}>
               {qf.l}
             </button>
@@ -1399,7 +1399,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
                 color: typeF===t ? '#fff' : C.dim,
                 borderRadius:BR.card, padding:'5px 14px', fontSize:14, fontWeight: typeF===t ? 700 : 500,
                 cursor:'pointer', whiteSpace:'nowrap', textTransform:'capitalize',
-                boxShadow: typeF===t ? `0 2px 8px ${t==='all'?C.rose:TC[t] + '50'}` : 'none',
+                boxShadow: typeF===t ? `0 2px 8px ${t==='all'?C.rose:TC[t]}50` : 'none',
                 transition:'all 0.15s' }}>
               {t==='all'?'All':TL[t]||t}
             </button>
@@ -1441,7 +1441,7 @@ function ResetSection({ onReset }) {
       <p style={{ fontSize:13, fontWeight:700, color:'#C46A14', textTransform:'uppercase',
         letterSpacing:'0.14em', margin:'24px 0 8px' }}>Danger Zone</p>
       <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
-        boxShadow:SH.card, border:`1px solid ${'#C46A14' + '40'}` }}>
+        boxShadow:SH.card, border:`1px solid ${'#C46A14'}40` }}>
         {!confirming ? (
           <div style={{ display:'flex', alignItems:'center', padding:'16px 18px', gap:12 }}>
             <div style={{ flex:1 }}>
@@ -1478,7 +1478,7 @@ function ResetSection({ onReset }) {
                 style={{ flex:1, background:'#A04E08', border:'none',
                   color:'#fff', borderRadius:BR.btn, padding:'11px 0',
                   fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-                  boxShadow:`0 4px 16px ${'#A04E08' + '40'}` }}>
+                  boxShadow:`0 4px 16px ${'#A04E08'}40` }}>
                 Yes, Wipe Everything
               </button>
             </div>
@@ -1720,7 +1720,7 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
           {/* Invite button */}
           <button onClick={() => setShowInvite(true)}
             style={{ marginTop:14, background:'transparent',
-              border:`1.5px dashed ${C.rose + '60'}`,
+              border:`1.5px dashed ${C.rose}60`,
               borderRadius:BR.btn, padding:'10px 14px', color:C.rose,
               fontSize:16, cursor:'pointer', width:'100%',
               fontFamily:'inherit', transition:'border-color 0.15s',
@@ -2026,7 +2026,7 @@ function EForm({ form, set }) {
 
         {/* ── MANUAL fields — enter manually ── */}
         <div style={{ background:`linear-gradient(135deg,#EDF5FD,#F0F7FF)`,
-          border:`1.5px solid ${C.F + '40'}`, borderRadius:BR.card,
+          border:`1.5px solid ${C.F}40`, borderRadius:BR.card,
           padding:'16px 16px 6px', marginBottom:14 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
             <div style={{ width:3, height:16, borderRadius:2,
@@ -2042,7 +2042,7 @@ function EForm({ form, set }) {
                 onChange={e => set('time', e.target.value)}
                 style={{ ...inputBase,
                   background:'#fff',
-                  border:`1.5px solid ${C.F + '60'}`,
+                  border:`1.5px solid ${C.F}60`,
                   borderRadius:BR.input,
                   fontSize:18, fontWeight:600,
                   color:C.text }} />
@@ -2056,7 +2056,7 @@ function EForm({ form, set }) {
               placeholder=""
               style={{ ...inputBase,
                 background:'#fff',
-                border:`1.5px solid ${C.F + '60'}`,
+                border:`1.5px solid ${C.F}60`,
                 borderRadius:BR.input,
                 fontSize:18, fontWeight:600,
                 textAlign:'center',
@@ -2067,7 +2067,7 @@ function EForm({ form, set }) {
             <select value={form.priority} onChange={e=>set('priority',e.target.value)}
               style={{ ...selStyle,
                 background:'#fff',
-                border:`1.5px solid ${C.F + '60'}` }}>
+                border:`1.5px solid ${C.F}60` }}>
               {['low','medium','high','critical'].map(p => (
                 <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
               ))}
@@ -2173,7 +2173,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
                   color:canSave?'#fff':C.muted, borderRadius:BR.btn,
                   padding:'9px 20px', fontSize:17, fontWeight:600,
                   cursor:canSave?'pointer':'default',
-                  boxShadow:canSave?`0 4px 16px ${typeColor + '40'}`:'none',
+                  boxShadow:canSave?`0 4px 16px ${typeColor}40`:'none',
                   fontFamily:'inherit', transition:'background 0.15s' }}>
                 {isEdit ? 'Save Changes' : 'Save'}
               </button>
@@ -2195,10 +2195,10 @@ function AddModal({ onClose, onSave, editEntry = null }) {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 {['meeting','task','flight','reminder','event'].map(t => (
                   <button key={t} onClick={() => { setForm({...mkBlank(),type:t}); setStep(1); }}
-                    style={{ background:TC[t]+'15', border:`1px solid ${TC[t]+'35'}`,
+                    style={{ background:TC[t]+'15', border:`1px solid ${TC[t]}35`,
                       borderRadius:BR.card, padding:'18px 14px', cursor:'pointer', textAlign:'left',
                       display:'flex', flexDirection:'column', gap:6,
-                      boxShadow:`0 2px 12px ${TC[t] + '15'}`,
+                      boxShadow:`0 2px 12px ${TC[t]}15`,
                       transition:'transform 0.1s' }}>
                     <span style={{ fontSize:24 }}>{TI[t]}</span>
                     <span style={{ fontSize:17, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
@@ -2800,7 +2800,7 @@ export default function App() {
             style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
               border:'none', borderRadius:BR.panel, padding:'18px',
               fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
-              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose + '45'}`,
+              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
               opacity: authLoading ? 0.7 : 1 }}>
             {authLoading ? 'Sending…' : 'Send Code 🌸'}
           </button>
@@ -2835,7 +2835,7 @@ export default function App() {
             style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
               border:'none', borderRadius:BR.panel, padding:'18px',
               fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
-              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose + '45'}`,
+              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
               opacity: authLoading ? 0.7 : 1 }}>
             {authLoading ? 'Verifying…' : 'Enter Kizuna 🌸'}
           </button>
@@ -2893,7 +2893,7 @@ export default function App() {
           style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             border:'none', borderRadius:BR.panel, padding:'18px',
             fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
-            fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose + '45'}`,
+            fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
             opacity: nameSaving ? 0.7 : 1 }}>
           {nameSaving ? 'Saving…' : 'Enter Kizuna 🌸'}
         </button>
@@ -2963,7 +2963,7 @@ export default function App() {
           style={{ width:60, height:60, borderRadius:30, flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             border:'none',
-            boxShadow:`0 6px 24px ${C.rose + '60'}, 0 0 0 4px ${C.rose + '20'}`,
+            boxShadow:`0 6px 24px ${C.rose}60, 0 0 0 4px ${C.rose}20`,
             cursor:'pointer', display:'flex', alignItems:'center',
             justifyContent:'center', margin:'0 4px' }}>
           <span style={{ fontSize:32, color:'#fff', fontWeight:300, lineHeight:1, marginTop:-2 }}>+</span>
