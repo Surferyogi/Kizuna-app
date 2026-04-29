@@ -2323,10 +2323,10 @@ const CalIcon = () => {
 };
 
 const NAV = [
-  { key:'home',     icon:'🏠',        label:'Home'     },
-  { key:'calendar', icon:<CalIcon/>,  label:'Calendar'  },
-  { key:'search',   icon:'🔍',        label:'Search'    },
-  { key:'settings', icon:'⚙️',        label:'Settings'  },
+  { key:'home',     icon:'🏠', label:'Home'     },
+  { key:'calendar', icon:'cal', label:'Calendar'  },
+  { key:'search',   icon:'🔍', label:'Search'    },
+  { key:'settings', icon:'⚙️', label:'Settings'  },
 ];
 
 // ─── DEV BYPASS ──────────────────────────────────────────────────
@@ -2945,7 +2945,9 @@ export default function App() {
               color: tab===n.key ? C.rose : C.muted,
               transition:'background 0.15s' }}>
             <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted,
-              display:'flex', alignItems:'center', height:24 }}>{n.icon}</span>
+              display:'flex', alignItems:'center', height:24 }}>
+              {n.icon === 'cal' ? <CalIcon /> : n.icon}
+            </span>
             <span style={{ fontSize:12, fontWeight: tab===n.key ? 800 : 500,
               color: tab===n.key ? C.rose : C.muted }}>{n.label}</span>
           </button>
