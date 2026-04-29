@@ -101,13 +101,14 @@ const FLIGHT_ROUTES = {
   SQ507:'SIN-BKK', SQ508:'BKK-SIN', SQ511:'SIN-KUL', SQ512:'KUL-SIN',
   SQ521:'SIN-CGK', SQ522:'CGK-SIN', SQ551:'SIN-MNL', SQ552:'MNL-SIN',
   SQ571:'SIN-ICN', SQ572:'ICN-SIN', SQ601:'SIN-DEL', SQ602:'DEL-SIN',
-  SQ621:'SIN-BOM', SQ622:'BOM-SIN', SQ701:'SIN-LAX', SQ702:'LAX-SIN',
-  SQ033:'SIN-SFO', SQ034:'SFO-SIN', SQ037:'SIN-IAH', SQ038:'IAH-SIN',
+  SQ11:'NRT-SIN', SQ636:'SIN-NRT', SQ701:'SIN-LAX', SQ702:'LAX-SIN',
+  SQ033:'SIN-SFO', SQ034:'SFO-SIN', SQ037:'SIN-IAH', SQ038:'IAH-SIN', 
+  SQ631:'HND-SIN', SQ632:'SIN-HND', SQ826:'SIN-PVG', SQ833:'PVG-SIN',
   // ANA (NH)
   NH843:'HND-SIN', NH844:'SIN-HND', NH803:'NRT-LHR', NH804:'LHR-NRT',
-  NH001:'NRT-JFK', NH002:'JFK-NRT', NH005:'NRT-LAX', NH006:'LAX-NRT',
+  NH001:'NRT-JFK', NH002:'JFK-NRT', NH867:'HND-GMP', NH6970:'GMP-HND',
   // Japan Airlines (JL)
-  JL041:'NRT-LHR', JL042:'LHR-NRT', JL061:'NRT-JFK', JL062:'JFK-NRT',
+  JL035:'HND-SIN', JL038:'SIN-HND', JL061:'NRT-JFK', JL062:'JFK-NRT',
   JL009:'NRT-LAX', JL010:'LAX-NRT', JL705:'NRT-SIN', JL706:'SIN-NRT',
   // Cathay Pacific (CX)
   CX101:'HKG-LHR', CX102:'LHR-HKG', CX841:'HKG-SIN', CX842:'SIN-HKG',
@@ -127,6 +128,8 @@ const FLIGHT_ROUTES = {
   MH601:'KUL-SIN', MH602:'SIN-KUL', MH003:'KUL-LHR', MH004:'LHR-KUL',
   // Thai Airways (TG)
   TG411:'BKK-SIN', TG412:'SIN-BKK', TG917:'BKK-NRT', TG918:'NRT-BKK',
+  // Scoot Airways (TR)
+  TR485:'IPH-SIN', TR488:'SIN-IPH', TR487:'IPH-SIN', TR484:'SIN-IPH',
   // Korean Air (KE)
   KE641:'ICN-SIN', KE642:'SIN-ICN', KE001:'ICN-JFK', KE002:'JFK-ICN',
   // EVA Air (BR)
@@ -1058,7 +1061,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
 }
 
 // ─── WEEK VIEW ───────────────────────────────────────────────────
-function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
+function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const dt        = new Date(selDate+'T00:00:00');
   const dow       = dt.getDay();
   const weekStart = new Date(dt);
@@ -1134,14 +1137,16 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
           <div style={{ textAlign:'center', padding:'40px 18px',
             background:C.card, borderRadius:BR.card, margin:'8px 0',
             border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-            <div style={{ display:'flex', justifyContent:'center', marginBottom:12,
-              opacity:0.4, color:C.rose, transform:'scale(1.8)', transformOrigin:'center' }}>
-              <CalIcon />
-            </div>
-            <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
+            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:600, color:C.dim }}>
               Nothing on {DAY[new Date(selDate+'T00:00:00').getDay()]}, {MFULL[new Date(selDate+'T00:00:00').getMonth()]} {new Date(selDate+'T00:00:00').getDate()}
             </p>
-            <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>Tap + to add something</p>
+            <button onClick={onAdd}
+              style={{ marginTop:10, background:C.rose, border:'none', color:'#fff',
+                borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
+                cursor:'pointer', fontFamily:'inherit',
+                boxShadow:`0 4px 14px ${C.rose}40` }}>
+              + Schedule something
+            </button>
           </div>
         ) : (
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
