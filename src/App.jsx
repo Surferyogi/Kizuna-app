@@ -1134,7 +1134,10 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
           <div style={{ textAlign:'center', padding:'40px 18px',
             background:C.card, borderRadius:BR.card, margin:'8px 0',
             border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-            <div style={{ fontSize:32, marginBottom:8, opacity:0.4 }}>📅</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:12,
+              opacity:0.4, color:C.rose, transform:'scale(1.8)', transformOrigin:'center' }}>
+              <CalIcon />
+            </div>
             <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
               Nothing on {DAY[new Date(selDate+'T00:00:00').getDay()]}, {MFULL[new Date(selDate+'T00:00:00').getMonth()]} {new Date(selDate+'T00:00:00').getDate()}
             </p>
