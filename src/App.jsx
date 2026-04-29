@@ -2308,17 +2308,28 @@ const KizunaIcon = () => {
 const CalIcon = () => {
   const d = new Date().getDate();
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-      xmlns="http://www.w3.org/2000/svg" style={{ display:'block' }}>
-      <rect x="2" y="4" width="20" height="18" rx="3" fill="currentColor" opacity="0.15"/>
-      <rect x="2" y="4" width="20" height="18" rx="3" stroke="currentColor" strokeWidth="1.8" fill="none"/>
-      <rect x="2" y="4" width="20" height="6" rx="3" fill="currentColor" opacity="0.6"/>
-      <rect x="2" y="7" width="20" height="3" fill="currentColor" opacity="0.6"/>
-      <line x1="7" y1="2" x2="7" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="17" y1="2" x2="17" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      <text x="12" y="19" textAnchor="middle" fontSize="9" fontWeight="700"
-        fill="currentColor" fontFamily="system-ui,sans-serif">{d}</text>
-    </svg>
+    <div style={{ width:24, height:24, position:'relative', display:'inline-flex',
+      alignItems:'center', justifyContent:'center' }}>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+        xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="4" width="20" height="18" rx="3"
+          fill="currentColor" opacity="0.12"/>
+        <rect x="2" y="4" width="20" height="18" rx="3"
+          stroke="currentColor" strokeWidth="1.8" fill="none"/>
+        <rect x="2" y="4" width="20" height="7" rx="3"
+          fill="currentColor" opacity="0.5"/>
+        <rect x="2" y="8" width="20" height="3"
+          fill="currentColor" opacity="0.5"/>
+        <line x1="7" y1="2" x2="7" y2="6"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <line x1="17" y1="2" x2="17" y2="6"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+      <span style={{ position:'absolute', bottom:2, fontSize:9, fontWeight:800,
+        lineHeight:1, color:'currentColor', fontFamily:'system-ui,sans-serif' }}>
+        {d}
+      </span>
+    </div>
   );
 };
 
