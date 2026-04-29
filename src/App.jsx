@@ -935,8 +935,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
 
   return (
     <div style={{ overflowY:'auto', height:'100%', padding:'0 18px 90px', boxSizing:'border-box' }}>
-      {dates.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'60px 24px' }}>
+      {dates.length === 0 ? (        <div style={{ textAlign:'center', padding:'60px 24px' }}>
           <div style={{ display:'flex', justifyContent:'center', marginBottom:12,
             opacity:0.4, color:C.rose, transform:'scale(2)', transformOrigin:'center' }}>
             <CalIcon />
@@ -956,15 +955,16 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
           </button>
         </div>
       ) : dates.map(d => {
-        const dt  = new Date(d+'T00:00:00');
-        const isT = d === fd(new Date());
+        const dt     = new Date(d+'T00:00:00');
+        const isT    = d === fd(new Date());
+        const isPast = dt < new Date();
         return (
           <div key={d} style={{ marginTop:20 }}>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
               <div style={{ width:44, height:44, borderRadius:BR.input, flexShrink:0,
                 background: isT
                   ? `linear-gradient(135deg,${C.rose},${C.roseL})`
-                  : new Date(d+'T00:00:00') < new Date()
+                  : isPast
                     ? C.elevated
                     : `linear-gradient(135deg,${C.card},${C.M}12)`,
                 boxShadow: isT ? `0 4px 16px ${C.rose}35` : SH.subtle,
@@ -988,7 +988,6 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
         );
       })}
       </div>
-    </div>
   );
 }
 function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
