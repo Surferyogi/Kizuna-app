@@ -923,7 +923,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
 }
 
 // ─── AGENDA VIEW ─────────────────────────────────────────────────
-function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
+function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const grouped = useMemo(() => {
     const sorted = [...entries].sort((a,b) =>
       a.date.localeCompare(b.date) || (a.time||'99:99').localeCompare(b.time||'99:99'));
@@ -935,7 +935,27 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
 
   return (
     <div style={{ overflowY:'auto', height:'100%', padding:'0 18px 90px', boxSizing:'border-box' }}>
-      {dates.map(d => {
+      {dates.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'60px 24px' }}>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:12,
+            opacity:0.4, color:C.rose, transform:'scale(2)', transformOrigin:'center' }}>
+            <CalIcon />
+          </div>
+          <p style={{ fontSize:17, fontWeight:600, color:C.dim, margin:'24px 0 6px' }}>
+            Nothing scheduled yet
+          </p>
+          <p style={{ fontSize:14, color:C.muted, fontStyle:'italic', margin:'0 0 20px' }}>
+            Your upcoming entries will appear here
+          </p>
+          <button onClick={onAdd}
+            style={{ background:C.rose, border:'none', color:'#fff',
+              borderRadius:BR.btn, padding:'12px 28px', fontSize:15, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit',
+              boxShadow:`0 4px 14px ${C.rose}40` }}>
+            + Schedule something
+          </button>
+        </div>
+      ) : dates.map(d => {
         const dt  = new Date(d+'T00:00:00');
         const isT = d === fd(new Date());
         return (
@@ -967,11 +987,10 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
-
-// ─── DAY VIEW ────────────────────────────────────────────────────
 function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
   const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
   const allDayEs = useMemo(() => entries.filter(e => e.date===selDate && !e.time), [entries, selDate]);
@@ -1221,7 +1240,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
+function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   // F10: persist selected view across tab switches and app restarts
   const [view, setView] = useState(() =>
     localStorage.getItem(CAL_VIEW_KEY) || 'agenda'
@@ -1238,7 +1257,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
       <div style={{ display:'flex', gap:6, padding:'10px 14px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card,
         alignItems:'center' }}>
-        {/* Today button — snaps back to current date */}
+        {/* Today button */}
         <button onClick={() => setSelDate(fd(new Date()))}
           style={{ padding:'8px 14px', borderRadius:BR.btn, border:`1.5px solid ${C.rose}`,
             background: selDate === fd(new Date()) ? C.rose : 'transparent',
@@ -1259,12 +1278,21 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
             {v}
           </button>
         ))}
+        {/* Schedule button */}
+        <button onClick={onAdd}
+          style={{ width:36, height:36, borderRadius:BR.btn, border:'none', flexShrink:0,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            color:'#fff', fontSize:22, fontWeight:300, cursor:'pointer',
+            boxShadow:`0 3px 10px ${C.rose}40`, lineHeight:1,
+            display:'flex', alignItems:'center', justifyContent:'center' }}>
+          +
+        </button>
       </div>
       <div style={{ flex:1, overflow:'hidden' }}>
-        {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
-        {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
-        {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
-        {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />}
+        {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
+        {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
+        {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
+        {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
       </div>
     </div>
   );
@@ -1314,21 +1342,39 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
                 cursor:'pointer', fontSize:18, padding:0 }}>✕</button>
           )}
         </div>
-        {/* Today button — prominent, resets all filters to today */}
-        <button onClick={() => { setQ(''); setTypeF('all'); setQuickF('today'); }}
-          style={{ width:'100%', marginTop:10, padding:'11px 0',
-            background: quickF==='today' && !q && typeF==='all'
-              ? `linear-gradient(135deg,${C.rose},${C.roseL})`
-              : C.elevated,
-            border:`1.5px solid ${quickF==='today' && !q && typeF==='all' ? C.rose : C.border}`,
-            borderRadius:BR.input, fontSize:16, fontWeight:700,
-            color: quickF==='today' && !q && typeF==='all' ? '#fff' : C.dim,
-            cursor:'pointer', fontFamily:'inherit',
-            boxShadow: quickF==='today' && !q && typeF==='all'
-              ? `0 4px 16px ${C.rose}35` : SH.subtle,
-            transition:'all 0.15s' }}>
-          📅 Today
-        </button>
+        {/* Dynamic date display — shows today's actual date */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:10,
+          background:C.card, borderRadius:BR.input, padding:'12px 16px',
+          border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+          {/* Live calendar icon with date */}
+          <div style={{ width:44, height:44, borderRadius:BR.input, flexShrink:0,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            boxShadow:`0 4px 12px ${C.rose}35`,
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ fontSize:10, fontWeight:700, color:'#fff',
+              textTransform:'uppercase', letterSpacing:'0.06em', lineHeight:1 }}>
+              {DAY[new Date().getDay()]}
+            </span>
+            <span style={{ fontSize:20, fontWeight:700, color:'#fff', lineHeight:1.2 }}>
+              {new Date().getDate()}
+            </span>
+          </div>
+          <div>
+            <p style={{ margin:0, fontSize:16, fontWeight:700, color:C.text }}>
+              {MFULL[new Date().getMonth()]} {new Date().getFullYear()}
+            </p>
+            <p style={{ margin:0, fontSize:13, color:C.dim }}>
+              {entries.filter(e=>e.date===fd(new Date())).length} items today
+            </p>
+          </div>
+          <button onClick={() => { setQ(''); setTypeF('all'); setQuickF('today'); }}
+            style={{ marginLeft:'auto', background:C.rose, border:'none', color:'#fff',
+              borderRadius:BR.btn, padding:'8px 16px', fontSize:14, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit',
+              boxShadow:`0 3px 10px ${C.rose}40` }}>
+            View Today
+          </button>
+        </div>
         {/* Quick filters */}
         <div style={{ display:'flex', gap:7, marginTop:10, overflowX:'auto', paddingBottom:2 }}>
           {QUICK_FILTERS.map(qf => (
@@ -1368,8 +1414,11 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           ? <div style={{ textAlign:'center', padding:'50px 18px',
               background:C.card, borderRadius:BR.card, marginTop:12,
               border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-              <div style={{ fontSize:36, marginBottom:10, opacity:0.4 }}>🔍</div>
-              <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>Nothing found</p>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:10,
+            opacity:0.4, color:C.rose, transform:'scale(1.8)', transformOrigin:'center' }}>
+            <CalIcon />
+          </div>
+          <p style={{ margin:'20px 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>Nothing found</p>
               <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>Try a different search or filter</p>
             </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
@@ -2873,7 +2922,7 @@ export default function App() {
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
         {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => setShowAdd(true)} syncStatus={syncStatus} />}
-        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
+        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={() => setShowAdd(true)} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
         {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
