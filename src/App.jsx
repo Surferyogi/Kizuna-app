@@ -101,14 +101,13 @@ const FLIGHT_ROUTES = {
   SQ507:'SIN-BKK', SQ508:'BKK-SIN', SQ511:'SIN-KUL', SQ512:'KUL-SIN',
   SQ521:'SIN-CGK', SQ522:'CGK-SIN', SQ551:'SIN-MNL', SQ552:'MNL-SIN',
   SQ571:'SIN-ICN', SQ572:'ICN-SIN', SQ601:'SIN-DEL', SQ602:'DEL-SIN',
-  SQ11:'NRT-SIN', SQ636:'SIN-NRT', SQ701:'SIN-LAX', SQ702:'LAX-SIN',
-  SQ033:'SIN-SFO', SQ034:'SFO-SIN', SQ037:'SIN-IAH', SQ038:'IAH-SIN', 
-  SQ631:'HND-SIN', SQ632:'SIN-HND', SQ826:'SIN-PVG', SQ833:'PVG-SIN',
+  SQ621:'SIN-BOM', SQ622:'BOM-SIN', SQ701:'SIN-LAX', SQ702:'LAX-SIN',
+  SQ033:'SIN-SFO', SQ034:'SFO-SIN', SQ037:'SIN-IAH', SQ038:'IAH-SIN',
   // ANA (NH)
   NH843:'HND-SIN', NH844:'SIN-HND', NH803:'NRT-LHR', NH804:'LHR-NRT',
-  NH001:'NRT-JFK', NH002:'JFK-NRT', NH867:'HND-GMP', NH6970:'GMP-HND',
+  NH001:'NRT-JFK', NH002:'JFK-NRT', NH005:'NRT-LAX', NH006:'LAX-NRT',
   // Japan Airlines (JL)
-  JL035:'HND-SIN', JL038:'SIN-HND', JL061:'NRT-JFK', JL062:'JFK-NRT',
+  JL041:'NRT-LHR', JL042:'LHR-NRT', JL061:'NRT-JFK', JL062:'JFK-NRT',
   JL009:'NRT-LAX', JL010:'LAX-NRT', JL705:'NRT-SIN', JL706:'SIN-NRT',
   // Cathay Pacific (CX)
   CX101:'HKG-LHR', CX102:'LHR-HKG', CX841:'HKG-SIN', CX842:'SIN-HKG',
@@ -128,8 +127,6 @@ const FLIGHT_ROUTES = {
   MH601:'KUL-SIN', MH602:'SIN-KUL', MH003:'KUL-LHR', MH004:'LHR-KUL',
   // Thai Airways (TG)
   TG411:'BKK-SIN', TG412:'SIN-BKK', TG917:'BKK-NRT', TG918:'NRT-BKK',
-  // Scoot Airways (TR)
-  TR485:'IPH-SIN', TR488:'SIN-IPH', TR487:'IPH-SIN', TR484:'SIN-IPH',
   // Korean Air (KE)
   KE641:'ICN-SIN', KE642:'SIN-ICN', KE001:'ICN-JFK', KE002:'JFK-ICN',
   // EVA Air (BR)
@@ -533,16 +530,80 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
     cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0,
   });
 
-  // V2: priority-based visual hierarchy — critical gets tinted background
-  const cardBg = isFlightLanded  ? '#EDF5FD'
-               : e.priority==='critical' ? '#FFF5F2'
-               : e.priority==='high'     ? '#FFFAF8'
-               : 'transparent';
+  // Activity icon — matches keywords in title to relevant emoji
+  const actIcon = (() => {
+    const t = (e.title||'').toLowerCase();
+    const map = [
+      // Sports & fitness
+      [['golf','putting','driving range'],'⛳'],
+      [['swim','swimming','pool','lap'],'🏊'],
+      [['tennis','squash','badminton','racket'],'🎾'],
+      [['yoga','pilates','stretch'],'🧘'],
+      [['run','running','jog','marathon','5k','10k'],'🏃'],
+      [['gym','workout','weights','lift','crossfit','hiit'],'💪'],
+      [['cycle','cycling','bike','bicycle'],'🚴'],
+      [['hike','hiking','trail','trek'],'🥾'],
+      [['surf','surfing','paddle','kayak'],'🏄'],
+      [['ski','skiing','snowboard'],'⛷️'],
+      [['football','soccer','futsal'],'⚽'],
+      [['basketball','hoops'],'🏀'],
+      [['cricket'],'🏏'],
+      [['rugby'],'🏉'],
+      [['volleyball'],'🏐'],
+      [['baseball','softball'],'⚾'],
+      [['boxing','martial arts','mma','karate','judo'],'🥊'],
+      // Food & drink
+      [['dinner','supper','evening meal'],'🍽️'],
+      [['lunch','brunch'],'🥗'],
+      [['breakfast','morning meal'],'🍳'],
+      [['coffee','cafe','tea','kopi'],'☕'],
+      [['drinks','cocktail','wine','beer','bar'],'🍷'],
+      [['bbq','barbecue','grill'],'🍖'],
+      // Travel & transport
+      [['flight','fly','airport'],'✈️'],
+      [['hotel','check in','check-in','checkin','resort'],'🏨'],
+      [['drive','road trip','car'],'🚗'],
+      [['train','rail','mrt','subway','metro'],'🚆'],
+      [['cruise','ship','boat','ferry'],'🚢'],
+      // Health & wellness
+      [['doctor','physician','gp','checkup','check-up'],'🩺'],
+      [['dentist','dental','teeth'],'🦷'],
+      [['hospital','clinic','medical'],'🏥'],
+      [['massage','spa','facial','manicure','pedicure'],'💆'],
+      [['medicine','pharmacy','prescription'],'💊'],
+      // Work & business
+      [['meeting','call','conference','zoom','teams'],'💼'],
+      [['interview','presentation','pitch'],'🎯'],
+      [['deadline','submit','review'],'📋'],
+      [['workshop','training','seminar','webinar'],'🎓'],
+      // Personal & family
+      [['birthday','bday','celebration','party'],'🎂'],
+      [['wedding','anniversary'],'💍'],
+      [['school','class','lesson','tuition','exam','test'],'📚'],
+      [['haircut','hair','salon','barber'],'✂️'],
+      [['shopping','buy','purchase','market'],'🛍️'],
+      [['movie','cinema','film','show','theatre','theater','concert','gig'],'🎭'],
+      [['museum','gallery','exhibition'],'🖼️'],
+      [['prayer','church','mosque','temple','worship'],'🙏'],
+      [['volunteer','charity','community'],'🤝'],
+      // Tasks & reminders
+      [['call','phone','ring'],'📞'],
+      [['email','send','reply'],'📧'],
+      [['pay','payment','bill','invoice','transfer'],'💳'],
+      [['clean','laundry','wash','tidy'],'🧹'],
+      [['cook','cooking','bake','baking'],'🍳'],
+      [['pick up','collect','fetch','drop'],'🚗'],
+    ];
+    for (const [keywords, icon] of map) {
+      if (keywords.some(k => t.includes(k))) return icon;
+    }
+    return null;
+  })();
 
   return (
     <div style={{ display:'flex', gap:14, padding:'18px 0',
       borderBottom:`1px solid ${C.border}`,
-      background:cardBg, opacity: isFlightLanded ? 0.7 : 1 }}>
+      opacity: isFlightLanded ? 0.7 : 1 }}>
 
       {/* V6: thicker stripe — 7px, full opacity */}
       <div style={{ width:7, minHeight:28, borderRadius:4,
@@ -565,6 +626,12 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
               {e.done ? '✓' : isPastDue ? '!' : ''}
             </button>
           )}
+          {/* Activity icon — auto-matched from title keywords */}
+          {actIcon && !isFlightLanded && (
+            <span style={{ fontSize:18, flexShrink:0, marginTop:1, lineHeight:1 }}>
+              {actIcon}
+            </span>
+          )}
           <span style={{ fontSize:16, fontWeight:600,
             color: (e.done || isFlightLanded) ? C.muted : isPastDue ? C.dim : C.text,
             textDecoration: (e.done || isPastDue || isFlightLanded) ? 'line-through' : 'none',
@@ -572,24 +639,13 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
             opacity: (isPastDue && !e.done) || isFlightLanded ? 0.6 : 1 }}>
             {e.title}
           </span>
-          {/* Landed badge — green, shows for past flights */}
+          {/* Landed badge */}
           {isFlightLanded && (
             <span style={{ fontSize:12, fontWeight:700, color:'#fff',
               background:'#2A6E3A', borderRadius:BR.pill, padding:'4px 12px',
               flexShrink:0, boxShadow:`0 2px 8px #2A6E3A40` }}>
               Landed ✓
             </span>
-          )}
-          {/* V8: priority badge */}
-          {!isFlightLanded && e.priority && e.priority !== 'low' && (
-            <span style={{
-              fontSize: e.priority==='critical'||e.priority==='high' ? 13 : 12,
-              fontWeight:700, color:'#fff',
-              background: PC[e.priority],
-              borderRadius:BR.pill, padding:'4px 12px',
-              textTransform:'capitalize', flexShrink:0,
-              boxShadow: e.priority==='critical' ? `0 2px 8px ${PC.critical}50` : 'none',
-            }}>{e.priority}</span>
           )}
           {!isFlightLanded && e.type === 'flight' && (
             <span style={{ fontSize:14, fontWeight:700, color:dcol,
@@ -774,9 +830,9 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
            .sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''))[0],
     [entries]);
   const topTasks = useMemo(() => {
-    const pr = { critical:0, high:1, medium:2, low:3 };
     return entries.filter(e => e.type==='task' && !e.done)
-                  .sort((a,b) => (pr[a.priority]??9)-(pr[b.priority]??9)).slice(0,3);
+                  .sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'))
+                  .slice(0,3);
   }, [entries]);
   const openTasks = entries.filter(e => e.type==='task' && !e.done).length;
   const next48 = useMemo(() => {
@@ -818,22 +874,25 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
             </h1>
             {/* Tagline */}
-            <p style={{ margin:'10px 0 0', fontSize:16, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
+            <p style={{ margin:'12px 0 0', fontSize:17, color:C.rose,
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5,
+              fontWeight:600, letterSpacing:'0.01em' }}>
               Bonding with trust, loyalty & love
             </p>
-            <p style={{ margin:'2px 0 0', fontSize:15, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:'4px 0 0', fontSize:15, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
-              Nurturing the invisible thread that
+              Nurturing the invisible thread that connects hearts
             </p>
             <p style={{ margin:0, fontSize:15, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
-              connects hearts across time and distance
+              across time and distance
             </p>
           </div>
-          {/* Sakura icon — larger */}
-          <div style={{ flexShrink:0, marginTop:2, transform:'scale(1.3)', transformOrigin:'top right' }}>
+          {/* Sakura icon — static flowers + animated falling petals */}
+          <div style={{ flexShrink:0, marginTop:2, transform:'scale(1.3)',
+            transformOrigin:'top right', position:'relative' }}>
             <KizunaIcon />
+            <SakuraPetals />
           </div>
         </div>
       </div>
@@ -887,9 +946,9 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
         </>)}
 
-        {/* Priority Tasks */}
+        {/* Pending Tasks */}
         {topTasks.length > 0 && (<>
-          <Sec label="Priority Tasks" count={openTasks} />
+          <Sec label="Pending Tasks" count={openTasks} />
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
             {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
@@ -949,7 +1008,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
           <p style={{ fontSize:14, color:C.muted, fontStyle:'italic', margin:'0 0 20px' }}>
             Your upcoming entries will appear here
           </p>
-          <button onClick={onAdd}
+          <button onClick={() => onAdd(fd(new Date()))}
             style={{ background:C.rose, border:'none', color:'#fff',
               borderRadius:BR.btn, padding:'12px 28px', fontSize:15, fontWeight:700,
               cursor:'pointer', fontFamily:'inherit',
@@ -1102,11 +1161,15 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
         background:C.card }}>
         {days.map(d => {
           const ds=fd(d); const isT=ds===fd(new Date()); const isSel=ds===selDate;
+          const isPast = d < new Date() && !isT;
           const dots = [...new Set((weekEntries[ds]||[]).map(e=>TC[e.type]))].slice(0,3);
           return (
-            <button key={ds} onClick={() => setSelDate(ds)}
-              style={{ background:'transparent', border:'none', cursor:'pointer',
-                padding:'6px 2px', textAlign:'center' }}>
+            <button key={ds} onClick={() => !isPast && setSelDate(ds)}
+              style={{ background:'transparent', border:'none',
+                cursor: isPast ? 'default' : 'pointer',
+                padding:'6px 2px', textAlign:'center',
+                opacity: isPast ? 0.35 : 1,
+                pointerEvents: isPast ? 'none' : 'auto' }}>
               <div style={{ fontSize:11, color:isT?C.rose:C.muted, marginBottom:2,
                 textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 {DAY[d.getDay()]}
@@ -1140,7 +1203,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
             <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:600, color:C.dim }}>
               Nothing on {DAY[new Date(selDate+'T00:00:00').getDay()]}, {MFULL[new Date(selDate+'T00:00:00').getMonth()]} {new Date(selDate+'T00:00:00').getDate()}
             </p>
-            <button onClick={onAdd}
+            <button onClick={() => onAdd(selDate)}
               style={{ marginTop:10, background:C.rose, border:'none', color:'#fff',
                 borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
                 cursor:'pointer', fontFamily:'inherit',
@@ -1199,13 +1262,17 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2 }}>
           {cells.map((day,i) => {
             if (!day) return <div key={`e${i}`} style={{ height:42 }} />;
-            const ds   = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
-            const isT  = ds===fd(new Date()), isSel = ds===selDate;
-            const dots = [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
+            const ds     = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
+            const isT    = ds===fd(new Date()), isSel = ds===selDate;
+            const isPast = new Date(ds+'T00:00:00') < new Date() && !isT;
+            const dots   = [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
             return (
-              <button key={ds} onClick={() => setSelDate(ds)}
-                style={{ background:'transparent', border:'none', cursor:'pointer',
-                  padding:'3px 1px', textAlign:'center' }}>
+              <button key={ds} onClick={() => !isPast && setSelDate(ds)}
+                style={{ background:'transparent', border:'none',
+                  cursor: isPast ? 'default' : 'pointer',
+                  padding:'3px 1px', textAlign:'center',
+                  opacity: isPast ? 0.3 : 1,
+                  pointerEvents: isPast ? 'none' : 'auto' }}>
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                   background: isSel?C.rose : isT?C.rose+'20':'transparent',
                   border: isT&&!isSel?`1.5px solid ${C.rose}60`:'1.5px solid transparent',
@@ -1286,7 +1353,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
           </button>
         ))}
         {/* Schedule button */}
-        <button onClick={onAdd}
+        <button onClick={() => onAdd(selDate)}
           style={{ width:36, height:36, borderRadius:BR.btn, border:'none', flexShrink:0,
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             color:'#fff', fontSize:22, fontWeight:300, cursor:'pointer',
@@ -2070,26 +2137,9 @@ function EForm({ form, set }) {
                 letterSpacing:'0.08em',
                 color:C.text }} />
           </FL>
-          <FL label="Priority">
-            <select value={form.priority} onChange={e=>set('priority',e.target.value)}
-              style={{ ...selStyle,
-                background:'#fff',
-                border:`1.5px solid ${C.F}60` }}>
-              {['low','medium','high','critical'].map(p => (
-                <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
-              ))}
-            </select>
-          </FL>
         </div>
       </>) : form.type === 'task' ? (<>
         <FL label="Due Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
-        <FL label="Priority">
-          <select value={form.priority} onChange={e=>set('priority',e.target.value)} style={selStyle}>
-            {['low','medium','high','critical'].map(p => (
-              <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>
-            ))}
-          </select>
-        </FL>
         <FL label="Tags"><FI form={form} set={set} field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <FL label="Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
@@ -2123,11 +2173,13 @@ function EForm({ form, set }) {
   );
 }
 
-function AddModal({ onClose, onSave, editEntry = null }) {
+function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
   const isEdit = editEntry !== null;
-  // Edit mode: skip type selector (step 1), pre-populate form from entry
   const [step, setStep] = useState(isEdit ? 1 : 0);
-  const [form, setForm] = useState(isEdit ? { ...mkBlank(), ...editEntry } : mkBlank());
+  const [form, setForm] = useState(isEdit
+    ? { ...mkBlank(), ...editEntry }
+    : { ...mkBlank(), ...(initialDate ? { date: initialDate } : {}) }
+  );
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
   const canSave = form.type === 'flight'
     ? (form.flightNum?.trim().length > 0)   // flight: needs flight number
@@ -2201,7 +2253,7 @@ function AddModal({ onClose, onSave, editEntry = null }) {
               </p>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 {['meeting','task','flight','reminder','event'].map(t => (
-                  <button key={t} onClick={() => { setForm({...mkBlank(),type:t}); setStep(1); }}
+                  <button key={t} onClick={() => { setForm({...mkBlank(), ...(initialDate?{date:initialDate}:{}), type:t}); setStep(1); }}
                     style={{ background:TC[t]+'15', border:`1px solid ${TC[t]}35`,
                       borderRadius:BR.card, padding:'18px 14px', cursor:'pointer', textAlign:'left',
                       display:'flex', flexDirection:'column', gap:6,
@@ -2310,7 +2362,57 @@ const KizunaIcon = () => {
   );
 };
 
-// ─── BOTTOM NAV ──────────────────────────────────────────────────
+// ─── SAKURA PETALS ANIMATION ─────────────────────────────────────
+// 4 tiny petals drift and spin downward using pure CSS keyframes.
+// The main KizunaIcon flowers are completely static.
+// Each petal has unique: start position, fall duration, lateral drift, spin speed.
+const PETAL_CSS = `
+@keyframes petalFall1 {
+  0%   { transform: translate(0px, -8px) rotate(0deg);   opacity:0; }
+  10%  { opacity: 0.7; }
+  100% { transform: translate(18px, 52px) rotate(340deg); opacity:0; }
+}
+@keyframes petalFall2 {
+  0%   { transform: translate(0px, -4px) rotate(20deg);  opacity:0; }
+  15%  { opacity: 0.5; }
+  100% { transform: translate(-14px, 48px) rotate(-280deg); opacity:0; }
+}
+@keyframes petalFall3 {
+  0%   { transform: translate(0px, -6px) rotate(-10deg); opacity:0; }
+  12%  { opacity: 0.6; }
+  100% { transform: translate(8px, 56px) rotate(400deg);  opacity:0; }
+}
+@keyframes petalFall4 {
+  0%   { transform: translate(0px, -2px) rotate(30deg);  opacity:0; }
+  20%  { opacity: 0.4; }
+  100% { transform: translate(-20px, 44px) rotate(-320deg); opacity:0; }
+}
+`;
+const PETALS = [
+  { left:'38%', animationName:'petalFall1', animationDuration:'3.2s', animationDelay:'0s',    width:6, height:7, color:'#EAA898' },
+  { left:'58%', animationName:'petalFall2', animationDuration:'4.1s', animationDelay:'1.3s',  width:5, height:6, color:'#F0C0B4' },
+  { left:'28%', animationName:'petalFall3', animationDuration:'3.7s', animationDelay:'2.4s',  width:5, height:6, color:'#EAB8A8' },
+  { left:'50%', animationName:'petalFall4', animationDuration:'4.8s', animationDelay:'0.7s',  width:4, height:5, color:'#E8A090' },
+];
+const SakuraPetals = () => (
+  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
+    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
+    <style>{PETAL_CSS}</style>
+    {PETALS.map((p, i) => (
+      <div key={i} style={{
+        position:'absolute', top:4, left:p.left,
+        width:p.width, height:p.height, borderRadius:'50% 50% 50% 0',
+        background:p.color, opacity:0,
+        animationName:p.animationName,
+        animationDuration:p.animationDuration,
+        animationDelay:p.animationDelay,
+        animationTimingFunction:'ease-in',
+        animationIterationCount:'infinite',
+        animationFillMode:'both',
+      }} />
+    ))}
+  </div>
+);
 // Dynamic date badge for calendar nav icon
 const CalIcon = () => {
   const now = new Date();
@@ -2353,6 +2455,7 @@ export default function App() {
   const [entries,      setEntries]      = useState([]);
   const [auditLog,     setAuditLog]     = useState([]);
   const [showAdd,      setShowAdd]      = useState(false);
+  const [addDate,      setAddDate]      = useState(null);  // pre-fill date when opening from calendar
   const [editingEntry, setEditingEntry] = useState(null);
   const [syncStatus,   setSyncStatus]   = useState('loading');
   const [workspace,       setWorkspace]       = useState(null); // {id, name, ownerId, role, members}
@@ -2933,11 +3036,11 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => setShowAdd(true)} syncStatus={syncStatus} />}
-        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={() => setShowAdd(true)} />}
+        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} />}
+        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
-        {showAdd      && <AddModal onClose={() => setShowAdd(false)}      onSave={addEntry}    />}
+        {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
 
