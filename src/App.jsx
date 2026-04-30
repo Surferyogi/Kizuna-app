@@ -2720,7 +2720,7 @@ export default function App() {
       const { error: sessionErr } = await supabase.auth.verifyOtp({
         email: trimEmail,
         token: data.token,
-        type:  'magiclink',
+        type:  'signup',
       });
 
       if (sessionErr) {
