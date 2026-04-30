@@ -693,6 +693,21 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
         {/* Meta / Actions / Confirm */}
         {!open ? (
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+            {e.date && (() => {
+              const dt = new Date(e.date+'T00:00:00');
+              const today = fd(new Date());
+              const tomorrow = fd(new Date(Date.now()+86400000));
+              const label = e.date === today    ? 'Today'
+                          : e.date === tomorrow ? 'Tomorrow'
+                          : `${DAY[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]}`;
+              return (
+                <span style={{ fontSize:13, fontWeight:700, color:C.rose,
+                  background:C.rose+'12', borderRadius:BR.pill,
+                  padding:'2px 9px', flexShrink:0 }}>
+                  📅 {label}
+                </span>
+              );
+            })()}
             {e.time      && <span style={{ fontSize:14, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
             {e.location  && <span style={{ fontSize:14, color:C.dim }}>📍 {e.location}</span>}
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
