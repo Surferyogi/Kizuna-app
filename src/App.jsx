@@ -647,6 +647,12 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
+            {e.repeat && e.repeat !== 'none' && (
+              <span style={{ fontSize:12, color:C.rose, background:C.rose+'12',
+                borderRadius:BR.pill, padding:'2px 8px', flexShrink:0 }}>
+                🔁 {e.repeat.charAt(0).toUpperCase()+e.repeat.slice(1)}
+              </span>
+            )}
             {e.visibility==='shared' && isOwn && (
               <span style={{ fontSize:12, color:C.rose, background:C.rose+'15', borderRadius:BR.pill, padding:'2px 8px' }}>◯ Shared by me</span>
             )}
@@ -908,13 +914,13 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
         {(() => {
           const filters = [
             { key:'today',   val:todayEs.length,  label:'Today',      c:C.M,  dc:DTC.meeting, icon:'📋',
-              entries: todayEs },
+              entries: todayEs.filter(e=>!e.repeat||e.repeat==='none') },
             { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:DTC.task,    icon:'✓',
-              entries: entries.filter(e=>e.type==='task'&&!e.done).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
+              entries: entries.filter(e=>e.type==='task'&&!e.done&&(!e.repeat||e.repeat==='none')).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
             { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:DTC.event,   icon:'⏱',
               entries: (() => { const n=new Date(),lim=new Date(n.getTime()+48*3600000);
                 return entries.filter(e=>{ const d=new Date(e.date+'T'+(e.time||'00:00'));
-                  return d>=n&&d<=lim&&e.type!=='task'; })
+                  return d>=n&&d<=lim&&e.type!=='task'&&(!e.repeat||e.repeat==='none'); })
                   .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')); })() },
           ];
           return (<>
@@ -970,8 +976,8 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
         </>)}
 
-        {/* Pending Tasks */}
-        {topTasks.length > 0 && (<>
+        {/* Pending Tasks — hidden when 'tasks' filter is active to avoid duplicates */}
+        {homeFilter !== 'tasks' && topTasks.length > 0 && (<>
           <Sec label="Pending Tasks" count={openTasks} />
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
@@ -979,30 +985,32 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           </div>
         </>)}
 
-        {/* Today's Schedule */}
-        <Sec label="Today's Schedule" count={todayEs.length} />
-        {todayEs.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'32px 18px',
-            background:C.card, borderRadius:BR.card,
-            border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-            <div style={{ fontSize:36, marginBottom:10, opacity:0.4 }}>🌸</div>
-            <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
-              A peaceful day ahead
-            </p>
-            <button onClick={onAdd}
-              style={{ marginTop:10, background:C.rose, border:'none', color:'#fff',
-                borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
-                cursor:'pointer', fontFamily:'inherit',
-                boxShadow:`0 4px 14px ${C.rose}40` }}>
-              + Schedule something
-            </button>
-          </div>
-        ) : (
-          <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
-            boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
-          </div>
-        )}
+        {/* Today's Schedule — hidden when 'today' filter is active to avoid duplicates */}
+        {homeFilter !== 'today' && (<>
+          <Sec label="Today's Schedule" count={todayEs.length} />
+          {todayEs.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'32px 18px',
+              background:C.card, borderRadius:BR.card,
+              border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+              <div style={{ fontSize:36, marginBottom:10, opacity:0.4 }}>🌸</div>
+              <p style={{ margin:'0 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>
+                A peaceful day ahead
+              </p>
+              <button onClick={onAdd}
+                style={{ marginTop:10, background:C.rose, border:'none', color:'#fff',
+                  borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
+                  cursor:'pointer', fontFamily:'inherit',
+                  boxShadow:`0 4px 14px ${C.rose}40` }}>
+                + Schedule something
+              </button>
+            </div>
+          ) : (
+            <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
+              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+            </div>
+          )}
+        </>)}
       </div>
     </div>
   );
@@ -1904,7 +1912,7 @@ function Row2({ children }) {
 const mkBlank = () => ({
   type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
-  terminal:'',gate:'',seat:'',visibility:'shared',remind:'30min'
+  terminal:'',gate:'',seat:'',visibility:'shared',remind:'30min',repeat:'none'
 });
 
 function EForm({ form, set }) {
@@ -2108,8 +2116,8 @@ function EForm({ form, set }) {
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : form.type === 'birthday' ? (<>
+        <FL label="Occasion"><FI form={form} set={set} field="title" placeholder="e.g. Mum's Birthday, Wedding Anniversary" autoFocus /></FL>
         <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
-        <FL label="Person / Occasion"><FI form={form} set={set} field="location" placeholder="e.g. Mum's Birthday, Wedding Anniversary" /></FL>
         <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Gift ideas, plans, memories…" /></FL>
       </>) : (<>
         <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
@@ -2129,6 +2137,16 @@ function EForm({ form, set }) {
           ))}
         </select>
       </FL>
+      {/* Repeat frequency — shown for birthday, event and reminder */}
+      {['birthday','event','reminder'].includes(form.type) && (
+        <FL label="Repeat">
+          <select value={form.repeat||'none'} onChange={e=>set('repeat',e.target.value)} style={selStyle}>
+            {[['none','Does not repeat'],['daily','Daily'],['weekly','Weekly'],['monthly','Monthly'],['yearly','Yearly']].map(([v,l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </FL>
+      )}
       <FL label="Visibility">
         <select value={form.visibility} onChange={e=>set('visibility',e.target.value)} style={selStyle}>
           <option value="private">🔒 Private</option>
