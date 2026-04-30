@@ -1332,6 +1332,16 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const initDt      = new Date(selDate+'T00:00:00');
   const [vm, setVm] = useState({ y:initDt.getFullYear(), m:initDt.getMonth() });
+
+  // Sync displayed month whenever selDate changes to a different month
+  // This makes the Today button work — it sets selDate, which triggers this sync
+  useEffect(() => {
+    const dt = new Date(selDate+'T00:00:00');
+    setVm(prev => {
+      if (prev.y === dt.getFullYear() && prev.m === dt.getMonth()) return prev;
+      return { y: dt.getFullYear(), m: dt.getMonth() };
+    });
+  }, [selDate]);
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
