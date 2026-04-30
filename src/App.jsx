@@ -2716,11 +2716,11 @@ export default function App() {
         return;
       }
 
-      // ② Edge Function returned a single-use token — exchange for session
+      // ② Exchange token for session — use token_hash + type:'email'
+      // Note: 'signup' and 'magiclink' types are deprecated in verifyOtp
       const { error: sessionErr } = await supabase.auth.verifyOtp({
-        email: trimEmail,
-        token: data.token,
-        type:  'signup',
+        token_hash: data.token,
+        type:       'email',
       });
 
       if (sessionErr) {
