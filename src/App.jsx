@@ -1717,7 +1717,14 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
       <SS title="Workspace">
         <SR label={`${members.length} member${members.length!==1?'s':''}`}
           sub={`You are ${isAdmin?'Admin':'Member'}`}
-          right={<Badge label={isAdmin?'Admin':'Member'} color={isAdmin?C.rose:C.dim} />} />
+          right={<span style={{ fontSize:14, fontWeight:700,
+            color:isAdmin?C.rose:C.dim,
+            background:isAdmin?C.rose+'28':C.dim+'28',
+            borderRadius:BR.card, padding:'4px 12px',
+            textTransform:'capitalize', letterSpacing:'0.02em',
+            border:`1px solid ${isAdmin?C.rose:C.dim}30` }}>
+            {isAdmin?'Admin':'Member'}
+          </span>} />
         <div style={{ padding:'0 18px 14px', borderTop:`1px solid ${C.border}` }}>
           <p style={{ fontSize:13, color:C.muted, margin:'10px 0 6px',
             fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>Members</p>
