@@ -2462,13 +2462,13 @@ export default function App() {
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
 
   // ── Auth state ─────────────────────────────────────────────────
-  const [user,       setUser]       = useState(null);   // Supabase user object
-  const [authReady,  setAuthReady]  = useState(false);  // true once session checked
-  const [email,      setEmail]      = useState('');
-  const [authStep,    setAuthStep]    = useState('email'); // 'email' | 'code'
+  const [user,        setUser]        = useState(null);
+  const [authReady,   setAuthReady]   = useState(false);
+  const [authEmail,   setAuthEmail]   = useState('');
+  const [authPass,    setAuthPass]    = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError,   setAuthError]   = useState('');
-  const [otpCode,     setOtpCode]     = useState('');
+  const [showPass,    setShowPass]    = useState(false);
 
   // ── User display name ──────────────────────────────────────────
   const [userName,   setUserName]   = useState('');
@@ -2686,37 +2686,59 @@ export default function App() {
   }, [user, workspace]);
 
   // ── Auth actions ───────────────────────────────────────────────
-  const sendOtp = async () => {
-    const trimmed = email.trim();
-    if (!trimmed) { setAuthError('Please enter your email address.'); return; }
-    // Basic email format validation
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+  // ── Passphrase login ───────────────────────────────────────────
+  const passphraseLogin = async () => {
+    const trimEmail = authEmail.trim().toLowerCase();
+    const trimPass  = authPass.trim();
+    if (!trimEmail) { setAuthError('Please enter your email.'); return; }
+    if (!trimPass)  { setAuthError('Please enter your passphrase.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimEmail)) {
       setAuthError('Please enter a valid email address.'); return;
     }
-    setAuthLoading(true); setAuthError('');
-    const { error } = await supabase.auth.signInWithOtp({
-      email: trimmed,
-      options: { shouldCreateUser: true }
-    });
-    setAuthLoading(false);
-    if (error) { setAuthError(error.message); }
-    else       { setAuthStep('code'); setOtpCode(''); }
-  };
 
-  const verifyOtp = async () => {
-    if (!otpCode.trim()) { setAuthError('Please enter the 8-digit code.'); return; }
     setAuthLoading(true); setAuthError('');
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: otpCode.trim(),
-      type:  'email',
-    });
-    setAuthLoading(false);
-    if (error) {
-      setAuthError('Invalid or expired code. Please try again.');
-      setOtpCode(''); // clear stale code so user types fresh
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      // ① Call Edge Function — verifies passphrase server-side
+      const res = await fetch(`${supabaseUrl}/functions/v1/kizuna-auth`, {
+        method:  'POST',
+        headers: { 'Content-Type':'application/json',
+                   'Authorization':`Bearer ${anonKey}` },
+        body:    JSON.stringify({ email: trimEmail, passphrase: trimPass }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setAuthError(data.error || 'Login failed. Please check your credentials.');
+        setAuthLoading(false);
+        return;
+      }
+
+      // ② Edge Function returned a single-use token — exchange for session
+      const { error: sessionErr } = await supabase.auth.verifyOtp({
+        email: trimEmail,
+        token: data.token,
+        type:  'magiclink',
+      });
+
+      if (sessionErr) {
+        setAuthError('Session error. Please try again.');
+        setAuthLoading(false);
+        return;
+      }
+
+      // ③ Pre-fill display name from Edge Function response
+      if (data.display_name) {
+        setUserName(data.display_name);
+        setNameInput(data.display_name);
+      }
+      // onAuthStateChange fires → setUser → app loads
+    } catch {
+      setAuthError('Connection error. Please check your network and try again.');
+      setAuthLoading(false);
     }
-    // on success, onAuthStateChange fires → setUser → app loads
   };
 
   const signOut = async () => {
@@ -2726,7 +2748,7 @@ export default function App() {
     setUser(null); setEntries([]); setAuditLog([]);
     setWorkspace(null); setWorkspaceLoaded(false);
     setUserName(''); setNameInput(''); setNameReady(false);
-    setAuthStep('email'); setOtpCode(''); setAuthError(''); setEmail('');
+    setAuthEmail(''); setAuthPass(''); setAuthError('');
     setSyncStatus('loading');
     loadingRef.current = false; // allow data reload on next login
     if (uid) localStorage.removeItem(`exec_user_v1_${uid}`);
@@ -2882,85 +2904,58 @@ export default function App() {
           nurturing the invisible thread that connects hearts
         </p>
 
-        {authStep === 'email' ? (<>
-          <p style={{ margin:'0 0 10px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
-            Sign in with your email
-          </p>
-          <p style={{ margin:'0 0 14px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
-            We'll send an 8-digit code — no password needed.
-          </p>
+        {/* Email */}
+        <p style={{ margin:'0 0 8px', fontSize:16, color:C.text, fontWeight:600,
+          alignSelf:'flex-start' }}>Email</p>
+        <input
+          value={authEmail}
+          onChange={e => setAuthEmail(e.target.value)}
+          onKeyDown={e => e.key==='Enter' && passphraseLogin()}
+          placeholder="your@email.com"
+          type="email"
+          autoFocus
+          style={{ width:'100%', boxSizing:'border-box', background:C.card,
+            border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
+            fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
+            boxShadow:SH.card, marginBottom:14 }}
+        />
+
+        {/* Passphrase */}
+        <p style={{ margin:'0 0 8px', fontSize:16, color:C.text, fontWeight:600,
+          alignSelf:'flex-start' }}>Passphrase</p>
+        <div style={{ width:'100%', position:'relative', marginBottom: authError ? 8 : 20 }}>
           <input
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key==='Enter' && sendOtp()}
-            placeholder="your@email.com"
-            type="email"
-            autoFocus
+            value={authPass}
+            onChange={e => setAuthPass(e.target.value)}
+            onKeyDown={e => e.key==='Enter' && passphraseLogin()}
+            placeholder="Enter your passphrase"
+            type={showPass ? 'text' : 'password'}
             style={{ width:'100%', boxSizing:'border-box', background:C.card,
               border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
-              fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
-              boxShadow:SH.card, marginBottom: authError ? 8 : 16 }}
+              paddingRight:52, fontSize:17, color:C.text, outline:'none',
+              fontFamily:'inherit', boxShadow:SH.card }}
           />
-          {authError && (
-            <p style={{ margin:'0 0 12px', fontSize:13, color:'#C46A14', alignSelf:'flex-start' }}>
-              {authError}
-            </p>
-          )}
-          <button onClick={sendOtp} disabled={authLoading}
-            style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-              border:'none', borderRadius:BR.panel, padding:'18px',
-              fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
-              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
-              opacity: authLoading ? 0.7 : 1 }}>
-            {authLoading ? 'Sending…' : 'Send Code 🌸'}
+          <button onClick={() => setShowPass(p => !p)}
+            style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)',
+              background:'transparent', border:'none', cursor:'pointer',
+              fontSize:18, color:C.muted, padding:4 }}>
+            {showPass ? '🙈' : '👁️'}
           </button>
-        </>) : (<>
-          <p style={{ margin:'0 0 6px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
-            Enter your 8-digit code
-          </p>
-          <p style={{ margin:'0 0 16px', fontSize:14, color:C.dim, alignSelf:'flex-start', lineHeight:1.5 }}>
-            Sent to <strong style={{ color:C.text }}>{email}</strong>
-          </p>
-          <input
-            value={otpCode}
-            onChange={e => setOtpCode(e.target.value.replace(/\D/g,'').slice(0,8))}
-            onKeyDown={e => e.key==='Enter' && verifyOtp()}
-            placeholder="00000000"
-            type="text"
-            inputMode="numeric"
-            autoFocus
-            style={{ width:'100%', boxSizing:'border-box', background:C.card,
-              border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
-              fontSize:28, fontWeight:700, color:C.text, outline:'none',
-              fontFamily:'inherit', boxShadow:SH.card,
-              letterSpacing:'0.3em', textAlign:'center',
-              marginBottom: authError ? 8 : 16 }}
-          />
-          {authError && (
-            <p style={{ margin:'0 0 12px', fontSize:13, color:'#C46A14', alignSelf:'flex-start' }}>
-              {authError}
-            </p>
-          )}
-          <button onClick={verifyOtp} disabled={authLoading}
-            style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-              border:'none', borderRadius:BR.panel, padding:'18px',
-              fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
-              fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
-              opacity: authLoading ? 0.7 : 1 }}>
-            {authLoading ? 'Verifying…' : 'Enter Kizuna 🌸'}
-          </button>
-          <button onClick={() => { setAuthStep('email'); setOtpCode(''); setAuthError(''); }}
-            style={{ marginTop:14, background:'transparent', border:'none',
-              fontSize:14, color:C.dim, cursor:'pointer', fontFamily:'inherit' }}>
-            ← Use a different email
-          </button>
-          <button onClick={sendOtp} disabled={authLoading}
-            style={{ marginTop:8, background:'transparent', border:'none',
-              fontSize:14, color:C.rose, cursor:'pointer', fontFamily:'inherit',
-              textDecoration:'underline' }}>
-            Resend code
-          </button>
-        </>)}
+        </div>
+
+        {authError && (
+          <p style={{ margin:'0 0 14px', fontSize:13, color:'#C46A14',
+            alignSelf:'flex-start' }}>{authError}</p>
+        )}
+
+        <button onClick={passphraseLogin} disabled={authLoading}
+          style={{ width:'100%', background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            border:'none', borderRadius:BR.panel, padding:'18px',
+            fontSize:18, fontWeight:700, color:'#fff', cursor:'pointer',
+            fontFamily:'inherit', boxShadow:`0 6px 24px ${C.rose}45`,
+            opacity: authLoading ? 0.7 : 1 }}>
+          {authLoading ? 'Signing in…' : 'Enter Kizuna 🌸'}
+        </button>
       </div>
     );
   }
