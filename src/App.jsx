@@ -7,6 +7,56 @@ const p2 = n => String(n).padStart(2, '0');
 // T0 is fixed at module load — used only for relative date calculations.
 const T0 = new Date();
 const fd = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+
+// ─── REPEAT EXPANSION ────────────────────────────────────────────
+// Generates virtual occurrences for repeating entries over the next 365 days.
+// Virtual entries have _virtual:true — shown in UI but cannot be edited/deleted.
+// Only entries with repeat !== 'none' are expanded.
+function expandRepeating(entries) {
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const cutoff = new Date(today.getTime() + 365 * 86400000); // 1 year ahead
+  const result = [...entries];
+
+  entries.forEach(e => {
+    if (!e.repeat || e.repeat === 'none' || !e.date) return;
+
+    const origin = new Date(e.date + 'T00:00:00');
+    const step = { daily:1, weekly:7, monthly:0, yearly:0 }[e.repeat];
+
+    let cursor = new Date(origin);
+
+    // Advance cursor past today if origin is in the past
+    while (cursor < today) {
+      if (e.repeat === 'daily')   cursor.setDate(cursor.getDate() + 1);
+      else if (e.repeat === 'weekly')  cursor.setDate(cursor.getDate() + 7);
+      else if (e.repeat === 'monthly') cursor.setMonth(cursor.getMonth() + 1);
+      else if (e.repeat === 'yearly')  cursor.setFullYear(cursor.getFullYear() + 1);
+    }
+
+    // Generate occurrences up to cutoff
+    let safety = 0;
+    while (cursor <= cutoff && safety < 400) {
+      safety++;
+      const ds = fd(cursor);
+      // Skip the original entry's own date
+      if (ds !== e.date) {
+        result.push({
+          ...e,
+          id:       `${e.id}_${ds}`,  // unique virtual ID
+          date:     ds,
+          _virtual: true,             // marks as read-only virtual copy
+          _originId: e.id,
+        });
+      }
+      if (e.repeat === 'daily')        cursor.setDate(cursor.getDate() + 1);
+      else if (e.repeat === 'weekly')  cursor.setDate(cursor.getDate() + 7);
+      else if (e.repeat === 'monthly') cursor.setMonth(cursor.getMonth() + 1);
+      else if (e.repeat === 'yearly')  cursor.setFullYear(cursor.getFullYear() + 1);
+    }
+  });
+
+  return result;
+}
 const ad = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
 const ft = (h, m=0) => `${h%12||12}:${p2(m)} ${h>=12?'PM':'AM'}`;
 const pt = s => { if (!s) return ''; const [h,m] = s.split(':').map(Number); return ft(h,m); };
@@ -473,6 +523,7 @@ const SR = ({ label, sub, right, noBorder }) => (
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
 function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false }) {
+  const isReadOnly = readOnly || e._virtual === true;
   const col  = TC[e.type];
   const dcol = DTC[e.type] || col;
   const [open,       setOpen]       = useState(false);
@@ -665,16 +716,18 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
                 👤 {e.userName || 'Team member'}
               </span>
             )}
-            {isOwn && !readOnly && (
+            {isOwn && !isReadOnly && (
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                   background:'transparent', border:`1px solid ${C.border}`,
                   borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
                   letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>···</button>
             )}
-            {readOnly && (
+            {isReadOnly && (
               <span style={{ marginLeft:'auto', fontSize:11, color:C.muted,
-                fontStyle:'italic', flexShrink:0 }}>view only</span>
+                fontStyle:'italic', flexShrink:0 }}>
+                {e._virtual ? '🔁 repeating' : 'view only'}
+              </span>
             )}
           </div>
         ) : !confirmDel ? (
@@ -914,8 +967,8 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           </p>
         </div>
 
-        {/* Tappable stat cards — hidden when Today filter active (Today's Schedule shows instead) */}
-        {homeFilter !== 'today' && (() => {
+        {/* Tappable stat cards — always visible, tap to reveal filtered entries below */}
+        {(() => {
           const filters = [
             { key:'today',   val:todayEs.length,  label:'Today',      c:C.M,  dc:DTC.meeting, icon:'📋',
               entries: todayEs.filter(e=>!e.repeat||e.repeat==='none') },
@@ -2826,6 +2879,10 @@ export default function App() {
 
   const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
 
+  // Expand repeating entries for display — virtual copies for next 365 days
+  // All tabs receive expandedEntries so repeating birthdays/events appear everywhere
+  const expandedEntries = useMemo(() => expandRepeating(entries), [entries]);
+
   const sharedStyle = {
     wrapper: { width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
       background:C.bg, display:'flex', flexDirection:'column', alignItems:'center',
@@ -3016,9 +3073,9 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} />}
-        {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} />}
-        {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} />}
+        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
