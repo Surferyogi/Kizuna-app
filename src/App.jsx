@@ -472,7 +472,7 @@ const SR = ({ label, sub, right, noBorder }) => (
 );
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
-function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
+function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false }) {
   const col  = TC[e.type];
   const dcol = DTC[e.type] || col;
   const [open,       setOpen]       = useState(false);
@@ -665,12 +665,16 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId }) {
                 👤 {e.userName || 'Team member'}
               </span>
             )}
-            {isOwn && (
+            {isOwn && !readOnly && (
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                   background:'transparent', border:`1px solid ${C.border}`,
                   borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
                   letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>···</button>
+            )}
+            {readOnly && (
+              <span style={{ marginLeft:'auto', fontSize:11, color:C.muted,
+                fontStyle:'italic', flexShrink:0 }}>view only</span>
             )}
           </div>
         ) : !confirmDel ? (
@@ -910,8 +914,8 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           </p>
         </div>
 
-        {/* Tappable stat cards — tap to reveal filtered entries below */}
-        {(() => {
+        {/* Tappable stat cards — hidden when Today filter active (Today's Schedule shows instead) */}
+        {homeFilter !== 'today' && (() => {
           const filters = [
             { key:'today',   val:todayEs.length,  label:'Today',      c:C.M,  dc:DTC.meeting, icon:'📋',
               entries: todayEs.filter(e=>!e.repeat||e.repeat==='none') },
@@ -1170,6 +1174,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 
   // Selected day's entries
   const selDayEs = weekEntries[selDate] || [];
+  const selIsPast = new Date(selDate+'T23:59:59') < new Date();
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
@@ -1196,12 +1201,11 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
           const isPast = d < new Date() && !isT;
           const dots = [...new Set((weekEntries[ds]||[]).map(e=>TC[e.type]))].slice(0,3);
           return (
-            <button key={ds} onClick={() => !isPast && setSelDate(ds)}
+            <button key={ds} onClick={() => setSelDate(ds)}
               style={{ background:'transparent', border:'none',
-                cursor: isPast ? 'default' : 'pointer',
+                cursor:'pointer',
                 padding:'6px 2px', textAlign:'center',
-                opacity: isPast ? 0.35 : 1,
-                pointerEvents: isPast ? 'none' : 'auto' }}>
+                opacity: isPast ? 0.45 : 1 }}>
               <div style={{ fontSize:11, color:isT?C.rose:C.muted, marginBottom:2,
                 textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 {DAY[d.getDay()]}
@@ -1247,7 +1251,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
             {selDayEs.map(e => (
-              <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
+              <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} readOnly={selIsPast} />
             ))}
           </div>
         )}
@@ -1299,12 +1303,11 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
             const isPast = new Date(ds+'T00:00:00') < new Date() && !isT;
             const dots   = [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
             return (
-              <button key={ds} onClick={() => !isPast && setSelDate(ds)}
+              <button key={ds} onClick={() => setSelDate(ds)}
                 style={{ background:'transparent', border:'none',
-                  cursor: isPast ? 'default' : 'pointer',
+                  cursor:'pointer',
                   padding:'3px 1px', textAlign:'center',
-                  opacity: isPast ? 0.3 : 1,
-                  pointerEvents: isPast ? 'none' : 'auto' }}>
+                  opacity: isPast ? 0.4 : 1 }}>
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                   background: isSel?C.rose : isT?C.rose+'20':'transparent',
                   border: isT&&!isSel?`1.5px solid ${C.rose}60`:'1.5px solid transparent',
@@ -1347,7 +1350,7 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
             </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} readOnly={new Date(selDate+'T23:59:59') < new Date()} />)}
             </div>
         }
       </div>
