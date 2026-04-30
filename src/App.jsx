@@ -1329,19 +1329,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
-  const initDt      = new Date(selDate+'T00:00:00');
-  const [vm, setVm] = useState({ y:initDt.getFullYear(), m:initDt.getMonth() });
-
-  // Sync displayed month whenever selDate changes to a different month
-  // This makes the Today button work — it sets selDate, which triggers this sync
-  useEffect(() => {
-    const dt = new Date(selDate+'T00:00:00');
-    setVm(prev => {
-      if (prev.y === dt.getFullYear() && prev.m === dt.getMonth()) return prev;
-      return { y: dt.getFullYear(), m: dt.getMonth() };
-    });
-  }, [selDate]);
+function MonthView({ entries, selDate, setSelDate, vm, setVm, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
@@ -1440,6 +1428,16 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
 function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
+  const now = new Date();
+  const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
+
+  const goToday = () => {
+    const today = new Date();
+    setSelDate(fd(today));
+    setVm({ y: today.getFullYear(), m: today.getMonth() });
+  };
+
+  const isToday = selDate === fd(new Date());
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
@@ -1447,10 +1445,10 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
       <div style={{ display:'flex', gap:6, padding:'10px 14px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card,
         alignItems:'center' }}>
-        <button onClick={() => setSelDate(fd(new Date()))}
+        <button onClick={goToday}
           style={{ padding:'8px 18px', borderRadius:BR.btn, border:`1.5px solid ${C.rose}`,
-            background: selDate === fd(new Date()) ? C.rose : 'transparent',
-            color: selDate === fd(new Date()) ? '#fff' : C.rose,
+            background: isToday ? C.rose : 'transparent',
+            color: isToday ? '#fff' : C.rose,
             fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0,
             transition:'all 0.15s' }}>
           Today
@@ -1458,6 +1456,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
       </div>
       <div style={{ flex:1, overflow:'hidden' }}>
         <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
+          vm={vm} setVm={setVm}
           onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
           currentUserId={currentUserId} onAdd={onAdd} />
       </div>
