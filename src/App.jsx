@@ -864,16 +864,16 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
             </h1>
             {/* Tagline */}
-            <p style={{ margin:'12px 0 0', fontSize:17, color:C.rose,
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5,
+            <p style={{ margin:'12px 0 0', fontSize:24, color:C.rose,
+              fontFamily:'Cormorant Garamond,serif', lineHeight:1.4,
               fontWeight:600, letterSpacing:'0.01em' }}>
               Bonding with trust, loyalty & love
             </p>
-            <p style={{ margin:'4px 0 0', fontSize:15, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:'4px 0 0', fontSize:20, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               Nurturing the invisible thread that connects hearts
             </p>
-            <p style={{ margin:0, fontSize:15, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:0, fontSize:20, color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
               across time and distance
             </p>
@@ -970,14 +970,14 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           </>);
         })()}
 
-        {/* Next Flight */}
-        {nextFlight && (<>
+        {/* Next Flight — only shown when no filter card is active */}
+        {!homeFilter && nextFlight && (<>
           <Sec label="Next Flight" />
           <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
         </>)}
 
-        {/* Pending Tasks — hidden when 'tasks' filter is active to avoid duplicates */}
-        {homeFilter !== 'tasks' && topTasks.length > 0 && (<>
+        {/* Pending Tasks — only shown when no filter active */}
+        {!homeFilter && topTasks.length > 0 && (<>
           <Sec label="Pending Tasks" count={openTasks} />
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
@@ -985,8 +985,8 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           </div>
         </>)}
 
-        {/* Today's Schedule — hidden when 'today' filter is active to avoid duplicates */}
-        {homeFilter !== 'today' && (<>
+        {/* Today's Schedule — only shown when Today filter active OR no filter active */}
+        {(!homeFilter || homeFilter === 'today') && (<>
           <Sec label="Today's Schedule" count={todayEs.length} />
           {todayEs.length === 0 ? (
             <div style={{ textAlign:'center', padding:'32px 18px',
@@ -1855,7 +1855,8 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               fontFamily:'Cormorant Garamond,serif' }}>Kizuna 絆</span>
           </div>
           <p style={{ margin:0, fontSize:13, color:C.muted }}>
-            {APP_VERSION} · Released {APP_BUILD_DATE}
+            {APP_VERSION} · Released {APP_BUILD_DATE}<br/>
+            <span style={{ color:C.rose }}>by Surferyogi</span>
           </p>
         </div>
         <SR label="Schema Version" sub={`Storage format v${SCHEMA_VERSION}`} noBorder
@@ -1912,7 +1913,7 @@ function Row2({ children }) {
 const mkBlank = () => ({
   type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
-  terminal:'',gate:'',seat:'',visibility:'shared',remind:'30min',repeat:'none'
+  terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none'
 });
 
 function EForm({ form, set }) {
@@ -2130,13 +2131,6 @@ function EForm({ form, set }) {
         <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Additional details…" /></FL>
       </>)}
 
-      <FL label="Remind me">
-        <select value={form.remind} onChange={e=>set('remind',e.target.value)} style={selStyle}>
-          {[['none','None'],['15min','15 min'],['30min','30 min'],['1h','1 hr'],['2h','2 hrs'],['1d','1 day']].map(([v,l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-      </FL>
       {/* Repeat frequency — shown for birthday, event and reminder */}
       {['birthday','event','reminder'].includes(form.type) && (
         <FL label="Repeat">
