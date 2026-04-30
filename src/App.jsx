@@ -284,8 +284,8 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION    = 'v2.1.0';
-const APP_BUILD_DATE = 'April 26, 2026';
+const APP_VERSION    = 'v2.2.0';
+const APP_BUILD_DATE = 'May 1, 2026';
 
 // Load own entries from Supabase — simple, reliable query
 async function dbLoadEntries(userId) {
@@ -445,24 +445,6 @@ const Sec = ({ label, count }) => (
     )}
     <div style={{ flex:1, height:'1px', background:C.border }} />
   </div>
-);
-
-const Badge = ({ label, color }) => (
-  <span style={{ fontSize:14, fontWeight:700, color, background:color+'28', borderRadius:BR.card,
-    padding:'4px 12px', textTransform:'capitalize', letterSpacing:'0.02em', flexShrink:0,
-    border:`1px solid ${color}30` }}>{label}</span>
-);
-
-const Tog = ({ on, onChange }) => (
-  <button onClick={() => onChange(!on)}
-    style={{ width:56, height:32, borderRadius:BR.panel, background:on?C.rose:C.elevated,
-      border:`1.5px solid ${on?C.rose:C.border}`,
-      cursor:'pointer', position:'relative', flexShrink:0, padding:0,
-      transition:'background 0.2s, border-color 0.2s', boxShadow:SH.subtle }}>
-    <div style={{ position:'absolute', top:4, left:on?28:4, width:22, height:22,
-      borderRadius:11, background:on?'#fff':C.muted,
-      boxShadow:'0 1px 4px rgba(0,0,0,0.15)', transition:'left 0.18s' }} />
-  </button>
 );
 
 // P3-17: SS and SR at module level — never recreated on SettingsTab renders
@@ -1002,7 +984,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
             opacity:0.4, color:C.rose, transform:'scale(2)', transformOrigin:'center' }}>
             <CalIcon />
           </div>
-          <p style={{ fontSize:17, fontWeight:600, color:C.dim, margin:'24px 0 6px' }}>
+          <p style={{ fontSize:16, fontWeight:600, color:C.dim, margin:'24px 0 6px' }}>
             Nothing scheduled yet
           </p>
           <p style={{ fontSize:14, color:C.muted, fontStyle:'italic', margin:'0 0 20px' }}>
@@ -1052,7 +1034,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
       </div>
   );
 }
-function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
+function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
   const allDayEs = useMemo(() => entries.filter(e => e.date===selDate && !e.time), [entries, selDate]);
   const hours  = Array.from({ length:24 }, (_,i) => i); // 00:00 → 23:00
@@ -1225,7 +1207,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId }) {
+function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const initDt      = new Date(selDate+'T00:00:00');
   const [vm, setVm] = useState({ y:initDt.getFullYear(), m:initDt.getMonth() });
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
@@ -1281,9 +1263,9 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
                   <span style={{ fontSize:16, fontWeight:isSel?700:400,
                     color: isSel?'#fff' : isT?C.rose:C.text }}>{day}</span>
                 </div>
-                <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:5 }}>
+                <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:7 }}>
                   {dots.map((col,j) => (
-                    <div key={j} style={{ width:5, height:5, borderRadius:3, background:col+'90' }} />
+                    <div key={j} style={{ width:7, height:7, borderRadius:4, background:col+'90' }} />
                   ))}
                 </div>
               </button>
@@ -1299,9 +1281,20 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
           {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
         </p>
         {selDayEs.length===0
-          ? <p style={{ color:C.muted, fontSize:16, textAlign:'center', padding:'24px 0', fontStyle:'italic' }}>
-              Nothing on this day
-            </p>
+          ? <div style={{ textAlign:'center', padding:'24px 18px',
+              background:C.card, borderRadius:BR.card,
+              border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+              <p style={{ margin:'0 0 10px', fontSize:16, fontWeight:600, color:C.dim, fontStyle:'italic' }}>
+                Nothing on this day
+              </p>
+              <button onClick={() => onAdd(selDate)}
+                style={{ background:C.rose, border:'none', color:'#fff',
+                  borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
+                  cursor:'pointer', fontFamily:'inherit',
+                  boxShadow:`0 4px 14px ${C.rose}40` }}>
+                + Schedule something
+              </button>
+            </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
@@ -1409,7 +1402,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
           <span style={{ color:C.muted, fontSize:19 }}>🔍</span>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search all entries…"
             style={{ flex:1, background:'transparent', border:'none', outline:'none',
-              color:C.text, fontSize:17, fontFamily:'inherit' }} />
+              color:C.text, fontSize:16, fontFamily:'inherit' }} />
           {q && (
             <button onClick={() => setQ('')}
               style={{ background:'transparent', border:'none', color:C.muted,
@@ -1534,7 +1527,7 @@ function ResetSection({ onReset }) {
           </div>
         ) : (
           <div style={{ padding:'18px 18px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:17, fontWeight:700, color:'#A04E08' }}>
+            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#A04E08' }}>
               Are you sure?
             </p>
             <p style={{ margin:'0 0 16px', fontSize:15, color:C.dim, lineHeight:1.5 }}>
@@ -1664,42 +1657,10 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 }
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
+function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
   // Only show admin features once workspace is loaded AND role is confirmed admin
   // Never default to true — wait for confirmed data
   const isAdmin = workspaceLoaded && (workspace?.role === 'admin' || workspace?.ownerId === userId);
-  const NOTIF_KEY = 'kizuna_notifs_v1';
-  const DND_KEY   = 'kizuna_dnd_v1';
-
-  const [notifs, setNotifs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(NOTIF_KEY)) || { digest:true, preEvent:true, flights:true, shared:true }; }
-    catch { return { digest:true, preEvent:true, flights:true, shared:true }; }
-  });
-  const [digestTime, setDigestTime] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(DND_KEY))?.digestTime || '06:30'; }
-    catch { return '06:30'; }
-  });
-  const [dndStart, setDndStart] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(DND_KEY))?.dndStart || '22:00'; }
-    catch { return '22:00'; }
-  });
-  const [dndEnd, setDndEnd] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(DND_KEY))?.dndEnd || '06:00'; }
-    catch { return '06:00'; }
-  });
-
-  // Persist notif changes
-  const saveNotifs = (updated) => {
-    setNotifs(updated);
-    localStorage.setItem(NOTIF_KEY, JSON.stringify(updated));
-  };
-  const saveDnd = (field, value) => {
-    const next = { digestTime, dndStart, dndEnd, [field]: value };
-    if (field === 'digestTime') setDigestTime(value);
-    if (field === 'dndStart')   setDndStart(value);
-    if (field === 'dndEnd')     setDndEnd(value);
-    localStorage.setItem(DND_KEY, JSON.stringify(next));
-  };
   const [showInvite, setShowInvite] = useState(false);
 
   // Use live workspace members from Supabase — no localStorage fallback needed
@@ -1804,54 +1765,6 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
         </div>
       </SS>
 
-      {/* Notifications */}
-      <SS title="Notifications">
-        <p style={{ margin:'0 0 4px', padding:'10px 18px 0', fontSize:13,
-          color:C.muted, fontStyle:'italic' }}>
-          Push notifications coming soon — preferences saved for when they launch.
-        </p>
-        <SR label="Daily Digest" sub="Morning summary of your day"
-          right={<Tog on={notifs.digest} onChange={v => saveNotifs({...notifs,digest:v})} />} />
-        {notifs.digest && (
-          <div style={{ padding:'6px 18px 14px', borderTop:`1px solid ${C.border}`,
-            display:'flex', flexDirection:'column', alignItems:'center' }}>
-            <label style={{ fontSize:13, color:C.dim, marginBottom:6,
-              textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>Digest Time</label>
-            <input type="time" value={digestTime} onChange={e=>saveDnd('digestTime',e.target.value)}
-              style={{ ...InputStyle, width:'auto', minWidth:140, textAlign:'center',
-                fontSize:22, fontWeight:600, letterSpacing:'0.05em', padding:'12px 24px' }} />
-          </div>
-        )}
-        <SR label="Pre-Event Reminders" sub="Alerts before appointments & events"
-          right={<Tog on={notifs.preEvent} onChange={v=>saveNotifs({...notifs,preEvent:v})} />} />
-        <SR label="Flight Alerts" sub="T-24h, T-3h, T-1h before departure"
-          right={<Tog on={notifs.flights} onChange={v=>saveNotifs({...notifs,flights:v})} />} />
-        <SR label="Shared Reminders" sub="Alerts when teammates share entries" noBorder
-          right={<Tog on={notifs.shared} onChange={v=>saveNotifs({...notifs,shared:v})} />} />
-      </SS>
-
-      {/* Do Not Disturb */}
-      <SS title="Do Not Disturb">
-        <SR label="DND Window" sub={`${pt(dndStart)} – ${pt(dndEnd)} · No notifications`}
-          right={<span style={{ fontSize:15, color:notifs.digest?C.T:C.muted,
-            background:notifs.digest?C.T+'20':C.elevated,
-            borderRadius:BR.pill, padding:'2px 10px' }}>
-            {notifs.digest ? '● Active' : '○ Off'}
-          </span>} />
-        <div style={{ padding:'10px 18px 16px', borderTop:`1px solid ${C.border}`,
-          display:'flex', gap:16, justifyContent:'center' }}>
-          {[['Start','dndStart',dndStart],['End','dndEnd',dndEnd]].map(([l,k,v]) => (
-            <div key={l} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-              <label style={{ fontSize:13, color:C.dim, textTransform:'uppercase',
-                letterSpacing:'0.08em', fontWeight:700 }}>{l}</label>
-              <input type="time" value={v} onChange={e=>saveDnd(k,e.target.value)}
-                style={{ ...InputStyle, width:'auto', minWidth:130, textAlign:'center',
-                  fontSize:20, fontWeight:600, letterSpacing:'0.05em', padding:'11px 20px' }} />
-            </div>
-          ))}
-        </div>
-      </SS>
-
       {/* Entry Colour Key */}
       <SS title="Entry Colour Key">
         <div style={{ padding:'14px 18px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -1866,9 +1779,9 @@ function SettingsTab({ auditLog, onReset, userName = '', onChangeName, onSignOut
 
       {/* Data & Privacy */}
       <SS title="Data & Privacy">
-        <SR label="End-to-End Encryption" sub="All entries encrypted at rest"
+        <SR label="Encrypted at Rest" sub="All data secured by Supabase AES-256 encryption"
           right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:BR.pill, padding:'2px 10px' }}>✓ Active</span>} />
-        <SR label="GDPR Compliance" sub="Data stored per EU regulations"
+        <SR label="Data Privacy" sub="Your data is private and never sold or shared"
           right={<span style={{ fontSize:15, color:C.T, background:C.T+'18', borderRadius:BR.pill, padding:'2px 10px' }}>✓ Active</span>} />
         <SR label="Persistent Storage" sub={`Schema v${SCHEMA_VERSION} · Auto-saves on every change`}
           right={<span style={{ fontSize:15, color:C.rose, background:C.rose+'18', borderRadius:BR.pill, padding:'2px 10px' }}>◯ Live</span>} />
@@ -2210,7 +2123,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
           {step===1 && !isEdit && (
             <button onClick={() => setStep(0)}
               style={{ background:'transparent', border:'none', color:C.rose,
-                fontSize:17, cursor:'pointer', padding:'0 16px 0 0', fontWeight:700 }}>
+                fontSize:16, cursor:'pointer', padding:'0 16px 0 0', fontWeight:700 }}>
               ‹ Back
             </button>
           )}
@@ -2260,7 +2173,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
                       boxShadow:`0 2px 12px ${TC[t]}15`,
                       transition:'transform 0.1s' }}>
                     <span style={{ fontSize:24 }}>{TI[t]}</span>
-                    <span style={{ fontSize:17, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
+                    <span style={{ fontSize:16, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
                     <span style={{ fontSize:15, color:C.dim, lineHeight:1.4 }}>
                       {t==='meeting'?'Schedule an appointment'
                         :t==='task'?'Add a to-do item'
@@ -2730,9 +2643,13 @@ export default function App() {
       }
 
       // ③ Pre-fill display name from Edge Function response
+      // Save to DB immediately so nameReady is set and name screen is skipped
       if (data.display_name) {
         setUserName(data.display_name);
         setNameInput(data.display_name);
+        setNameReady(true);
+        // Also persist to DB so cross-device sync works
+        try { await dbSaveName(data.email, data.display_name); } catch { /* non-critical */ }
       }
       // onAuthStateChange fires → setUser → app loads
     } catch {
@@ -2839,7 +2756,6 @@ export default function App() {
   }, [user]);
 
   const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
-  const syncLabel = syncStatus==='loading' ? '◌ Syncing…' : syncStatus==='synced' ? '● Synced' : '⚠ Sync Error';
 
   const sharedStyle = {
     wrapper: { width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
@@ -2916,23 +2832,23 @@ export default function App() {
           autoFocus
           style={{ width:'100%', boxSizing:'border-box', background:C.card,
             border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
-            fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
+            fontSize:16, color:C.text, outline:'none', fontFamily:'inherit',
             boxShadow:SH.card, marginBottom:14 }}
         />
 
-        {/* Passphrase */}
+        {/* Password */}
         <p style={{ margin:'0 0 8px', fontSize:16, color:C.text, fontWeight:600,
-          alignSelf:'flex-start' }}>Passphrase</p>
+          alignSelf:'flex-start' }}>Password</p>
         <div style={{ width:'100%', position:'relative', marginBottom: authError ? 8 : 20 }}>
           <input
             value={authPass}
             onChange={e => setAuthPass(e.target.value)}
             onKeyDown={e => e.key==='Enter' && passphraseLogin()}
-            placeholder="Enter your passphrase"
+            placeholder="Enter your password"
             type={showPass ? 'text' : 'password'}
             style={{ width:'100%', boxSizing:'border-box', background:C.card,
               border:`1.5px solid ${C.border}`, borderRadius:BR.panel, padding:'16px 18px',
-              paddingRight:52, fontSize:17, color:C.text, outline:'none',
+              paddingRight:52, fontSize:16, color:C.text, outline:'none',
               fontFamily:'inherit', boxShadow:SH.card }}
           />
           <button onClick={() => setShowPass(p => !p)}
@@ -2975,7 +2891,7 @@ export default function App() {
           Bonding with trust, loyalty & love —<br/>
           nurturing the invisible thread that connects hearts
         </p>
-        <p style={{ margin:'0 0 12px', fontSize:17, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
+        <p style={{ margin:'0 0 12px', fontSize:16, color:C.text, fontWeight:600, alignSelf:'flex-start' }}>
           What's your name?
         </p>
         <input
@@ -2986,7 +2902,7 @@ export default function App() {
           autoFocus
           style={{ width:'100%', boxSizing:'border-box', background:C.card,
             border:`1.5px solid ${nameSaveError ? '#C46A14' : C.border}`, borderRadius:BR.panel, padding:'16px 18px',
-            fontSize:17, color:C.text, outline:'none', fontFamily:'inherit',
+            fontSize:16, color:C.text, outline:'none', fontFamily:'inherit',
             boxShadow:SH.card, marginBottom: nameSaveError ? 8 : 16 }}
         />
         {nameSaveError && (
@@ -3034,7 +2950,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} />}
         {tab==='calendar' && <CalendarTab entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} />}
         {tab==='search'   && <SearchTab   entries={entries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
-        {tab==='settings' && <SettingsTab auditLog={auditLog} onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
+        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
