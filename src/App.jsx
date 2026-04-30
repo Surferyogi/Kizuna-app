@@ -216,7 +216,7 @@ const flightStatusLocal = (flight) => {
   if (mins < -10)       return { label:'Boarding',   color:'#B8715C', source:'local' };
   if (mins < 0)         return { label:'Final Call', color:'#A04E08', source:'local' };
   if (mins < arrMins)   return { label:'In Flight',  color:'#1C4878', source:'local' };
-  return                       { label:'Landed',     color:'#2A6E3A', source:'local' };
+  return                       { label:'Landed',     color:SUCCESS, source:'local' };
 };
 
 // React hook — fetches live status, falls back to local
@@ -308,6 +308,9 @@ const DTC = {
 // PC.low uses DTC.task: badge renders same color as both text AND bg tint,
 // so the value must be dark enough to read against its own 28% alpha wash.
 const PC = { low:DTC.task, medium:'#6B4E10', high:'#8A3A08', critical:'#6A2408' };
+// Semantic one-off colours — centralised to avoid scattered hardcoded hex
+const SUCCESS = '#2A7A42';   // landed / confirmed green (warmer than pure green)
+const WARN    = WARN;   // amber warning / past-due
 const AC = { created:C.rose, completed:DTC.task, reopened:DTC.meeting, deleted:'#8A3A08', updated:DTC.event };
 const AL = { created:'Created', completed:'Completed', reopened:'Reopened', deleted:'Deleted', updated:'Updated' };
 
@@ -635,12 +638,12 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
   })();
 
   return (
-    <div style={{ display:'flex', gap:14, padding:'18px 0',
+    <div style={{ display:'flex', gap:16, padding:'18px 0',
       borderBottom:`1px solid ${C.border}`,
       opacity: isFlightLanded ? 0.7 : 1 }}>
 
       {/* V6: thicker stripe — 7px, full opacity */}
-      <div style={{ width:7, minHeight:28, borderRadius:4,
+      <div style={{ width:5, minHeight:32, borderRadius:3,
         background: isFlightLanded ? C.T : col,
         flexShrink:0, marginTop:2 }} />
 
@@ -650,11 +653,11 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
           {(e.type === 'task' || (isPastDue && isOwn)) && (
             <button onClick={() => isOwn && onToggle && onToggle(e.id)}
               style={{ width:26, height:26, borderRadius:7,
-                border:`2px solid ${e.done ? C.T : isPastDue ? '#C46A14' : C.border}`,
+                border:`2px solid ${e.done ? C.T : isPastDue ? WARN : C.border}`,
                 background: e.done ? C.T+'22' : isPastDue ? '#C46A1408' : 'transparent',
                 cursor: isOwn ? 'pointer' : 'default', flexShrink:0, marginTop:1,
                 display:'flex', alignItems:'center', justifyContent:'center',
-                color: e.done ? C.T : '#C46A14', fontSize:15, padding:0,
+                color: e.done ? C.T : WARN, fontSize:15, padding:0,
                 transition:'background 0.15s, border-color 0.15s',
                 opacity: isOwn ? 1 : 0.5 }}>
               {e.done ? '✓' : isPastDue ? '!' : ''}
@@ -676,8 +679,8 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
           {/* Landed badge */}
           {isFlightLanded && (
             <span style={{ fontSize:12, fontWeight:700, color:'#fff',
-              background:'#2A6E3A', borderRadius:BR.pill, padding:'4px 12px',
-              flexShrink:0, boxShadow:`0 2px 8px #2A6E3A40` }}>
+              background:SUCCESS, borderRadius:BR.pill, padding:'4px 12px',
+              flexShrink:0, boxShadow:`0 2px 8px ${SUCCESS}40` }}>
               Landed ✓
             </span>
           )}
@@ -748,7 +751,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
         ) : !confirmDel ? (
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <button onClick={handleEdit}  style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
-            <button onClick={handleDelReq} style={pill('#C46A1415','#C46A14','#C46A1450')}>✕ Delete</button>
+            <button onClick={handleDelReq} style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
             <button onClick={closeMenu}   style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
           </div>
         ) : (
@@ -869,7 +872,7 @@ function FlightHeroCard({ flight, todayStr }) {
 
       {/* Last updated timestamp */}
       {lastUpdated && status?.source !== 'local' && (
-        <p style={{ margin:'10px 0 0', fontSize:11, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
+        <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
           Live data · updated {Math.floor((Date.now()-lastUpdated)/60000) < 1
             ? 'just now'
             : `${Math.floor((Date.now()-lastUpdated)/60000)}m ago`}
@@ -912,7 +915,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
 
       {/* ── Kizuna Brand Header ─────────────────────────────────── */}
       <div style={{ background:`linear-gradient(160deg, #FFFEFB 0%, #FDF5EE 60%, #F8EDE4 100%)`,
-        padding:'22px 22px 18px',
+        padding:'18px 20px 16px',
         borderBottom:`1px solid ${C.border}`,
         position:'relative', overflow:'hidden',
         boxShadow:`0 3px 12px rgba(184,113,92,0.08)` }}>
@@ -970,10 +973,10 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
             </h2>
             {/* Sync status — word label right of name */}
             <span style={{ fontSize:12, fontWeight:700, letterSpacing:'0.05em',
-              color: syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose,
+              color: syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose,
               background: syncStatus==='synced' ? C.T+'18' : syncStatus==='error' ? '#C46A1415' : C.rose+'18',
               borderRadius:BR.pill, padding:'3px 10px', flexShrink:0,
-              border:`1px solid ${syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose}40` }}>
+              border:`1px solid ${syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose}40` }}>
               {syncStatus==='loading' ? 'Syncing…' : syncStatus==='synced' ? 'Synced' : 'Sync Error'}
             </span>
           </div>
@@ -1004,7 +1007,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
                     style={{ background: active
                         ? `linear-gradient(145deg,${f.c},${f.c}CC)`
                         : `linear-gradient(145deg,${C.card},${f.c}10)`,
-                      borderRadius:BR.card, padding:'16px 10px 14px',
+                      borderRadius:BR.card, padding:'16px 12px',
                       textAlign:'center', boxShadow: active ? `0 4px 16px ${f.c}40` : SH.card,
                       border:`1.5px solid ${active ? f.c : f.c}${active ? '' : '25'}`,
                       cursor:'pointer', transition:'all 0.15s' }}>
@@ -1341,14 +1344,22 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, onToggle, onEdit, 
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       <div style={{ display:'flex', alignItems:'center', padding:'8px 18px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
-        <button onClick={() => setVm(p => p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1})}
+        <button onClick={() => {
+            const nvm = vm.m===0?{y:vm.y-1,m:11}:{y:vm.y,m:vm.m-1};
+            setVm(nvm);
+            setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
+          }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
         <span style={{ flex:1, textAlign:'center', fontSize:19, fontWeight:600,
           color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
           {MFULL[vm.m]} {vm.y}
         </span>
-        <button onClick={() => setVm(p => p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1})}
+        <button onClick={() => {
+            const nvm = vm.m===11?{y:vm.y+1,m:0}:{y:vm.y,m:vm.m+1};
+            setVm(nvm);
+            setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
+          }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
@@ -1395,8 +1406,8 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, onToggle, onEdit, 
       {/* Selected day entries */}
       <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px',
         borderTop:`1px solid ${C.border}`, marginTop:8, boxSizing:'border-box' }}>
-        <p style={{ fontSize:14, color:C.dim, margin:'10px 0 8px',
-          textTransform:'uppercase', letterSpacing:'0.1em', fontWeight:700 }}>
+        <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
+          textTransform:'uppercase', letterSpacing:'0.12em', fontWeight:700 }}>
           {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
         </p>
         {selDayEs.length===0
@@ -1517,7 +1528,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
             background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
             boxShadow:`0 4px 12px ${C.rose}35`,
             display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-            <span style={{ fontSize:10, fontWeight:700, color:'#fff',
+            <span style={{ fontSize:11, fontWeight:700, color:'#fff',
               textTransform:'uppercase', letterSpacing:'0.06em', lineHeight:1 }}>
               {DAY[new Date().getDay()]}
             </span>
@@ -1604,10 +1615,10 @@ function ResetSection({ onReset }) {
   const [confirming, setConfirming] = useState(false);
   return (
     <div style={{ marginBottom:40 }}>
-      <p style={{ fontSize:13, fontWeight:700, color:'#C46A14', textTransform:'uppercase',
+      <p style={{ fontSize:13, fontWeight:700, color:WARN, textTransform:'uppercase',
         letterSpacing:'0.14em', margin:'24px 0 8px' }}>Danger Zone</p>
       <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
-        boxShadow:SH.card, border:`1px solid ${'#C46A14'}40` }}>
+        boxShadow:SH.card, border:`1px solid ${WARN}40` }}>
         {!confirming ? (
           <div style={{ display:'flex', alignItems:'center', padding:'16px 18px', gap:12 }}>
             <div style={{ flex:1 }}>
@@ -1617,8 +1628,8 @@ function ResetSection({ onReset }) {
               </p>
             </div>
             <button onClick={() => setConfirming(true)}
-              style={{ background:'transparent', border:`1.5px solid ${'#C46A14'}`,
-                color:'#C46A14', borderRadius:BR.btn, padding:'8px 16px',
+              style={{ background:'transparent', border:`1.5px solid ${WARN}`,
+                color:WARN, borderRadius:BR.btn, padding:'8px 16px',
                 fontSize:15, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap' }}>
               Reset…
@@ -1712,7 +1723,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
           <input value={inviteEmail} onChange={e=>{setInviteEmail(e.target.value);setInviteSent(false);setInviteError('');}}
             onKeyDown={e=>e.key==='Enter'&&sendInvite()}
             placeholder="colleague@email.com" type="email"
-            style={{ flex:1, background:C.elevated, border:`1px solid ${inviteError?'#C46A14':C.border}`,
+            style={{ flex:1, background:C.elevated, border:`1px solid ${inviteError?WARN:C.border}`,
               borderRadius:BR.btn, padding:'11px 14px', fontSize:16, color:C.text,
               outline:'none', fontFamily:'inherit' }} />
           <button onClick={sendInvite} disabled={inviteLoading}
@@ -1722,8 +1733,8 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
             {inviteLoading ? '…' : 'Invite'}
           </button>
         </div>
-        {inviteError && <p style={{ margin:'-10px 0 10px', fontSize:13, color:'#C46A14' }}>{inviteError}</p>}
-        {inviteSent  && <p style={{ margin:'-10px 0 10px', fontSize:13, color:'#2A6E3A' }}>✓ Invite sent! They'll join when they sign up.</p>}
+        {inviteError && <p style={{ margin:'-10px 0 10px', fontSize:13, color:WARN }}>{inviteError}</p>}
+        {inviteSent  && <p style={{ margin:'-10px 0 10px', fontSize:13, color:SUCCESS }}>✓ Invite sent! They'll join when they sign up.</p>}
 
         {/* QR code */}
         <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
@@ -1847,7 +1858,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                     display:'flex', alignItems:'center', justifyContent:'center',
                     color:C.muted, fontSize:16, flexShrink:0,
                     transition:'border-color 0.15s, color 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor='#C46A14'; e.currentTarget.style.color='#C46A14'; }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor=WARN; e.currentTarget.style.color=WARN; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}>
                   ×
                 </button>
@@ -2079,7 +2090,7 @@ function EForm({ form, set }) {
           </p>
         )}
         {lookupStatus === 'found' && (
-          <p style={{ margin:'-6px 0 12px', fontSize:13, color:'#2A6E3A' }}>
+          <p style={{ margin:'-6px 0 12px', fontSize:13, color:SUCCESS }}>
             ✓ Flight found — details filled in below
           </p>
         )}
@@ -2093,8 +2104,8 @@ function EForm({ form, set }) {
         <div style={{ marginBottom:14 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
             <div style={{ width:3, height:16, borderRadius:2,
-              background:'#2A6E3A', flexShrink:0 }} />
-            <p style={{ margin:0, fontSize:12, color:'#2A6E3A', fontWeight:700,
+              background:SUCCESS, flexShrink:0 }} />
+            <p style={{ margin:0, fontSize:12, color:SUCCESS, fontWeight:700,
               textTransform:'uppercase', letterSpacing:'0.1em' }}>Auto-filled</p>
           </div>
           <FL label="Airline">
@@ -2452,12 +2463,12 @@ const CalIcon = () => {
       border:'1.5px solid currentColor', flexShrink:0 }}>
       <div style={{ background:'currentColor', height:7,
         display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <span style={{ fontSize:5, fontWeight:800, color:'#fff',
-          letterSpacing:'0.05em', lineHeight:1 }}>{mon}</span>
+        <span style={{ fontSize:7, fontWeight:800, color:'#fff',
+          letterSpacing:'0.04em', lineHeight:1 }}>{mon}</span>
       </div>
       <div style={{ flex:1, display:'flex', alignItems:'center',
         justifyContent:'center' }}>
-        <span style={{ fontSize:10, fontWeight:800, color:'currentColor',
+        <span style={{ fontSize:11, fontWeight:800, color:'currentColor',
           lineHeight:1 }}>{day}</span>
       </div>
     </div>
@@ -2870,7 +2881,7 @@ export default function App() {
     setSyncStatus('synced');
   }, [user]);
 
-  const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? '#C46A14' : C.rose;
+  const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose;
 
   // Expand repeating entries for display — virtual copies for next 365 days
   // All tabs receive expandedEntries so repeating birthdays/events appear everywhere
@@ -2929,7 +2940,7 @@ export default function App() {
       <div style={sharedStyle.wrapper}>
         <style>{sharedStyle.googleFont}</style>
         <div style={{ marginBottom:20 }}><KizunaIcon /></div>
-        <h1 style={{ margin:'0 0 6px', fontSize:32, fontWeight:600, color:C.text,
+        <h1 style={{ margin:'0 0 6px', fontSize:34, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
           Kizuna&thinsp;絆
         </h1>
@@ -2979,7 +2990,7 @@ export default function App() {
         </div>
 
         {authError && (
-          <p style={{ margin:'0 0 14px', fontSize:13, color:'#C46A14',
+          <p style={{ margin:'0 0 14px', fontSize:13, color:WARN,
             alignSelf:'flex-start' }}>{authError}</p>
         )}
 
@@ -3001,7 +3012,7 @@ export default function App() {
       <div style={sharedStyle.wrapper}>
         <style>{sharedStyle.googleFont}</style>
         <div style={{ marginBottom:20 }}><KizunaIcon /></div>
-        <h1 style={{ margin:'0 0 6px', fontSize:32, fontWeight:600, color:C.text,
+        <h1 style={{ margin:'0 0 6px', fontSize:34, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
           Kizuna&thinsp;絆
         </h1>
@@ -3020,12 +3031,12 @@ export default function App() {
           placeholder="Enter your full name"
           autoFocus
           style={{ width:'100%', boxSizing:'border-box', background:C.card,
-            border:`1.5px solid ${nameSaveError ? '#C46A14' : C.border}`, borderRadius:BR.panel, padding:'16px 18px',
+            border:`1.5px solid ${nameSaveError ? WARN : C.border}`, borderRadius:BR.panel, padding:'16px 18px',
             fontSize:16, color:C.text, outline:'none', fontFamily:'inherit',
             boxShadow:SH.card, marginBottom: nameSaveError ? 8 : 16 }}
         />
         {nameSaveError && (
-          <p style={{ margin:'0 0 12px', fontSize:13, color:'#C46A14', alignSelf:'flex-start' }}>
+          <p style={{ margin:'0 0 12px', fontSize:13, color:WARN, alignSelf:'flex-start' }}>
             {nameSaveError}
           </p>
         )}
@@ -3085,7 +3096,7 @@ export default function App() {
           <button key={n.key} onClick={() => setTab(n.key)}
             style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
               border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              display:'flex', flexDirection:'column', alignItems:'center', gap:4,
               padding:'8px 4px', borderRadius:BR.panel, margin:'0 4px',
               color: tab===n.key ? C.rose : C.muted,
               transition:'background 0.15s' }}>
@@ -3106,7 +3117,7 @@ export default function App() {
             boxShadow:`0 6px 24px ${C.rose}60, 0 0 0 4px ${C.rose}20`,
             cursor:'pointer', display:'flex', alignItems:'center',
             justifyContent:'center', margin:'0 4px' }}>
-          <span style={{ fontSize:32, color:'#fff', fontWeight:300, lineHeight:1, marginTop:-2 }}>+</span>
+          <span style={{ fontSize:28, color:'#fff', fontWeight:300, lineHeight:1, marginTop:-1 }}>+</span>
         </button>
 
         {/* Search + Settings */}
@@ -3114,7 +3125,7 @@ export default function App() {
           <button key={n.key} onClick={() => setTab(n.key)}
             style={{ flex:1, background: tab===n.key ? C.rose+'18' : 'transparent',
               border:'none', cursor:'pointer',
-              display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+              display:'flex', flexDirection:'column', alignItems:'center', gap:4,
               padding:'8px 4px', borderRadius:BR.panel, margin:'0 4px',
               transition:'background 0.15s' }}>
             <span style={{ fontSize:24, color: tab===n.key ? C.rose : C.muted }}>{n.icon}</span>
