@@ -1429,58 +1429,27 @@ function MonthView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, c
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
 function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
-  // F10: persist selected view across tab switches and app restarts
-  const [view, setView] = useState(() =>
-    localStorage.getItem(CAL_VIEW_KEY) || 'agenda'
-  );
   const [selDate, setSelDate] = useState(fd(new Date()));
-
-  const switchView = (v) => {
-    setView(v);
-    localStorage.setItem(CAL_VIEW_KEY, v);
-  };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      {/* Header — Today button only, view locked to Month */}
       <div style={{ display:'flex', gap:6, padding:'10px 14px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card,
         alignItems:'center' }}>
-        {/* Today button */}
         <button onClick={() => setSelDate(fd(new Date()))}
-          style={{ padding:'8px 14px', borderRadius:BR.btn, border:`1.5px solid ${C.rose}`,
+          style={{ padding:'8px 18px', borderRadius:BR.btn, border:`1.5px solid ${C.rose}`,
             background: selDate === fd(new Date()) ? C.rose : 'transparent',
             color: selDate === fd(new Date()) ? '#fff' : C.rose,
             fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0,
             transition:'all 0.15s' }}>
           Today
         </button>
-        <div style={{ width:1, height:22, background:C.border, flexShrink:0 }} />
-        {['agenda','day','week','month'].map(v => (
-          <button key={v} onClick={() => switchView(v)}
-            style={{ flex:1, padding:'8px 2px', borderRadius:BR.btn, border:'none', cursor:'pointer',
-              background: view===v ? C.rose : C.elevated,
-              color: view===v ? '#fff' : C.dim,
-              fontSize:14, fontWeight:view===v?600:400, textTransform:'capitalize',
-              boxShadow: view===v?`0 2px 10px ${C.rose}35`:SH.subtle,
-              transition:'background 0.15s' }}>
-            {v}
-          </button>
-        ))}
-        {/* Schedule button */}
-        <button onClick={() => onAdd(selDate)}
-          style={{ width:36, height:36, borderRadius:BR.btn, border:'none', flexShrink:0,
-            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-            color:'#fff', fontSize:22, fontWeight:300, cursor:'pointer',
-            boxShadow:`0 3px 10px ${C.rose}40`, lineHeight:1,
-            display:'flex', alignItems:'center', justifyContent:'center' }}>
-          +
-        </button>
       </div>
       <div style={{ flex:1, overflow:'hidden' }}>
-        {view==='agenda' && <AgendaView entries={entries} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
-        {view==='day'    && <DayView    entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
-        {view==='week'   && <WeekView   entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
-        {view==='month'  && <MonthView  entries={entries} selDate={selDate} setSelDate={setSelDate} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} onAdd={onAdd} />}
+        <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
+          onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
+          currentUserId={currentUserId} onAdd={onAdd} />
       </div>
     </div>
   );
