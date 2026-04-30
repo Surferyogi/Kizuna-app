@@ -704,7 +704,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
                 <span style={{ fontSize:13, fontWeight:700, color:C.rose,
                   background:C.rose+'12', borderRadius:BR.pill,
                   padding:'2px 9px', flexShrink:0 }}>
-                  📅 {label}
+                  {label}
                 </span>
               );
             })()}
@@ -1019,8 +1019,8 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
                 );
               })}
             </div>
-            {/* Filtered entries panel — shown when a card is tapped */}
-            {homeFilter && (() => {
+            {/* Filtered entries panel — shown for tasks/next48 only; today uses Today's Schedule below */}
+            {homeFilter && homeFilter !== 'today' && (() => {
               const f = filters.find(x=>x.key===homeFilter);
               if (!f) return null;
               return (
