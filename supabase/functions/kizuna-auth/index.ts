@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
 
     // Step 2: Generate single-use magic link token
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-      type:    'magiclink',
+      type:    'signup',
       email:   cleanEmail,
       options: { redirectTo: SITE_URL },
     })
