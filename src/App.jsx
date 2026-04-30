@@ -239,9 +239,9 @@ const C = {
   E:       '#8A72B8',   // deeper lavender    — events    (more contrast)
 };
 
-const TC = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E };
-const TI = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈' };
-const TL = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event' };
+const TC  = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E, birthday:'#C4729A' };
+const TI  = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈', birthday:'🎂' };
+const TL  = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event', birthday:'Birthday / Anniversary' };
 
 // DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
 // Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
@@ -252,6 +252,7 @@ const DTC = {
   task:     '#1A3A78',   // deep cornflower   — text-safe on C.T tints
   reminder: '#4A2E08',   // dark amber        — text-safe on C.R tints
   event:    '#38186A',   // deep violet       — text-safe on C.E tints
+  birthday: '#7A2A5A',   // deep rose         — text-safe on birthday pink tints
 };
 
 // PC.low uses DTC.task: badge renders same color as both text AND bg tint,
@@ -802,6 +803,7 @@ function FlightHeroCard({ flight, todayStr }) {
 function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus }) {
   const now      = new Date();
   const todayStr = fd(now);
+  const [homeFilter, setHomeFilter] = useState(null); // 'today' | 'tasks' | 'next48' | null
 
   const todayEs = useMemo(() =>
     entries.filter(e => e.date === fd(new Date()))
@@ -902,25 +904,65 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           </p>
         </div>
 
-        {/* V3: Stat cards — icon + number + label + subtle gradient */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
-          {[
-            [todayEs.length, 'Today',      C.M,  DTC.meeting, '📋'],
-            [openTasks,      'Open Tasks', C.T,  DTC.task,    '✓'],
-            [next48,         'Next 48h',   C.E,  DTC.event,   '⏱'],
-          ].map(([v,l,c,dc,icon]) => (
-            <div key={l} style={{ background:`linear-gradient(145deg,${C.card},${c}10)`,
-              borderRadius:BR.card, padding:'16px 10px 14px',
-              textAlign:'center', boxShadow:SH.card,
-              border:`1px solid ${c}25` }}>
-              <div style={{ fontSize:18, marginBottom:4, opacity:0.7 }}>{icon}</div>
-              <div style={{ fontSize:28, fontWeight:700,
-                fontFamily:'Cormorant Garamond,serif', color:dc, lineHeight:1 }}>{v}</div>
-              <div style={{ fontSize:12, color:C.dim, marginTop:5, fontWeight:600,
-                textTransform:'uppercase', letterSpacing:'0.07em' }}>{l}</div>
+        {/* Tappable stat cards — tap to reveal filtered entries below */}
+        {(() => {
+          const filters = [
+            { key:'today',   val:todayEs.length,  label:'Today',      c:C.M,  dc:DTC.meeting, icon:'📋',
+              entries: todayEs },
+            { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:DTC.task,    icon:'✓',
+              entries: entries.filter(e=>e.type==='task'&&!e.done).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
+            { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:DTC.event,   icon:'⏱',
+              entries: (() => { const n=new Date(),lim=new Date(n.getTime()+48*3600000);
+                return entries.filter(e=>{ const d=new Date(e.date+'T'+(e.time||'00:00'));
+                  return d>=n&&d<=lim&&e.type!=='task'; })
+                  .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')); })() },
+          ];
+          return (<>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
+              {filters.map(f => {
+                const active = homeFilter===f.key;
+                return (
+                  <button key={f.key} onClick={() => setHomeFilter(p=>p===f.key?null:f.key)}
+                    style={{ background: active
+                        ? `linear-gradient(145deg,${f.c},${f.c}CC)`
+                        : `linear-gradient(145deg,${C.card},${f.c}10)`,
+                      borderRadius:BR.card, padding:'16px 10px 14px',
+                      textAlign:'center', boxShadow: active ? `0 4px 16px ${f.c}40` : SH.card,
+                      border:`1.5px solid ${active ? f.c : f.c}${active ? '' : '25'}`,
+                      cursor:'pointer', transition:'all 0.15s' }}>
+                    <div style={{ fontSize:18, marginBottom:4, opacity:0.8 }}>{f.icon}</div>
+                    <div style={{ fontSize:28, fontWeight:700,
+                      fontFamily:'Cormorant Garamond,serif',
+                      color: active ? '#fff' : f.dc, lineHeight:1 }}>{f.val}</div>
+                    <div style={{ fontSize:12, marginTop:5, fontWeight:600,
+                      textTransform:'uppercase', letterSpacing:'0.07em',
+                      color: active ? '#fff' : C.dim }}>{f.label}</div>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
+            {/* Filtered entries panel — shown when a card is tapped */}
+            {homeFilter && (() => {
+              const f = filters.find(x=>x.key===homeFilter);
+              if (!f) return null;
+              return (
+                <div style={{ background:C.card, borderRadius:BR.card,
+                  border:`1px solid ${f.c}30`, boxShadow:SH.card, marginBottom:8,
+                  padding: f.entries.length ? '0 14px' : '16px 14px' }}>
+                  {f.entries.length === 0
+                    ? <p style={{ margin:0, fontSize:15, color:C.muted,
+                        textAlign:'center', fontStyle:'italic' }}>
+                        Nothing here yet
+                      </p>
+                    : f.entries.map(e => <ECard key={e.id} e={e}
+                        onToggle={onToggle} onEdit={onEdit}
+                        onDelete={onDelete} currentUserId={currentUserId} />)
+                  }
+                </div>
+              );
+            })()}
+          </>);
+        })()}
 
         {/* Next Flight */}
         {nextFlight && (<>
@@ -1459,7 +1501,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
         </div>
         {/* Type filters */}
         <div style={{ display:'flex', gap:6, marginTop:7, overflowX:'auto', paddingBottom:2 }}>
-          {['all','meeting','task','flight','reminder','event'].map(t => (
+          {['all','meeting','task','flight','reminder','event','birthday'].map(t => (
             <button key={t} onClick={() => setTypeF(t)}
               style={{ background: typeF===t ? (t==='all' ? C.rose : TC[t]) : C.elevated,
                 border:`1px solid ${typeF===t ? (t==='all' ? C.rose : TC[t]) : C.border}`,
@@ -2065,6 +2107,10 @@ function EForm({ form, set }) {
         <FL label="Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
+      </>) : form.type === 'birthday' ? (<>
+        <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
+        <FL label="Person / Occasion"><FI form={form} set={set} field="location" placeholder="e.g. Mum's Birthday, Wedding Anniversary" /></FL>
+        <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Gift ideas, plans, memories…" /></FL>
       </>) : (<>
         <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Start Time"><FI form={form} set={set} field="time" type="time" /></FL>
@@ -2172,12 +2218,12 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
                 What would you like to add?
               </p>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                {['meeting','task','flight','reminder','event'].map(t => (
+                {['meeting','task','flight','reminder','event','birthday'].map(t => (
                   <button key={t} onClick={() => { setForm({...mkBlank(), ...(initialDate?{date:initialDate}:{}), type:t}); setStep(1); }}
-                    style={{ background:TC[t]+'15', border:`1px solid ${TC[t]}35`,
+                    style={{ background:(TC[t]||C.rose)+'15', border:`1px solid ${(TC[t]||C.rose)}35`,
                       borderRadius:BR.card, padding:'18px 14px', cursor:'pointer', textAlign:'left',
                       display:'flex', flexDirection:'column', gap:6,
-                      boxShadow:`0 2px 12px ${TC[t]}15`,
+                      boxShadow:`0 2px 12px ${(TC[t]||C.rose)}15`,
                       transition:'transform 0.1s' }}>
                     <span style={{ fontSize:24 }}>{TI[t]}</span>
                     <span style={{ fontSize:16, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
@@ -2186,6 +2232,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
                         :t==='task'?'Add a to-do item'
                         :t==='flight'?'Log flight details'
                         :t==='reminder'?'Set a reminder'
+                        :t==='birthday'?'Mark a special date'
                         :'Create an event'}
                     </span>
                   </button>
