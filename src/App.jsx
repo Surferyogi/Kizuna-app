@@ -2718,13 +2718,15 @@ export default function App() {
 
       // ② Exchange token for session — use token_hash + type:'email'
       // Note: 'signup' and 'magiclink' types are deprecated in verifyOtp
-      const { error: sessionErr } = await supabase.auth.verifyOtp({
+      const { data: otpData, error: sessionErr } = await supabase.auth.verifyOtp({
         token_hash: data.token,
         type:       'email',
       });
+      console.log('verifyOtp result:', JSON.stringify({ otpData, sessionErr }));
 
       if (sessionErr) {
-        setAuthError('Session error. Please try again.');
+        console.error('Session error detail:', sessionErr.message, sessionErr.status);
+        setAuthError(`Session error: ${sessionErr.message}`);
         setAuthLoading(false);
         return;
       }
