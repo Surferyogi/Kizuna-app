@@ -417,6 +417,8 @@ async function dbLoadWorkspace(userId) {
     .from('workspace_members')
     .select('workspace_id, role')
     .eq('user_id', userId);
+  console.log('[ws] userId:', userId);
+  console.log('[ws] memberships:', JSON.stringify(memberships), 'error:', error?.message);
   if (error || !memberships || memberships.length === 0) return null;
 
   // Step 2: find if user owns any workspace directly
@@ -425,13 +427,10 @@ async function dbLoadWorkspace(userId) {
     .select('id, name, owner_id')
     .eq('owner_id', userId)
     .maybeSingle();
-
-  // Key logic: if user owns a workspace AND is also a member of ANOTHER workspace,
-  // prefer the shared workspace. This handles invited members correctly —
-  // they should use the workspace they were invited to, not their own solo workspace.
-  let workspaceId, resolvedRole, workspaceName, ownerId;
+  console.log('[ws] ownedWs:', JSON.stringify(ownedWs));
 
   const membershipInOtherWs = memberships.find(m => m.workspace_id !== ownedWs?.id);
+  console.log('[ws] membershipInOtherWs:', JSON.stringify(membershipInOtherWs));
 
   if (membershipInOtherWs) {
     // User is a member of someone else's workspace — use that one
@@ -469,6 +468,8 @@ async function dbLoadWorkspace(userId) {
     .from('workspace_members')
     .select('user_id, role, profiles(display_name)')
     .eq('workspace_id', workspaceId);
+  console.log('[ws] workspaceId:', workspaceId, 'role:', resolvedRole);
+  console.log('[ws] members raw:', JSON.stringify(members));
 
   return {
     id:      workspaceId,
