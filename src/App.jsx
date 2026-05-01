@@ -412,63 +412,62 @@ async function dbLoadName(userId) {
 // Load workspace — two separate queries for reliability
 // Nested joins can be blocked by RLS; direct queries are safer
 async function dbLoadWorkspace(userId) {
-  // Step 1: find all workspace_members rows for this user
+  // Step 1: get this user's workspace memberships
   const { data: memberships, error: e1 } = await supabase
     .from('workspace_members')
     .select('workspace_id, role')
     .eq('user_id', userId);
-  console.log('[ws1] memberships:', JSON.stringify(memberships), 'err:', e1?.message);
   if (e1 || !memberships || memberships.length === 0) return null;
 
-  // Step 2: find if user owns any workspace directly
-  const { data: ownedWs, error: e2 } = await supabase
+  // Step 2: pick the workspace to use
+  // Prefer a workspace the user was INVITED to (not the one they own solo).
+  // This ensures invited members see the shared workspace, not their own.
+  let workspaceId, resolvedRole, workspaceName, ownerId;
+
+  // Check if user owns any workspace
+  const { data: ownedWs } = await supabase
     .from('workspaces')
     .select('id, name, owner_id')
     .eq('owner_id', userId)
     .maybeSingle();
-  console.log('[ws2] ownedWs:', JSON.stringify(ownedWs), 'err:', e2?.message);
 
-  const membershipInOtherWs = memberships.find(m => m.workspace_id !== ownedWs?.id);
-  console.log('[ws3] membershipInOtherWs:', JSON.stringify(membershipInOtherWs));
+  // Find a membership in a workspace the user does NOT own
+  const sharedMembership = memberships.find(m => m.workspace_id !== ownedWs?.id);
 
-  if (membershipInOtherWs) {
-    // User is a member of someone else's workspace — use that one
-    workspaceId  = membershipInOtherWs.workspace_id;
-    resolvedRole = membershipInOtherWs.role;
+  if (sharedMembership) {
+    // User is invited to someone else's workspace — use that
+    workspaceId  = sharedMembership.workspace_id;
+    resolvedRole = sharedMembership.role;
     const { data: ws } = await supabase
-      .from('workspaces')
-      .select('id, name, owner_id')
-      .eq('id', membershipInOtherWs.workspace_id)
-      .maybeSingle();
+      .from('workspaces').select('id, name, owner_id')
+      .eq('id', workspaceId).maybeSingle();
     workspaceName = ws?.name || 'Workspace';
     ownerId       = ws?.owner_id;
   } else if (ownedWs) {
-    // User only has their own workspace — use it as admin
+    // User only has their own workspace — they are the admin
     workspaceId   = ownedWs.id;
     resolvedRole  = 'admin';
     workspaceName = ownedWs.name;
     ownerId       = ownedWs.owner_id;
   } else {
-    // Fallback: use first membership
-    const m = memberships[0];
+    // Fallback: use first membership directly
+    const m      = memberships[0];
     workspaceId  = m.workspace_id;
     resolvedRole = m.role;
     const { data: ws } = await supabase
-      .from('workspaces')
-      .select('id, name, owner_id')
-      .eq('id', m.workspace_id)
-      .maybeSingle();
+      .from('workspaces').select('id, name, owner_id')
+      .eq('id', workspaceId).maybeSingle();
     workspaceName = ws?.name || 'Workspace';
     ownerId       = ws?.owner_id;
   }
 
-  // Step 3: get all members of the resolved workspace
+  if (!workspaceId) return null;
+
+  // Step 3: get all members of this workspace with display names
   const { data: members } = await supabase
     .from('workspace_members')
     .select('user_id, role, profiles(display_name)')
     .eq('workspace_id', workspaceId);
-  console.log('[ws] workspaceId:', workspaceId, 'role:', resolvedRole);
-  console.log('[ws] members raw:', JSON.stringify(members));
 
   return {
     id:      workspaceId,
