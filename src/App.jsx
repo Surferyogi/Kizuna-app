@@ -1902,6 +1902,33 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
         </div>
       </div>
 
+      {/* DEBUG PANEL — remove after diagnosis */}
+      <div style={{ background:'#1A1714', borderRadius:BR.card, padding:16, marginBottom:16,
+        border:'2px solid #C46A14' }}>
+        <p style={{ margin:'0 0 8px', fontSize:12, color:'#C46A14', fontWeight:700,
+          textTransform:'uppercase', letterSpacing:'0.1em' }}>Debug Info</p>
+        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+          wordBreak:'break-all', lineHeight:1.6 }}>
+          userId: {userId}
+        </p>
+        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+          wordBreak:'break-all', lineHeight:1.6 }}>
+          workspaceId: {workspace?.id || 'null'}
+        </p>
+        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+          wordBreak:'break-all', lineHeight:1.6 }}>
+          role: {workspace?.role || 'null'}
+        </p>
+        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+          wordBreak:'break-all', lineHeight:1.6 }}>
+          ownerId: {workspace?.ownerId || 'null'}
+        </p>
+        <p style={{ margin:0, fontSize:12, color:'#fff', fontFamily:'monospace',
+          wordBreak:'break-all', lineHeight:1.6 }}>
+          members: {JSON.stringify(workspace?.members || [])}
+        </p>
+      </div>
+
       {/* Workspace */}
       <SS title="Workspace">
         <SR label={`${members.length} member${members.length!==1?'s':''}`}
