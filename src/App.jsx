@@ -954,11 +954,42 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               across time and distance
             </p>
           </div>
-          {/* Sakura icon — static flowers + animated falling petals */}
-          <div style={{ flexShrink:0, marginTop:2, transform:'scale(1.3)',
-            transformOrigin:'top right', position:'relative' }}>
-            <KizunaIcon />
-            <SakuraPetals />
+          {/* Right column — sakura + today date badge */}
+          <div style={{ flexShrink:0, display:'flex', flexDirection:'column',
+            alignItems:'flex-end', gap:10, marginTop:2 }}>
+            {/* Sakura icon */}
+            <div style={{ transform:'scale(1.3)', transformOrigin:'top right',
+              position:'relative' }}>
+              <KizunaIcon />
+              <SakuraPetals />
+            </div>
+            {/* Today date badge — tappable, shows today's schedule */}
+            <button onClick={() => setHomeFilter(p => p==='today' ? null : 'today')}
+              style={{ display:'flex', flexDirection:'column', alignItems:'center',
+                width:48, borderRadius:BR.input, overflow:'hidden',
+                border:`2px solid ${homeFilter==='today' ? C.rose : C.border}`,
+                boxShadow: homeFilter==='today' ? `0 4px 14px ${C.rose}40` : `0 2px 8px ${C.rose}15`,
+                cursor:'pointer', transition:'all 0.2s', background:'transparent' }}>
+              {/* Month strip */}
+              <div style={{ background: homeFilter==='today' ? C.rose : C.rose+'20',
+                width:'100%', padding:'3px 0', textAlign:'center',
+                transition:'background 0.2s' }}>
+                <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.08em',
+                  color: homeFilter==='today' ? '#fff' : C.rose,
+                  textTransform:'uppercase', lineHeight:1 }}>
+                  {MON[now.getMonth()]}
+                </span>
+              </div>
+              {/* Day number */}
+              <div style={{ background: homeFilter==='today' ? C.rose+'15' : C.card,
+                width:'100%', padding:'4px 0', textAlign:'center',
+                transition:'background 0.2s' }}>
+                <span style={{ fontSize:22, fontWeight:700, color:C.rose,
+                  lineHeight:1, fontFamily:'Cormorant Garamond,serif' }}>
+                  {now.getDate()}
+                </span>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -989,8 +1020,6 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
         {/* Tappable stat cards — always visible, tap to reveal filtered entries below */}
         {(() => {
           const filters = [
-            { key:'today',   val:todayEs.length,  label:'Today',      c:C.M,  dc:DTC.meeting, icon:'📋',
-              entries: todayEs.filter(e=>!e.repeat||e.repeat==='none') },
             { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:DTC.task,    icon:'✓',
               entries: entries.filter(e=>e.type==='task'&&!e.done&&(!e.repeat||e.repeat==='none')).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
             { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:DTC.event,   icon:'⏱',
@@ -1000,7 +1029,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
                   .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')); })() },
           ];
           return (<>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:8 }}>
               {filters.map(f => {
                 const active = homeFilter===f.key;
                 return (
@@ -1487,7 +1516,7 @@ const QUICK_FILTERS = [
 function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
   const [q,      setQ]      = useState('');
   const [typeF,  setTypeF]  = useState('all');
-  const [quickF, setQuickF] = useState(null);
+  const [quickF, setQuickF] = useState('week');
 
   const results = useMemo(() => {
     let r = entries;
