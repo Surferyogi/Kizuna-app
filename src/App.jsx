@@ -426,19 +426,35 @@ async function dbLoadWorkspace(userId) {
     .eq('owner_id', userId)
     .maybeSingle();
 
-  // If user owns a workspace, use it — guaranteed admin
+  // Key logic: if user owns a workspace AND is also a member of ANOTHER workspace,
+  // prefer the shared workspace. This handles invited members correctly —
+  // they should use the workspace they were invited to, not their own solo workspace.
   let workspaceId, resolvedRole, workspaceName, ownerId;
-  if (ownedWs) {
+
+  const membershipInOtherWs = memberships.find(m => m.workspace_id !== ownedWs?.id);
+
+  if (membershipInOtherWs) {
+    // User is a member of someone else's workspace — use that one
+    workspaceId  = membershipInOtherWs.workspace_id;
+    resolvedRole = membershipInOtherWs.role;
+    const { data: ws } = await supabase
+      .from('workspaces')
+      .select('id, name, owner_id')
+      .eq('id', membershipInOtherWs.workspace_id)
+      .maybeSingle();
+    workspaceName = ws?.name || 'Workspace';
+    ownerId       = ws?.owner_id;
+  } else if (ownedWs) {
+    // User only has their own workspace — use it as admin
     workspaceId   = ownedWs.id;
     resolvedRole  = 'admin';
     workspaceName = ownedWs.name;
     ownerId       = ownedWs.owner_id;
   } else {
-    // User is an invited member — use first membership
+    // Fallback: use first membership
     const m = memberships[0];
     workspaceId  = m.workspace_id;
     resolvedRole = m.role;
-    // Get workspace details separately
     const { data: ws } = await supabase
       .from('workspaces')
       .select('id, name, owner_id')
