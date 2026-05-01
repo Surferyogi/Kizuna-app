@@ -1852,39 +1852,6 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
   );
 }
 
-// ─── DEBUG PANEL ─────────────────────────────────────────────────
-function DebugPanel({ workspace, workspaceLoaded, userId }) {
-  const [result, setResult] = useState('');
-  return (
-    <div style={{ background:'#1A1714', borderRadius:BR.card, padding:16, marginBottom:16,
-      border:'2px solid #C46A14' }}>
-      <p style={{ margin:'0 0 8px', fontSize:12, color:'#C46A14', fontWeight:700,
-        textTransform:'uppercase', letterSpacing:'0.1em' }}>Debug Info</p>
-      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-        wordBreak:'break-all', lineHeight:1.6 }}>userId: {userId}</p>
-      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-        wordBreak:'break-all', lineHeight:1.6 }}>loaded: {String(workspaceLoaded)}</p>
-      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-        wordBreak:'break-all', lineHeight:1.6 }}>workspaceId: {workspace?.id || 'NULL'}</p>
-      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-        wordBreak:'break-all', lineHeight:1.6 }}>role: {workspace?.role || 'NULL'}</p>
-      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-        wordBreak:'break-all', lineHeight:1.6 }}>members({workspace?.members?.length||0}): {JSON.stringify(workspace?.members||[])}</p>
-      <button onClick={async () => {
-        try {
-          const ws = await dbLoadWorkspace(userId);
-          setResult(ws ? 'OK: '+JSON.stringify(ws) : 'NULL returned');
-        } catch(e) { setResult('ERROR: '+e.message); }
-      }} style={{ marginTop:10, background:'#C46A14', border:'none', color:'#fff',
-        borderRadius:8, padding:'8px 16px', fontSize:13, fontWeight:700,
-        cursor:'pointer', fontFamily:'inherit' }}>
-        Force Reload Workspace
-      </button>
-      {result && <p style={{ margin:'8px 0 0', fontSize:11, color:'#FFD700',
-        fontFamily:'monospace', wordBreak:'break-all', lineHeight:1.5 }}>{result}</p>}
-    </div>
-  );
-}
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
@@ -1942,9 +1909,6 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
           </button>
         </div>
       </div>
-
-      {/* DEBUG PANEL — remove after diagnosis */}
-      <DebugPanel workspace={workspace} workspaceLoaded={workspaceLoaded} userId={userId} />
 
       {/* Workspace */}
       <SS title="Workspace">
@@ -2746,7 +2710,6 @@ export default function App() {
       } catch { /* silently ignore */ }
 
       // ④ Workspace — non-critical.
-      let wsError = null;
       try {
         const ws = await dbLoadWorkspace(user.id);
         if (ws) {
@@ -2772,13 +2735,8 @@ export default function App() {
               }
             } catch { /* shared entries non-critical */ }
           }
-        } else {
-          wsError = 'dbLoadWorkspace returned null';
         }
-      } catch(err) {
-        wsError = err?.message || 'unknown error';
-      }
-      if (wsError) console.error('[ws ERROR]', wsError);
+      } catch { /* silently ignore */ }
       setWorkspaceLoaded(true);
 
       loadingRef.current = false;
