@@ -954,42 +954,11 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               across time and distance
             </p>
           </div>
-          {/* Right column — sakura + today date badge */}
-          <div style={{ flexShrink:0, display:'flex', flexDirection:'column',
-            alignItems:'flex-end', gap:10, marginTop:2 }}>
-            {/* Sakura icon */}
-            <div style={{ transform:'scale(1.3)', transformOrigin:'top right',
-              position:'relative' }}>
-              <KizunaIcon />
-              <SakuraPetals />
-            </div>
-            {/* Today date badge — tappable, shows today's schedule */}
-            <button onClick={() => setHomeFilter(p => p==='today' ? null : 'today')}
-              style={{ display:'flex', flexDirection:'column', alignItems:'center',
-                width:48, borderRadius:BR.input, overflow:'hidden',
-                border:`2px solid ${homeFilter==='today' ? C.rose : C.border}`,
-                boxShadow: homeFilter==='today' ? `0 4px 14px ${C.rose}40` : `0 2px 8px ${C.rose}15`,
-                cursor:'pointer', transition:'all 0.2s', background:'transparent' }}>
-              {/* Month strip */}
-              <div style={{ background: homeFilter==='today' ? C.rose : C.rose+'20',
-                width:'100%', padding:'3px 0', textAlign:'center',
-                transition:'background 0.2s' }}>
-                <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.08em',
-                  color: homeFilter==='today' ? '#fff' : C.rose,
-                  textTransform:'uppercase', lineHeight:1 }}>
-                  {MON[now.getMonth()]}
-                </span>
-              </div>
-              {/* Day number */}
-              <div style={{ background: homeFilter==='today' ? C.rose+'15' : C.card,
-                width:'100%', padding:'4px 0', textAlign:'center',
-                transition:'background 0.2s' }}>
-                <span style={{ fontSize:22, fontWeight:700, color:C.rose,
-                  lineHeight:1, fontFamily:'Cormorant Garamond,serif' }}>
-                  {now.getDate()}
-                </span>
-              </div>
-            </button>
+          {/* Sakura icon — static flowers + animated falling petals */}
+          <div style={{ flexShrink:0, marginTop:2, transform:'scale(1.3)',
+            transformOrigin:'top right', position:'relative' }}>
+            <KizunaIcon />
+            <SakuraPetals />
           </div>
         </div>
       </div>
@@ -1029,7 +998,37 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
                   .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')); })() },
           ];
           return (<>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:8 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
+              {/* Date card — first widget, same size/shape/elevation as others */}
+              {(() => {
+                const active = homeFilter === 'today';
+                return (
+                  <button onClick={() => setHomeFilter(p => p==='today' ? null : 'today')}
+                    style={{ background: active
+                        ? `linear-gradient(145deg,${C.rose},${C.rose}CC)`
+                        : `linear-gradient(145deg,${C.card},${C.rose}10)`,
+                      borderRadius:BR.card, padding:'16px 12px',
+                      textAlign:'center', boxShadow: active ? `0 4px 16px ${C.rose}40` : SH.card,
+                      border:`1.5px solid ${active ? C.rose : C.rose}`,
+                      cursor:'pointer', transition:'all 0.15s',
+                      display:'flex', flexDirection:'column', alignItems:'center',
+                      justifyContent:'center', gap:0 }}>
+                    <div style={{ fontSize:11, fontWeight:800, letterSpacing:'0.12em',
+                      textTransform:'uppercase', lineHeight:1,
+                      color: active ? '#fff' : C.rose, marginBottom:2 }}>
+                      {MON[now.getMonth()]}
+                    </div>
+                    <div style={{ fontSize:28, fontWeight:700,
+                      fontFamily:'Cormorant Garamond,serif',
+                      color: active ? '#fff' : C.rose, lineHeight:1 }}>
+                      {now.getDate()}
+                    </div>
+                    <div style={{ fontSize:12, marginTop:5, fontWeight:600,
+                      textTransform:'uppercase', letterSpacing:'0.07em',
+                      color: active ? '#fff' : C.dim }}>Today</div>
+                  </button>
+                );
+              })()}
               {filters.map(f => {
                 const active = homeFilter===f.key;
                 return (
@@ -1362,7 +1361,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
@@ -1385,6 +1384,19 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, onToggle, onEdit, 
           color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
           {MFULL[vm.m]} {vm.y}
         </span>
+        {/* Today pill — between title and › arrow */}
+        {goToday && (
+          <button onClick={goToday}
+            style={{ padding:'5px 12px', borderRadius:BR.pill,
+              border:`1.5px solid ${C.rose}`,
+              background: isToday ? C.rose : 'transparent',
+              color: isToday ? '#fff' : C.rose,
+              fontSize:12, fontWeight:700, cursor:'pointer',
+              marginRight:8, flexShrink:0,
+              transition:'all 0.15s' }}>
+            Today
+          </button>
+        )}
         <button onClick={() => {
             const nvm = vm.m===11?{y:vm.y+1,m:0}:{y:vm.y,m:vm.m+1};
             setVm(nvm);
@@ -1482,22 +1494,9 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      {/* Header — Today button only, view locked to Month */}
-      <div style={{ display:'flex', gap:6, padding:'10px 14px',
-        borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card,
-        alignItems:'center' }}>
-        <button onClick={goToday}
-          style={{ padding:'8px 18px', borderRadius:BR.btn, border:`1.5px solid ${C.rose}`,
-            background: isToday ? C.rose : 'transparent',
-            color: isToday ? '#fff' : C.rose,
-            fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0,
-            transition:'all 0.15s' }}>
-          Today
-        </button>
-      </div>
       <div style={{ flex:1, overflow:'hidden' }}>
         <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
-          vm={vm} setVm={setVm}
+          vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
           onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
           currentUserId={currentUserId} onAdd={onAdd} />
       </div>
