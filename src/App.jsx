@@ -883,44 +883,64 @@ function FlightHeroCard({ flight, todayStr }) {
   );
 }
 function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus }) {
-  // Live date state — refreshes whenever app returns from background
+  // Single live date source — everything derives from this one value.
+  // useState ensures React re-renders atomically when date changes.
   const [now, setNow] = useState(() => new Date());
-  const todayStr = fd(now);
-  const [homeFilter, setHomeFilter] = useState(null); // 'today' | 'tasks' | 'next48' | null
+  const todayStr = fd(now);  // single source of truth for "today"
 
-  // Reset to live current date whenever app becomes visible (return from background)
+  // Auto-show Today's Schedule on launch and background return
+  const [homeFilter, setHomeFilter] = useState('today');
+
+  // On visibility change: reset date AND filter atomically in one setState batch.
+  // React 18 batches multiple setState calls in the same event handler — 
+  // both updates happen in the same render cycle with no intermediate state.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        setNow(new Date());    // refresh live date
-        setHomeFilter(null);   // reset filter — always start fresh on relaunch
+        const fresh = new Date();
+        const freshStr = fd(fresh);
+        setNow(prev => {
+          // Only update if day has actually changed — avoids unnecessary re-renders
+          if (fd(prev) === freshStr) return prev;
+          return fresh;
+        });
+        setHomeFilter('today'); // always show today's schedule on return
       }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
+  // All memos derive from todayStr (from now state) — not from new Date() inline.
+  // This guarantees they all update together in the same render cycle.
   const todayEs = useMemo(() =>
-    entries.filter(e => e.date === fd(new Date()))
+    entries.filter(e => e.date === todayStr)
            .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99')),
-    [entries]);
+    [entries, todayStr]);
+
   const nextFlight = useMemo(() =>
-    entries.filter(e => e.type==='flight' && e.date >= fd(new Date()))
+    entries.filter(e => e.type==='flight' && e.date >= todayStr)
            .sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''))[0],
+    [entries, todayStr]);
+
+  const topTasks = useMemo(() =>
+    entries.filter(e => e.type==='task' && !e.done)
+           .sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'))
+           .slice(0,3),
     [entries]);
-  const topTasks = useMemo(() => {
-    return entries.filter(e => e.type==='task' && !e.done)
-                  .sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'))
-                  .slice(0,3);
-  }, [entries]);
-  const openTasks = entries.filter(e => e.type==='task' && !e.done).length;
+
+  const openTasks = useMemo(() =>
+    entries.filter(e => e.type==='task' && !e.done).length,
+    [entries]);
+
   const next48 = useMemo(() => {
-    const n = new Date(), lim = new Date(n.getTime()+48*3600000);
+    const lim = new Date(now.getTime() + 48 * 3600000);
     return entries.filter(e => {
-      const d=new Date(e.date+'T'+(e.time||'00:00'));
-      return d>=n && d<=lim && e.type!=='task';
+      const d = new Date(e.date + 'T' + (e.time||'00:00'));
+      return d >= now && d <= lim && e.type !== 'task';
     }).length;
-  }, [entries]);
+  }, [entries, now]);
+
   const hr    = now.getHours();
   const greet = hr<12?'Good Morning':hr<17?'Good Afternoon':'Good Evening';
 
