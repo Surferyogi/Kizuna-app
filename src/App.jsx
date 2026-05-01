@@ -413,24 +413,23 @@ async function dbLoadName(userId) {
 // Nested joins can be blocked by RLS; direct queries are safer
 async function dbLoadWorkspace(userId) {
   // Step 1: find all workspace_members rows for this user
-  const { data: memberships, error } = await supabase
+  const { data: memberships, error: e1 } = await supabase
     .from('workspace_members')
     .select('workspace_id, role')
     .eq('user_id', userId);
-  console.log('[ws] userId:', userId);
-  console.log('[ws] memberships:', JSON.stringify(memberships), 'error:', error?.message);
-  if (error || !memberships || memberships.length === 0) return null;
+  console.log('[ws1] memberships:', JSON.stringify(memberships), 'err:', e1?.message);
+  if (e1 || !memberships || memberships.length === 0) return null;
 
   // Step 2: find if user owns any workspace directly
-  const { data: ownedWs } = await supabase
+  const { data: ownedWs, error: e2 } = await supabase
     .from('workspaces')
     .select('id, name, owner_id')
     .eq('owner_id', userId)
     .maybeSingle();
-  console.log('[ws] ownedWs:', JSON.stringify(ownedWs));
+  console.log('[ws2] ownedWs:', JSON.stringify(ownedWs), 'err:', e2?.message);
 
   const membershipInOtherWs = memberships.find(m => m.workspace_id !== ownedWs?.id);
-  console.log('[ws] membershipInOtherWs:', JSON.stringify(membershipInOtherWs));
+  console.log('[ws3] membershipInOtherWs:', JSON.stringify(membershipInOtherWs));
 
   if (membershipInOtherWs) {
     // User is a member of someone else's workspace — use that one
@@ -1845,6 +1844,40 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
   );
 }
 
+// ─── DEBUG PANEL ─────────────────────────────────────────────────
+function DebugPanel({ workspace, workspaceLoaded, userId }) {
+  const [result, setResult] = useState('');
+  return (
+    <div style={{ background:'#1A1714', borderRadius:BR.card, padding:16, marginBottom:16,
+      border:'2px solid #C46A14' }}>
+      <p style={{ margin:'0 0 8px', fontSize:12, color:'#C46A14', fontWeight:700,
+        textTransform:'uppercase', letterSpacing:'0.1em' }}>Debug Info</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>userId: {userId}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>loaded: {String(workspaceLoaded)}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>workspaceId: {workspace?.id || 'NULL'}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>role: {workspace?.role || 'NULL'}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>members({workspace?.members?.length||0}): {JSON.stringify(workspace?.members||[])}</p>
+      <button onClick={async () => {
+        try {
+          const ws = await dbLoadWorkspace(userId);
+          setResult(ws ? 'OK: '+JSON.stringify(ws) : 'NULL returned');
+        } catch(e) { setResult('ERROR: '+e.message); }
+      }} style={{ marginTop:10, background:'#C46A14', border:'none', color:'#fff',
+        borderRadius:8, padding:'8px 16px', fontSize:13, fontWeight:700,
+        cursor:'pointer', fontFamily:'inherit' }}>
+        Force Reload Workspace
+      </button>
+      {result && <p style={{ margin:'8px 0 0', fontSize:11, color:'#FFD700',
+        fontFamily:'monospace', wordBreak:'break-all', lineHeight:1.5 }}>{result}</p>}
+    </div>
+  );
+}
+
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
   // Only show admin features once workspace is loaded AND role is confirmed admin
@@ -1903,31 +1936,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
       </div>
 
       {/* DEBUG PANEL — remove after diagnosis */}
-      <div style={{ background:'#1A1714', borderRadius:BR.card, padding:16, marginBottom:16,
-        border:'2px solid #C46A14' }}>
-        <p style={{ margin:'0 0 8px', fontSize:12, color:'#C46A14', fontWeight:700,
-          textTransform:'uppercase', letterSpacing:'0.1em' }}>Debug Info</p>
-        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-          wordBreak:'break-all', lineHeight:1.6 }}>
-          userId: {userId}
-        </p>
-        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-          wordBreak:'break-all', lineHeight:1.6 }}>
-          workspaceId: {workspace?.id || 'null'}
-        </p>
-        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-          wordBreak:'break-all', lineHeight:1.6 }}>
-          role: {workspace?.role || 'null'}
-        </p>
-        <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
-          wordBreak:'break-all', lineHeight:1.6 }}>
-          ownerId: {workspace?.ownerId || 'null'}
-        </p>
-        <p style={{ margin:0, fontSize:12, color:'#fff', fontFamily:'monospace',
-          wordBreak:'break-all', lineHeight:1.6 }}>
-          members: {JSON.stringify(workspace?.members || [])}
-        </p>
-      </div>
+      <DebugPanel workspace={workspace} workspaceLoaded={workspaceLoaded} userId={userId} />
 
       {/* Workspace */}
       <SS title="Workspace">
@@ -2729,6 +2738,7 @@ export default function App() {
       } catch { /* silently ignore */ }
 
       // ④ Workspace — non-critical.
+      let wsError = null;
       try {
         const ws = await dbLoadWorkspace(user.id);
         if (ws) {
@@ -2754,8 +2764,13 @@ export default function App() {
               }
             } catch { /* shared entries non-critical */ }
           }
+        } else {
+          wsError = 'dbLoadWorkspace returned null';
         }
-      } catch { /* silently ignore */ }
+      } catch(err) {
+        wsError = err?.message || 'unknown error';
+      }
+      if (wsError) console.error('[ws ERROR]', wsError);
       setWorkspaceLoaded(true);
 
       loadingRef.current = false;
