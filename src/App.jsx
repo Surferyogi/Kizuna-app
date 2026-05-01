@@ -883,9 +883,22 @@ function FlightHeroCard({ flight, todayStr }) {
   );
 }
 function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus }) {
-  const now      = new Date();
+  // Live date state — refreshes whenever app returns from background
+  const [now, setNow] = useState(() => new Date());
   const todayStr = fd(now);
   const [homeFilter, setHomeFilter] = useState(null); // 'today' | 'tasks' | 'next48' | null
+
+  // Reset to live current date whenever app becomes visible (return from background)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setNow(new Date());    // refresh live date
+        setHomeFilter(null);   // reset filter — always start fresh on relaunch
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const todayEs = useMemo(() =>
     entries.filter(e => e.date === fd(new Date()))
