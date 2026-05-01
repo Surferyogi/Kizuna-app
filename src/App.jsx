@@ -2129,7 +2129,7 @@ function EForm({ form, set }) {
   return (
     <div style={{ paddingTop:8 }}>
       {/* Title shown for all types EXCEPT flight — flight title is auto-generated */}
-      {form.type !== 'flight' && (
+      {form.type !== 'flight' && form.type !== 'birthday' && (
         <FL label="Title">
           <FI form={form} set={set} field="title" placeholder={`${TL[form.type]} title`} autoFocus />
         </FL>
@@ -2239,8 +2239,7 @@ function EForm({ form, set }) {
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : form.type === 'birthday' ? (<>
-        <FL label="Occasion"><FI form={form} set={set} field="title" placeholder="e.g. Mum's Birthday, Wedding Anniversary" autoFocus /></FL>
-        <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
+        <FL label="Date"><FI form={form} set={set} field="date" type="date" autoFocus /></FL>
         <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Gift ideas, plans, memories…" /></FL>
       </>) : (<>
         <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
@@ -2282,8 +2281,10 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
   );
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
   const canSave = form.type === 'flight'
-    ? (form.flightNum?.trim().length > 0)   // flight: needs flight number
-    : (form.title?.trim().length > 0);       // others: need title
+    ? (form.flightNum?.trim().length > 0)          // flight: needs flight number
+    : form.type === 'birthday'
+    ? (form.date?.trim().length > 0)               // birthday: needs date
+    : (form.title?.trim().length > 0);             // others: need title
   const handleSave = () => {
     if (!canSave) return;
     // Edit: preserve id + type. Create: assign UUID.
