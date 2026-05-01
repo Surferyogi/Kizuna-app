@@ -198,6 +198,10 @@ const routeLookup = (flightNum) => {
 // Falls back to time-based local status on any error.
 // Input: flightNumber (e.g. 'SQ321') + date (e.g. '2026-04-25')
 
+// Semantic colour tokens — defined early so flightStatusLocal can use SUCCESS
+const SUCCESS = '#2A7A42';   // landed / confirmed green
+const WARN    = '#C46A14';   // amber warning / past-due
+
 // Local time-based fallback — used when API unavailable or flight has no number
 const flightStatusLocal = (flight) => {
   if (!flight.date || !flight.time) return null;
@@ -308,9 +312,6 @@ const DTC = {
 // PC.low uses DTC.task: badge renders same color as both text AND bg tint,
 // so the value must be dark enough to read against its own 28% alpha wash.
 const PC = { low:DTC.task, medium:'#6B4E10', high:'#8A3A08', critical:'#6A2408' };
-// Semantic one-off colours — centralised to avoid scattered hardcoded hex
-const SUCCESS = '#2A7A42';   // landed / confirmed green (warmer than pure green)
-const WARN    = WARN;   // amber warning / past-due
 const AC = { created:C.rose, completed:DTC.task, reopened:DTC.meeting, deleted:'#8A3A08', updated:DTC.event };
 const AL = { created:'Created', completed:'Completed', reopened:'Reopened', deleted:'Deleted', updated:'Updated' };
 
