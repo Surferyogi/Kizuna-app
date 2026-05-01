@@ -463,11 +463,20 @@ async function dbLoadWorkspace(userId) {
 
   if (!workspaceId) return null;
 
-  // Step 3: get all members of this workspace with display names
+  // Step 3: get all members of this workspace
   const { data: members } = await supabase
     .from('workspace_members')
-    .select('user_id, role, profiles(display_name)')
+    .select('user_id, role')
     .eq('workspace_id', workspaceId);
+
+  // Step 4: get display names separately — avoids FK join requirement
+  const memberIds = (members || []).map(m => m.user_id);
+  const { data: profiles } = memberIds.length > 0
+    ? await supabase.from('profiles').select('id, display_name').in('id', memberIds)
+    : { data: [] };
+
+  const profileMap = {};
+  (profiles || []).forEach(p => { profileMap[p.id] = p.display_name; });
 
   return {
     id:      workspaceId,
@@ -476,7 +485,7 @@ async function dbLoadWorkspace(userId) {
     role:    resolvedRole,
     members: (members || []).map(m => ({
       id:   m.user_id,
-      name: m.profiles?.display_name || 'Unknown',
+      name: profileMap[m.user_id] || 'Unknown',
       role: m.role,
     })),
   };
