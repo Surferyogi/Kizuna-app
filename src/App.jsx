@@ -2239,7 +2239,8 @@ function EForm({ form, set }) {
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : form.type === 'birthday' ? (<>
-        <FL label="Date"><FI form={form} set={set} field="date" type="date" autoFocus /></FL>
+        <FL label="Occasion"><FI form={form} set={set} field="title" placeholder="e.g. Mum's Birthday, Wedding Anniversary" autoFocus /></FL>
+        <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Gift ideas, plans, memories…" /></FL>
       </>) : (<>
         <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
