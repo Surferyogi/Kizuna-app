@@ -766,7 +766,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
             )}
             {/* Done button — task and reminder only */}
             {(e.type === 'task' || e.type === 'reminder') && isOwn && !isReadOnly && (
-              <button onClick={ev => { ev.stopPropagation(); onToggle && onToggle(e.id); }}
+              <button onClick={ev => { ev.stopPropagation(); ev.preventDefault(); onToggle && onToggle(e.id); }}
                 style={{ fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0,
                   padding:'3px 10px', borderRadius:BR.pill, fontFamily:'inherit',
                   border:`1.5px solid ${e.done ? C.T : C.border}`,
@@ -2475,7 +2475,7 @@ function Row2({ children }) {
 const mkBlank = () => ({
   type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
-  terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none'
+  terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
 function EForm({ form, set }) {
