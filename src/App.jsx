@@ -1827,48 +1827,42 @@ function buildQuotePrompt(day, themeIndex) {
   return `Write a quote on the theme: "${theme.prompt}".`;
 }
 
-async function fetchDailyQuote() {
-  const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+async function fetchDailyQuote(supabaseClient) {
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   // Serve cache if same day
   try {
     const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
     if (cached?.date === todayKey && cached?.quote) return cached;
-  } catch { /* ignore parse errors */ }
+  } catch { /* ignore */ }
 
   // Build prompt
   const now = new Date();
   const day = detectSpecialDay(now);
   const themeIndex = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000) % 4;
-  const prompt = buildQuotePrompt(day, themeIndex);
-  const label  = buildQuoteLabel(day) ||
+  const prompt   = buildQuotePrompt(day, themeIndex);
+  const label    = buildQuoteLabel(day) ||
     (STANDARD_THEMES[themeIndex % 4].label + ' · Today\'s Reflection');
-
   const isSpecial = day.isAnnaBirthday || day.isSophiaBirthday || day.isKoksumBirthday ||
                     day.isAnniversary  || !!day.festiveName;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 200,
-        system: "You are a warm, emotionally intelligent quote writer for a personal life companion app used by a family. Generate a single original uplifting quote based on the context provided. 2–3 sentences maximum. Return the quote text only — no title, no attribution, no explanation, no quotation marks. Never use the words 'NLP', 'Neuro-Linguistic Programming', 'Hypnotherapy', or 'Hypnosis' anywhere — not even indirectly. Express all themes through feeling, metaphor, and outcome only.",
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    // Call via Supabase Edge Function — API key stays server-side in Vault
+    const { data, error } = await supabaseClient.functions.invoke('kizuna-quote', {
+      body: { prompt, label, isSpecial },
     });
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    const quote = data?.content?.[0]?.text?.trim();
-    if (!quote) return null;
+    if (error || !data?.quote) {
+      console.error('kizuna-quote error:', error?.message || 'no quote in response');
+      return null;
+    }
 
-    const result = { date: todayKey, quote, label, isSpecial };
+    const result = { date: todayKey, quote: data.quote, label, isSpecial };
     localStorage.setItem(QUOTE_CACHE_KEY, JSON.stringify(result));
     return result;
-  } catch {
-    return null; // Silent failure — app proceeds without quote
+  } catch (err) {
+    console.error('fetchDailyQuote failed:', err);
+    return null;
   }
 }
 
@@ -3841,7 +3835,7 @@ export default function App() {
     } catch { /* ignore */ }
     setQuoteLoading(true);
     setShowQuote(true);
-    fetchDailyQuote().then(result => {
+    fetchDailyQuote(supabase).then(result => {
       if (result) setQuoteData(result);
       // On failure: leave showQuote true, quoteData null — screen stays, no quote shown
       setQuoteLoading(false);
