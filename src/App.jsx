@@ -1736,6 +1736,8 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
   const activeQf  = QUICK_FILTERS.find(x => x.k === quickF);
   const typeLocked = !!(activeQf?.impliedType && !activeQf.isStatus);
 
+  const [sortAsc, setSortAsc] = useState(true); // default: earliest first
+
   // ── Results ───────────────────────────────────────────────────
   const results = useMemo(() => {
     let r = entries;
@@ -1763,8 +1765,6 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
       return sortAsc ? tA.localeCompare(tB) : tB.localeCompare(tA);
     });
   }, [entries, q, typeF, quickF, sortAsc]);
-
-  const [sortAsc, setSortAsc] = useState(true); // default: earliest first
 
   const hasFilter = quickF || typeF !== 'all';
   const clearAll  = () => { setQuickF(null); setTypeF('all'); setSavedTypeF('all'); setQ(''); };
