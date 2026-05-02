@@ -680,8 +680,8 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
         <div onClick={() => { if (!open) setShowDetail(p=>!p); }}
           style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6,
             cursor:'pointer' }}>
-          {(e.type === 'task' || (isPastDue && isOwn)) && (
-            <button onClick={() => isOwn && onToggle && onToggle(e.id)}
+          {(e.type === 'task' || e.type === 'reminder' || (isPastDue && isOwn)) && (
+            <button onClick={ev => { ev.stopPropagation(); isOwn && onToggle && onToggle(e.id); }}
               style={{ width:26, height:26, borderRadius:7,
                 border:`2px solid ${e.done ? C.T : isPastDue ? WARN : C.border}`,
                 background: e.done ? C.T+'22' : isPastDue ? '#C46A1408' : 'transparent',
@@ -764,6 +764,18 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
                 👤 {e.userName || 'Team member'}
               </span>
             )}
+            {/* Done button — task and reminder only */}
+            {(e.type === 'task' || e.type === 'reminder') && isOwn && !isReadOnly && (
+              <button onClick={ev => { ev.stopPropagation(); onToggle && onToggle(e.id); }}
+                style={{ fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0,
+                  padding:'3px 10px', borderRadius:BR.pill, fontFamily:'inherit',
+                  border:`1.5px solid ${e.done ? C.T : C.border}`,
+                  background: e.done ? C.T+'18' : 'transparent',
+                  color: e.done ? C.T : C.muted,
+                  transition:'all 0.15s' }}>
+                {e.done ? '✓ Done' : 'Mark Done'}
+              </button>
+            )}
             {canEdit && !isReadOnly && (
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
@@ -813,7 +825,6 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
             e.gate     && ['Gate',     e.gate],
             e.tags     && ['Tags',     e.tags],
             e.repeat && e.repeat!=='none' && ['Repeats', e.repeat.charAt(0).toUpperCase()+e.repeat.slice(1)],
-            e.visibility&&['Visibility',e.visibility==='shared'?'Shared with team':'Private'],
             e.message  && ['Message',  e.message],
             e.notes    && ['Notes',    e.notes],
           ].filter(Boolean);
@@ -2566,10 +2577,13 @@ function EForm({ form, set }) {
         </div>
       </>) : form.type === 'task' ? (<>
         <FL label="Due Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
+        <FL label="Time (optional)"><FI form={form} set={set} field="time" type="time" /></FL>
+        <FL label="Location (optional)"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
         <FL label="Tags"><FI form={form} set={set} field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <FL label="Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
+        <FL label="Location (optional)"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : form.type === 'birthday' ? (<>
         <FL label="Occasion"><FI form={form} set={set} field="title" placeholder="e.g. Mum's Birthday, Wedding Anniversary" autoFocus /></FL>
