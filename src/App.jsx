@@ -1934,15 +1934,33 @@ const SPLASH_PETALS = [
 ];
 
 function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
-  const [swiping, setSwiping] = useState(false);
+  const [swiping,     setSwiping]     = useState(false);
   const [touchStartY, setTouchStartY] = useState(null);
+  const [canDismiss,  setCanDismiss]  = useState(false);
+  const [countdown,   setCountdown]   = useState(10);
+
+  // 10-second minimum hold before user can dismiss
+  useEffect(() => {
+    if (loading) return;
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(timer); setCanDismiss(true); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [loading]);
+
+  const dismiss = () => {
+    if (!canDismiss) return;
+    setSwiping(true);
+    setTimeout(onDismiss, 350);
+  };
 
   const handleTouchStart = e => setTouchStartY(e.touches[0].clientY);
   const handleTouchEnd   = e => {
-    if (touchStartY !== null && (e.changedTouches[0].clientY - touchStartY) > 60) {
-      setSwiping(true);
-      setTimeout(onDismiss, 350);
-    }
+    if (canDismiss && touchStartY !== null &&
+        (e.changedTouches[0].clientY - touchStartY) > 60) dismiss();
     setTouchStartY(null);
   };
 
@@ -1950,14 +1968,16 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
 
   return (
     <div
+      onClick={dismiss}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       style={{
         position:'fixed', inset:0, zIndex:200,
-        background:`linear-gradient(160deg, #2C2018 0%, #3A2A1A 40%, #1E1208 100%)`,
+        background:`linear-gradient(160deg, ${C.bg} 0%, #F2EDE5 50%, #EDE4D8 100%)`,
         display:'flex', flexDirection:'column',
         alignItems:'center', justifyContent:'center',
         padding:'32px 24px',
+        cursor: canDismiss ? 'pointer' : 'default',
         animation: swiping ? 'quoteSwipeDown 0.35s ease-in forwards' : 'none',
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
@@ -1977,50 +1997,53 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
 
       {/* Kizuna logo */}
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
-        marginBottom:40, position:'relative', zIndex:1 }}>
-        <div style={{ transform:'scale(1.6)', marginBottom:12, opacity:0.95 }}>
+        marginBottom:36, position:'relative', zIndex:1 }}>
+        <div style={{ transform:'scale(1.6)', marginBottom:14 }}>
           <KizunaIcon />
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
-          color:'#F5EDE0', letterSpacing:'0.02em', lineHeight:1 }}>
-          Kizuna&thinsp;<span style={{ color:'#E8A090' }}>絆</span>
+          color:C.text, letterSpacing:'0.02em', lineHeight:1 }}>
+          Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
         </h1>
-        <p style={{ margin:'6px 0 0', fontSize:13, color:'#9E8E7E',
+        <p style={{ margin:'6px 0 0', fontSize:13, color:C.muted,
           fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
           letterSpacing:'0.04em' }}>
           Today's Reflection
         </p>
       </div>
 
-      {/* Quote card */}
-      <div style={{
+      {/* Quote card — matches ECard style */}
+      <div onClick={e => e.stopPropagation()} style={{
         width:'100%', maxWidth:380, position:'relative', zIndex:1,
-        background:'rgba(255,252,248,0.06)',
-        border:`1px solid rgba(232,160,144,0.25)`,
+        background:C.card,
+        border:`1px solid ${C.border}`,
         borderRadius:BR.card,
         padding:'28px 26px 24px',
-        backdropFilter:'blur(20px)',
-        boxShadow:`0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(232,160,144,0.1)`,
+        boxShadow:SH.float,
         animation:'quoteCardIn 0.6s ease-out 0.2s both',
       }}>
-
-        {/* Day type label */}
+        {/* Type label */}
         {quoteData?.label && (
-          <p style={{ margin:'0 0 16px', fontSize:11, fontWeight:700,
+          <p style={{ margin:'0 0 14px', fontSize:11, fontWeight:700,
             textTransform:'uppercase', letterSpacing:'0.12em',
-            color: isSpecial ? '#E8A090' : '#9E8E7E' }}>
+            color: isSpecial ? C.rose : C.muted }}>
             {quoteData.label}
           </p>
         )}
+
+        {/* Colour stripe — matches entry cards */}
+        <div style={{ width:4, height:36, borderRadius:2, background:C.rose,
+          position:'absolute', left:0, top:28, borderTopRightRadius:2,
+          borderBottomRightRadius:2 }} />
 
         {/* Quote text or shimmer */}
         {loading ? (
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {[100, 85, 70].map((w, i) => (
               <div key={i} style={{
-                height:14, width:`${w}%`, borderRadius:7,
-                background:'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%)',
+                height:13, width:`${w}%`, borderRadius:7,
+                background:`linear-gradient(90deg, ${C.elevated} 25%, ${C.border} 50%, ${C.elevated} 75%)`,
                 backgroundSize:'400px 100%',
                 animation:'shimmer 1.4s infinite linear',
                 animationDelay:`${i*0.15}s`,
@@ -2029,44 +2052,45 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
           </div>
         ) : (
           <p style={{
-            margin:0, fontSize:18, lineHeight:1.75,
+            margin:0, fontSize:19, lineHeight:1.8,
             fontFamily:'Cormorant Garamond,serif',
             fontStyle:'italic', fontWeight:400,
-            color:'#F0E8DC',
-            letterSpacing:'0.01em',
+            color:C.text, letterSpacing:'0.01em',
           }}>
             "{quoteData?.quote}"
           </p>
         )}
 
-        {/* Dismiss button */}
+        {/* Dismiss / countdown */}
         {!loading && (
-          <button onClick={() => { setSwiping(true); setTimeout(onDismiss, 350); }}
+          <button
+            onClick={e => { e.stopPropagation(); dismiss(); }}
+            disabled={!canDismiss}
             style={{
-              marginTop:24, width:'100%',
-              background:'transparent',
-              border:`1.5px solid rgba(232,160,144,0.4)`,
+              marginTop:22, width:'100%',
+              background: canDismiss
+                ? `linear-gradient(135deg,${C.rose},${C.roseL})`
+                : C.elevated,
+              border:`1.5px solid ${canDismiss ? C.rose : C.border}`,
               borderRadius:BR.btn,
               padding:'12px',
               fontSize:14, fontWeight:700,
-              color:'#E8A090',
-              cursor:'pointer', fontFamily:'inherit',
-              letterSpacing:'0.04em',
-              transition:'background 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(232,160,144,0.12)'}
-            onMouseLeave={e => e.currentTarget.style.background='transparent'}
-          >
-            Enter Kizuna 🌸
+              color: canDismiss ? '#fff' : C.muted,
+              cursor: canDismiss ? 'pointer' : 'default',
+              fontFamily:'inherit',
+              transition:'all 0.3s',
+              boxShadow: canDismiss ? `0 4px 14px ${C.rose}40` : 'none',
+            }}>
+            {canDismiss ? 'Enter Kizuna 🌸' : `Enter Kizuna · ${countdown}s`}
           </button>
         )}
       </div>
 
-      {/* Swipe hint */}
-      {!loading && (
-        <p style={{ marginTop:20, fontSize:12, color:'rgba(158,142,126,0.5)',
-          position:'relative', zIndex:1 }}>
-          or swipe down to dismiss
+      {/* Tap hint */}
+      {!loading && canDismiss && (
+        <p style={{ marginTop:16, fontSize:12, color:C.muted,
+          position:'relative', zIndex:1, fontStyle:'italic' }}>
+          tap anywhere or swipe down to continue
         </p>
       )}
     </div>
