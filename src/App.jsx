@@ -1737,7 +1737,12 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
          e.airline,e.flightNum,e.depCity,e.arrCity]
           .some(f => f && f.toLowerCase().includes(lq)));
     }
-    return r.sort((a,b) => (b.date||'0000').localeCompare(a.date||'0000'));
+    return r.sort((a,b) => {
+      const dCmp = (b.date||'0000').localeCompare(a.date||'0000');
+      if (dCmp !== 0) return dCmp;
+      // Same date — sort by time descending (later time first), no time goes last
+      return (b.time||'').localeCompare(a.time||'');
+    });
   }, [entries, q, typeF, quickF]);
 
   const hasFilter = quickF || typeF !== 'all';
