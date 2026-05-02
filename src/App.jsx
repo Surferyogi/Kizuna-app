@@ -1662,7 +1662,7 @@ const QUICK_FILTERS = [
     f: e => e.type==='reminder' && e.date>=fd(new Date()) && !e.done },
   { k:'birthdays',  l:'Upcoming Birthdays',      icon:'🎂', impliedType:'birthday',isStatus:false,
     f: e => e.type==='birthday' && e.date>=fd(new Date()) },
-  { k:'pending',    l:'Pending Tasks',           icon:'✓',  impliedType:'task',    isStatus:true,
+  { k:'pending',    l:'Pending Tasks',           icon:'✓',  impliedType:'task',    isStatus:false,
     f: e => e.type==='task' && !e.done },
 ];
 
