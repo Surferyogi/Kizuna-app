@@ -1694,6 +1694,150 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
   );
 }
 
+// ─── NEW MEMBER GUIDE ────────────────────────────────────────────
+// Admin-only collapsible guide for registering new members.
+function NewMemberGuide() {
+  const [open, setOpen] = useState(false);
+
+  const Step = ({ n, title, children }) => (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+        <div style={{ width:28, height:28, borderRadius:14, background:C.rose,
+          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <span style={{ fontSize:13, fontWeight:800, color:'#fff' }}>{n}</span>
+        </div>
+        <span style={{ fontSize:15, fontWeight:700, color:C.text }}>{title}</span>
+      </div>
+      <div style={{ marginLeft:38 }}>{children}</div>
+    </div>
+  );
+
+  const Code = ({ children }) => (
+    <div style={{ background:C.elevated, borderRadius:BR.input,
+      padding:'10px 14px', marginTop:6, marginBottom:6,
+      border:`1px solid ${C.border}`, overflowX:'auto' }}>
+      <pre style={{ margin:0, fontSize:11, color:C.text,
+        fontFamily:'Menlo,Courier New,monospace', lineHeight:1.7,
+        whiteSpace:'pre-wrap', wordBreak:'break-all' }}>
+        {children}
+      </pre>
+    </div>
+  );
+
+  const Note = ({ children }) => (
+    <div style={{ background:C.rose+'10', borderRadius:BR.btn,
+      borderLeft:`3px solid ${C.rose}`, padding:'8px 12px', marginTop:6 }}>
+      <span style={{ fontSize:13, color:C.dim, fontStyle:'italic' }}>{children}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ marginBottom:14 }}>
+      <p style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase',
+        letterSpacing:'0.14em', margin:'28px 0 10px' }}>Add New Member</p>
+      <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
+        boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+        <button onClick={() => setOpen(p => !p)}
+          style={{ width:'100%', display:'flex', alignItems:'center',
+            justifyContent:'space-between', padding:'18px 20px',
+            background:'transparent', border:'none', cursor:'pointer',
+            fontFamily:'inherit' }}>
+          <div>
+            <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500,
+              textAlign:'left' }}>Registration Guide</p>
+            <p style={{ margin:0, fontSize:14, color:C.dim, marginTop:3,
+              textAlign:'left' }}>6-step process for adding a new member</p>
+          </div>
+          <span style={{ fontSize:20, color:C.rose, flexShrink:0,
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition:'transform 0.2s' }}>⌄</span>
+        </button>
+
+        {open && (
+          <div style={{ padding:'0 20px 20px',
+            borderTop:`1px solid ${C.border}` }}>
+
+            <Note>Complete all 6 steps in order. The member cannot see shared entries until every step is done.</Note>
+
+            <div style={{ marginTop:20 }}>
+              <Step n="1" title="Create their password login">
+                <p style={{ margin:'0 0 4px', fontSize:13, color:C.dim }}>Run in Supabase SQL Editor:</p>
+                <Code>{`INSERT INTO public.kizuna_users
+  (email, passphrase_hash, display_name, is_active)
+VALUES (
+  'new@email.com',
+  crypt('password', gen_salt('bf', 12)),
+  'Their Name',
+  true
+);`}</Code>
+              </Step>
+
+              <Step n="2" title="Member signs in once">
+                <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
+                  Share the app URL, email, and password with them.{'\n'}
+                  They must sign in at least once to create their account.
+                </p>
+                <Code>{`https://surferyogi.github.io/Kizuna-app/`}</Code>
+              </Step>
+
+              <Step n="3" title="Get their User ID">
+                <p style={{ margin:'0 0 4px', fontSize:13, color:C.dim }}>Run in SQL Editor — copy the UUID returned:</p>
+                <Code>{`SELECT id FROM auth.users
+WHERE email = 'new@email.com';`}</Code>
+              </Step>
+
+              <Step n="4" title="Delete their auto-created workspace">
+                <p style={{ margin:'0 0 4px', fontSize:13, color:C.dim }}>Replace NEW_USER_ID with the ID from Step 3:</p>
+                <Code>{`DELETE FROM public.workspace_members
+WHERE workspace_id = (
+  SELECT id FROM public.workspaces
+  WHERE owner_id = 'NEW_USER_ID'
+);
+DELETE FROM public.workspaces
+WHERE owner_id = 'NEW_USER_ID';`}</Code>
+              </Step>
+
+              <Step n="5" title="Add them to the shared workspace">
+                <Code>{`INSERT INTO public.workspace_members
+  (workspace_id, user_id, role)
+VALUES (
+  '091ddb7a-c8a4-420f-b74f-e620916a44c2',
+  'NEW_USER_ID',
+  'member'
+);`}</Code>
+              </Step>
+
+              <Step n="6" title="Set their display name">
+                <Code>{`INSERT INTO public.profiles (id, display_name, updated_at)
+VALUES ('NEW_USER_ID', 'Their Name', now())
+ON CONFLICT (id) DO UPDATE
+SET display_name = 'Their Name';`}</Code>
+              </Step>
+            </div>
+
+            <div style={{ background:C.rose+'12', borderRadius:BR.card,
+              padding:'14px 16px', marginTop:8,
+              border:`1px solid ${C.rose}30` }}>
+              <p style={{ margin:'0 0 6px', fontSize:14, fontWeight:700, color:C.rose }}>
+                ✓ Final Step
+              </p>
+              <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
+                Member signs out and back in once.{'\n'}
+                Settings → Sign Out → enter email + password → Enter Kizuna 🌸
+              </p>
+            </div>
+
+            <p style={{ margin:'14px 0 0', fontSize:12, color:C.muted,
+              textAlign:'center', fontStyle:'italic' }}>
+              Supabase SQL Editor: supabase.com/dashboard/project/xsbohyvvghhztknikpyf/sql
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── RESET SECTION ───────────────────────────────────────────────
 // Two-tap confirm guard — first tap shows warning, second tap executes reset.
 // Separated to module level so it's never recreated inside SettingsTab.
@@ -2009,6 +2153,9 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
         <SR label="Schema Version" sub={`Storage format v${SCHEMA_VERSION}`} noBorder
           right={<span style={{ fontSize:15, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
       </SS>
+
+      {/* Add New Member Guide — admin only */}
+      {isAdmin && <NewMemberGuide />}
 
       {/* Reset App Data — admin only */}
       {isAdmin && <ResetSection onReset={onReset} />}
