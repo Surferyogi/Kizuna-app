@@ -3280,6 +3280,9 @@ export default function App() {
 
   const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose;
 
+  // isAdmin — derived from workspace state, used by all tabs
+  const isAdmin = workspaceLoaded && (workspace?.role === 'admin' || workspace?.ownerId === user?.id);
+
   // Expand repeating entries for display — virtual copies for next 365 days
   // All tabs receive expandedEntries so repeating birthdays/events appear everywhere
   const expandedEntries = useMemo(() => expandRepeating(entries), [entries]);
