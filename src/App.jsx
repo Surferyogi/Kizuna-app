@@ -550,14 +550,17 @@ const SR = ({ label, sub, right, noBorder }) => (
 );
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
-function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false }) {
+function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, isAdmin=false }) {
   const isReadOnly = readOnly || e._virtual === true;
   const col  = TC[e.type];
   const dcol = DTC[e.type] || col;
   const [open,       setOpen]       = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
 
   const isOwn = !e.userId || e.userId === currentUserId;
+  // Admin can edit/delete any entry — own or others'
+  const canEdit = isOwn || isAdmin;
 
   // F12: flights are past when departure time has passed
   // Use arrival time if available for more accurate "landed" detection
@@ -667,14 +670,16 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
       borderBottom:`1px solid ${C.border}`,
       opacity: isFlightLanded ? 0.7 : 1 }}>
 
-      {/* V6: thicker stripe — 7px, full opacity */}
+      {/* Colour stripe */}
       <div style={{ width:5, minHeight:32, borderRadius:3,
         background: isFlightLanded ? C.T : col,
         flexShrink:0, marginTop:2 }} />
 
       <div style={{ flex:1, minWidth:0 }}>
-        {/* Title row */}
-        <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
+        {/* Title row — tappable to toggle detail view */}
+        <div onClick={() => { if (!open) setShowDetail(p=>!p); }}
+          style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6,
+            cursor:'pointer' }}>
           {(e.type === 'task' || (isPastDue && isOwn)) && (
             <button onClick={() => isOwn && onToggle && onToggle(e.id)}
               style={{ width:26, height:26, borderRadius:7,
@@ -759,12 +764,19 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
                 👤 {e.userName || 'Team member'}
               </span>
             )}
-            {isOwn && !isReadOnly && (
+            {canEdit && !isReadOnly && (
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                   background:'transparent', border:`1px solid ${C.border}`,
                   borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
                   letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>···</button>
+            )}
+            {!canEdit && !isReadOnly && (
+              <button onClick={ev => { ev.stopPropagation(); setShowDetail(p=>!p); }}
+                style={{ marginLeft:'auto', fontSize:12, color:C.muted,
+                  background:'transparent', border:`1px solid ${C.border}`,
+                  borderRadius:BR.input, padding:'5px 10px', cursor:'pointer',
+                  flexShrink:0 }}>{showDetail ? '▲' : '▼'}</button>
             )}
             {isReadOnly && (
               <span style={{ marginLeft:'auto', fontSize:11, color:C.muted,
@@ -775,17 +787,76 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false })
           </div>
         ) : !confirmDel ? (
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={handleEdit}  style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
+            <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
             <button onClick={handleDelReq} style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
-            <button onClick={closeMenu}   style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
+            <button onClick={closeMenu}    style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
           </div>
         ) : (
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>Remove this entry?</span>
-            <button onClick={closeMenu}   style={pill(C.elevated,C.dim,C.border)}>Cancel</button>
-            <button onClick={handleDelOk} style={pill('#A04E08','#fff','#A04E08')}>Remove</button>
+            <button onClick={closeMenu}    style={pill(C.elevated,C.dim,C.border)}>Cancel</button>
+            <button onClick={handleDelOk}  style={pill('#A04E08','#fff','#A04E08')}>Remove</button>
           </div>
         )}
+
+        {/* Detail panel — shown when card is tapped */}
+        {showDetail && !open && (() => {
+          const rows = [
+            e.date     && ['Date',     (() => { const dt=new Date(e.date+'T00:00:00'); return `${DAY[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]} ${dt.getFullYear()}`; })()],
+            e.time     && ['Time',     `${pt(e.time)}${e.endTime?' – '+pt(e.endTime):''}`],
+            e.location && ['Location', e.location],
+            e.attendees&& ['Attendees',e.attendees],
+            e.flightNum&& ['Flight',   `${e.airline||''} ${e.flightNum}`],
+            e.depCity  && ['Route',    `${e.depCity} → ${e.arrCity||'?'}`],
+            e.seat     && ['Seat',     e.seat],
+            e.terminal && ['Terminal', e.terminal],
+            e.gate     && ['Gate',     e.gate],
+            e.tags     && ['Tags',     e.tags],
+            e.repeat && e.repeat!=='none' && ['Repeats', e.repeat.charAt(0).toUpperCase()+e.repeat.slice(1)],
+            e.visibility&&['Visibility',e.visibility==='shared'?'Shared with team':'Private'],
+            e.message  && ['Message',  e.message],
+            e.notes    && ['Notes',    e.notes],
+          ].filter(Boolean);
+
+          return (
+            <div style={{ marginTop:10, padding:'10px 12px',
+              background:C.elevated, borderRadius:BR.input,
+              border:`1px solid ${C.border}` }}>
+              {/* Detail panel header with close button */}
+              <div style={{ display:'flex', alignItems:'center',
+                justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:C.muted,
+                  textTransform:'uppercase', letterSpacing:'0.1em' }}>
+                  {TL[e.type] || e.type} Details
+                </span>
+                <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); }}
+                  style={{ background:'transparent', border:`1px solid ${C.border}`,
+                    borderRadius:BR.btn, width:26, height:26, cursor:'pointer',
+                    color:C.muted, fontSize:14, fontWeight:700, lineHeight:1,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    flexShrink:0, padding:0 }}>✕</button>
+              </div>
+              {rows.map(([label, val]) => (
+                <div key={label} style={{ display:'flex', gap:8,
+                  padding:'5px 0', borderBottom:`1px solid ${C.border}` }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:C.muted,
+                    textTransform:'uppercase', letterSpacing:'0.07em',
+                    flexShrink:0, minWidth:72 }}>{label}</span>
+                  <span style={{ fontSize:13, color:C.text, lineHeight:1.5,
+                    wordBreak:'break-word' }}>{val}</span>
+                </div>
+              ))}
+              {canEdit && !isReadOnly && (
+                <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); onEdit && onEdit(e); }}
+                    style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
+                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); setConfirmDel(true); setOpen(true); }}
+                    style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -906,7 +977,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, isAdmin=false }) {
   // Single live date source — everything derives from this one value.
   // useState ensures React re-renders atomically when date changes.
   const [now, setNow] = useState(() => new Date());
@@ -1142,7 +1213,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           <Sec label="Pending Tasks" count={openTasks} />
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
           </div>
         </>)}
 
@@ -1168,7 +1239,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           ) : (
             <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
             </div>
           )}
         </>)}
@@ -1237,7 +1308,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
             </div>
             <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
             </div>
           </div>
         );
@@ -1280,7 +1351,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
             boxShadow:SH.subtle }}>
             <p style={{ fontSize:12, color:C.muted, margin:'8px 0 2px',
               textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>All day</p>
-            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
           </div>
         )}
         {/* Hourly slots */}
@@ -1418,7 +1489,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false }) {
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
@@ -1526,7 +1597,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} readOnly={new Date(selDate+'T23:59:59') < new Date()} />)}
+              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} readOnly={!isAdmin && new Date(selDate+'T23:59:59') < new Date()} />)}
             </div>
         }
       </div>
@@ -1536,7 +1607,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
   const now = new Date();
   const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -1555,7 +1626,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
         <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
           vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
           onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
-          currentUserId={currentUserId} onAdd={onAdd} />
+          currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin} />
       </div>
     </div>
   );
@@ -1579,7 +1650,7 @@ const QUICK_FILTERS = [
 // Time-scope presets are mutually exclusive — only one can be active at a time
 const TIME_SCOPE_KEYS = ['today','week'];
 
-function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
+function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin=false }) {
   const [q,           setQ]          = useState('');
   const [typeF,       setTypeF]      = useState('all');
   const [quickF,      setQuickF]     = useState('week');
@@ -1776,7 +1847,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
             </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
+              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
             </div>
         }
       </div>
@@ -3403,9 +3474,9 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} />}
-        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} isAdmin={isAdmin} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} />}
+        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
