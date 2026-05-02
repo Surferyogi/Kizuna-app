@@ -1657,6 +1657,422 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
   );
 }
 
+// ─── DAILY QUOTE SYSTEM ──────────────────────────────────────────
+// Fetches one quote per calendar day from Claude API.
+// Cached in localStorage — no repeat calls on same day.
+// Special day detection: birthdays > anniversary > festive > standard themes.
+// Privacy: birth years & anniversary year stay local — only prompt text leaves device.
+
+const QUOTE_CACHE_KEY  = 'kizuna_daily_quote_v1';
+const ANNA_BIRTH_MONTH = 4;  // April
+const ANNA_BIRTH_DAY   = 16;
+const ANNA_BIRTH_YEAR  = 2025;
+const SOPHIA_BIRTH_MONTH = 6;  // June
+const SOPHIA_BIRTH_DAY   = 16;
+const KOKSUM_BIRTH_MONTH = 8;  // August
+const KOKSUM_BIRTH_DAY   = 27;
+const ANNIV_MONTH = 7;  // July
+const ANNIV_DAY   = 24;
+const ANNIV_YEAR  = 2022;
+
+// Anna's developmental milestone by age
+function annaMilestone(age) {
+  if (age < 1)  return 'Newborn wonder — eye contact, first smiles, recognising voices';
+  if (age < 2)  return 'First steps, first words, discovering the world';
+  if (age < 3)  return 'Explosion of language, curiosity, and imaginative play';
+  if (age < 5)  return 'Storytelling, friendships, and growing independence';
+  if (age < 10) return 'Learning to read, school life, and navigating big emotions';
+  return 'Building identity, confidence, and deeper bonds with family';
+}
+
+// Fixed-date festive days
+const FIXED_FESTIVE = [
+  { month:12, day:24, name:'Christmas Eve' },
+  { month:12, day:25, name:'Christmas Day' },
+  { month:1,  day:1,  name:'New Year\'s Day' },
+  { month:2,  day:3,  name:'Setsubun' },
+  { month:3,  day:3,  name:'Hinamatsuri' },
+  { month:7,  day:7,  name:'Tanabata' },
+  { month:11, day:15, name:'Shichi-Go-San' },
+];
+
+// Hardcoded variable festive dates 2025–2035 (no external API needed)
+const VARIABLE_FESTIVE = {
+  cny: [
+    '2025-01-29','2026-02-17','2027-02-06','2028-01-26','2029-02-13',
+    '2030-02-03','2031-01-23','2032-02-11','2033-01-31','2034-02-19','2035-02-08',
+  ],
+  midAutumn: [
+    '2025-10-06','2026-09-25','2027-10-15','2028-10-03','2029-09-22',
+    '2030-10-11','2031-10-01','2032-09-19','2033-10-08','2034-09-27','2035-09-17',
+  ],
+  // Golden Week Apr 29 – May 5 (fixed window, no lookup needed)
+  // Obon Aug 13–15 (fixed, no lookup needed)
+};
+
+// 4 standard themes — rotate by day-of-year
+const STANDARD_THEMES = [
+  { key:'couple',  label:'Husband & Wife',
+    prompt:'the deep, quiet bond between a husband and wife — the small moments that hold a marriage together' },
+  { key:'family',  label:'Family',
+    prompt:'the warmth of a family — a husband, wife, and daughter growing together through everyday life' },
+  { key:'mindset', label:'Mindset',
+    prompt:'the power of mindset and the language we use to shape our inner world' },
+  { key:'calm',    label:'Inner Calm',
+    prompt:'inner calm, deep rest, and the stillness that heals from within' },
+];
+
+function detectSpecialDay(now = new Date()) {
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const yr = now.getFullYear();
+  const ds = `${yr}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+  // ── Birthdays ────────────────────────────────────────────────
+  const isAnnaBirthday    = m === ANNA_BIRTH_MONTH    && d === ANNA_BIRTH_DAY;
+  const isSophiaBirthday  = m === SOPHIA_BIRTH_MONTH  && d === SOPHIA_BIRTH_DAY;
+  const isKoksumBirthday  = m === KOKSUM_BIRTH_MONTH  && d === KOKSUM_BIRTH_DAY;
+
+  // ── Anniversary ──────────────────────────────────────────────
+  const isAnniversary     = m === ANNIV_MONTH && d === ANNIV_DAY;
+  const anniversaryYears  = yr - ANNIV_YEAR;
+
+  // ── Fixed festive ────────────────────────────────────────────
+  const fixedFestive = FIXED_FESTIVE.find(f => f.month === m && f.day === d) || null;
+
+  // ── Variable festive ─────────────────────────────────────────
+  const isCNY        = VARIABLE_FESTIVE.cny.includes(ds);
+  const isMidAutumn  = VARIABLE_FESTIVE.midAutumn.includes(ds);
+  const isGoldenWeek = (m === 4 && d >= 29) || (m === 5 && d <= 5);
+  const isObon       = m === 8 && d >= 13 && d <= 15;
+
+  let festiveName = null;
+  if (isCNY)        festiveName = 'Chinese New Year';
+  else if (isMidAutumn) festiveName = 'Mid-Autumn Festival';
+  else if (isGoldenWeek) festiveName = 'Golden Week';
+  else if (isObon)  festiveName = 'Obon';
+  else if (fixedFestive) festiveName = fixedFestive.name;
+
+  return {
+    isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
+    isAnniversary, anniversaryYears,
+    festiveName,
+    annaAge: yr - ANNA_BIRTH_YEAR - (
+      new Date(yr, ANNA_BIRTH_MONTH-1, ANNA_BIRTH_DAY) > now ? 1 : 0
+    ),
+  };
+}
+
+function buildQuoteLabel(day) {
+  const { isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
+          isAnniversary, festiveName } = day;
+
+  const parts = [];
+  if (isAnnaBirthday)   parts.push("Anna's Birthday");
+  else if (isSophiaBirthday) parts.push("Sophia's Birthday");
+  else if (isKoksumBirthday) parts.push("Koksum's Birthday");
+  if (isAnniversary)    parts.push('Wedding Anniversary');
+  if (festiveName)      parts.push(festiveName);
+
+  const suffix = parts.length > 0 ? ' · Today\'s Quote' : ' · Today\'s Reflection';
+  return (parts.length > 0 ? parts.join(' & ') : null) + suffix;
+}
+
+function buildQuotePrompt(day, themeIndex) {
+  const { isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
+          isAnniversary, anniversaryYears, festiveName, annaAge } = day;
+  const milestone = annaMilestone(annaAge);
+  const theme = STANDARD_THEMES[themeIndex % 4];
+
+  // Combined scenarios (priority: birthday > anniversary > festive)
+  const hasBirthday = isAnnaBirthday || isSophiaBirthday || isKoksumBirthday;
+  const bdName = isAnnaBirthday ? 'Anna' : isSophiaBirthday ? 'Sophia' : 'Koksum';
+
+  if (hasBirthday && isAnniversary && festiveName) {
+    const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
+    return `Write a quote where today is ${festiveName}, ${bdName}'s ${annaAge > 0 && isAnnaBirthday ? annaAge+'th ' : ''}birthday, and the couple's ${anniversaryYears}th wedding anniversary.${bdExtra} Lead with the birthday, honour the anniversary, and let the festive occasion set a joyful atmosphere.`;
+  }
+  if (hasBirthday && festiveName) {
+    const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
+    const age = isAnnaBirthday ? `${annaAge}th ` : '';
+    return `Write a quote for a family celebrating ${festiveName} and also their ${bdName === 'Anna' ? 'daughter' : bdName === 'Sophia' ? 'wife' : 'husband'} ${bdName}'s ${age}birthday on the same day.${bdExtra} Lead with the birthday as the heart of the message, and let the festive occasion enrich the backdrop.`;
+  }
+  if (hasBirthday && isAnniversary) {
+    const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
+    const age = isAnnaBirthday ? `${annaAge}th ` : '';
+    return `Write a quote for a family where today is both ${bdName}'s ${age}birthday and the couple's ${anniversaryYears}th wedding anniversary.${bdExtra} Lead with the birthday, and weave in the anniversary as a beautiful shared milestone.`;
+  }
+  if (isAnniversary && festiveName) {
+    return `Write a quote for a couple celebrating their ${anniversaryYears}th wedding anniversary on ${festiveName}. Let the festive spirit enrich the anniversary message — intimate, warm, and celebratory.`;
+  }
+
+  // Single special days
+  if (isAnnaBirthday) {
+    return `Write a birthday quote for a daughter named Anna who is turning ${annaAge} today. She is at the developmental stage of: ${milestone}. The quote should speak to her parents — warm, tender, and full of wonder at watching her grow.`;
+  }
+  if (isSophiaBirthday) {
+    return `Write a warm birthday quote celebrating a wife named Sophia. The tone should feel like a loving tribute from her family — joyful, heartfelt, and personal.`;
+  }
+  if (isKoksumBirthday) {
+    return `Write a warm birthday quote celebrating a husband and father named Koksum. The tone should feel like a loving tribute from his wife and daughter — proud, warm, and celebratory.`;
+  }
+  if (isAnniversary) {
+    return `Write an anniversary quote for a couple celebrating ${anniversaryYears} years of marriage today, July 24. The tone should feel intimate and reflective — honouring the depth of a relationship built over ${anniversaryYears} years.`;
+  }
+  if (festiveName) {
+    return `Write a warm family quote for ${festiveName}. The tone should be joyful, grounding, and focused on the meaning of the day for a close-knit family.`;
+  }
+
+  // Standard theme
+  return `Write a quote on the theme: "${theme.prompt}".`;
+}
+
+async function fetchDailyQuote() {
+  const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // Serve cache if same day
+  try {
+    const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
+    if (cached?.date === todayKey && cached?.quote) return cached;
+  } catch { /* ignore parse errors */ }
+
+  // Build prompt
+  const now = new Date();
+  const day = detectSpecialDay(now);
+  const themeIndex = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000) % 4;
+  const prompt = buildQuotePrompt(day, themeIndex);
+  const label  = buildQuoteLabel(day) ||
+    (STANDARD_THEMES[themeIndex % 4].label + ' · Today\'s Reflection');
+
+  const isSpecial = day.isAnnaBirthday || day.isSophiaBirthday || day.isKoksumBirthday ||
+                    day.isAnniversary  || !!day.festiveName;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        system: "You are a warm, emotionally intelligent quote writer for a personal life companion app used by a family. Generate a single original uplifting quote based on the context provided. 2–3 sentences maximum. Return the quote text only — no title, no attribution, no explanation, no quotation marks. Never use the words 'NLP', 'Neuro-Linguistic Programming', 'Hypnotherapy', or 'Hypnosis' anywhere — not even indirectly. Express all themes through feeling, metaphor, and outcome only.",
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const quote = data?.content?.[0]?.text?.trim();
+    if (!quote) return null;
+
+    const result = { date: todayKey, quote, label, isSpecial };
+    localStorage.setItem(QUOTE_CACHE_KEY, JSON.stringify(result));
+    return result;
+  } catch {
+    return null; // Silent failure — app proceeds without quote
+  }
+}
+
+// ─── FULL-SCREEN SAKURA PETAL CSS ───────────────────────────────
+const SPLASH_PETAL_CSS = `
+@keyframes splashPetal1 {
+  0%   { transform: translate(0, -20px) rotate(0deg);    opacity:0; }
+  8%   { opacity:0.8; }
+  100% { transform: translate(35px, 110vh) rotate(480deg); opacity:0; }
+}
+@keyframes splashPetal2 {
+  0%   { transform: translate(0, -10px) rotate(25deg);   opacity:0; }
+  12%  { opacity:0.6; }
+  100% { transform: translate(-45px, 110vh) rotate(-540deg); opacity:0; }
+}
+@keyframes splashPetal3 {
+  0%   { transform: translate(0, -15px) rotate(-15deg);  opacity:0; }
+  10%  { opacity:0.7; }
+  100% { transform: translate(20px, 110vh) rotate(600deg); opacity:0; }
+}
+@keyframes splashPetal4 {
+  0%   { transform: translate(0, -5px)  rotate(40deg);   opacity:0; }
+  15%  { opacity:0.5; }
+  100% { transform: translate(-30px, 110vh) rotate(-420deg); opacity:0; }
+}
+@keyframes splashPetal5 {
+  0%   { transform: translate(0, -25px) rotate(-30deg);  opacity:0; }
+  9%   { opacity:0.65; }
+  100% { transform: translate(50px, 110vh) rotate(560deg); opacity:0; }
+}
+@keyframes splashPetal6 {
+  0%   { transform: translate(0, -8px)  rotate(15deg);   opacity:0; }
+  11%  { opacity:0.55; }
+  100% { transform: translate(-25px, 110vh) rotate(-380deg); opacity:0; }
+}
+@keyframes quoteCardIn {
+  0%   { opacity:0; transform:translateY(32px); }
+  100% { opacity:1; transform:translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+@keyframes quoteSwipeDown {
+  0%   { transform:translateY(0); opacity:1; }
+  100% { transform:translateY(110vh); opacity:0; }
+}
+`;
+
+const SPLASH_PETALS = [
+  { left:'8%',  anim:'splashPetal1', dur:'5.2s', delay:'0.0s', size:9,  color:'#EAA898' },
+  { left:'20%', anim:'splashPetal3', dur:'6.8s', delay:'0.6s', size:7,  color:'#F0C0B4' },
+  { left:'35%', anim:'splashPetal2', dur:'5.8s', delay:'1.2s', size:10, color:'#EAB8A8' },
+  { left:'52%', anim:'splashPetal5', dur:'7.1s', delay:'0.3s', size:8,  color:'#E8A090' },
+  { left:'66%', anim:'splashPetal4', dur:'6.2s', delay:'1.8s', size:6,  color:'#F5CCBC' },
+  { left:'78%', anim:'splashPetal1', dur:'5.5s', delay:'0.9s', size:9,  color:'#EAA898' },
+  { left:'90%', anim:'splashPetal6', dur:'6.5s', delay:'2.1s', size:7,  color:'#F0C0B4' },
+  { left:'14%', anim:'splashPetal2', dur:'7.4s', delay:'3.0s', size:8,  color:'#EAB8A8' },
+  { left:'44%', anim:'splashPetal3', dur:'5.9s', delay:'1.5s', size:6,  color:'#E8A090' },
+  { left:'62%', anim:'splashPetal5', dur:'6.7s', delay:'2.7s', size:10, color:'#F5CCBC' },
+  { left:'28%', anim:'splashPetal6', dur:'8.0s', delay:'0.4s', size:7,  color:'#EAA898' },
+  { left:'85%', anim:'splashPetal4', dur:'5.6s', delay:'3.5s', size:8,  color:'#F0C0B4' },
+];
+
+function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
+  const [swiping, setSwiping] = useState(false);
+  const [touchStartY, setTouchStartY] = useState(null);
+
+  const handleTouchStart = e => setTouchStartY(e.touches[0].clientY);
+  const handleTouchEnd   = e => {
+    if (touchStartY !== null && (e.changedTouches[0].clientY - touchStartY) > 60) {
+      setSwiping(true);
+      setTimeout(onDismiss, 350);
+    }
+    setTouchStartY(null);
+  };
+
+  const isSpecial = quoteData?.isSpecial;
+
+  return (
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        position:'fixed', inset:0, zIndex:200,
+        background:`linear-gradient(160deg, #2C2018 0%, #3A2A1A 40%, #1E1208 100%)`,
+        display:'flex', flexDirection:'column',
+        alignItems:'center', justifyContent:'center',
+        padding:'32px 24px',
+        animation: swiping ? 'quoteSwipeDown 0.35s ease-in forwards' : 'none',
+      }}>
+      <style>{SPLASH_PETAL_CSS}</style>
+
+      {/* Falling sakura petals — full screen */}
+      {SPLASH_PETALS.map((p, i) => (
+        <div key={i} style={{
+          position:'absolute', top:0, left:p.left,
+          width:p.size, height:p.size,
+          borderRadius:'50% 50% 50% 0', background:p.color, opacity:0,
+          animationName:p.anim, animationDuration:p.dur,
+          animationDelay:p.delay, animationTimingFunction:'ease-in',
+          animationIterationCount:'infinite', animationFillMode:'both',
+          pointerEvents:'none',
+        }} />
+      ))}
+
+      {/* Kizuna logo */}
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+        marginBottom:40, position:'relative', zIndex:1 }}>
+        <div style={{ transform:'scale(1.6)', marginBottom:12, opacity:0.95 }}>
+          <KizunaIcon />
+        </div>
+        <h1 style={{ margin:0, fontSize:34, fontWeight:700,
+          fontFamily:'Cormorant Garamond,serif',
+          color:'#F5EDE0', letterSpacing:'0.02em', lineHeight:1 }}>
+          Kizuna&thinsp;<span style={{ color:'#E8A090' }}>絆</span>
+        </h1>
+        <p style={{ margin:'6px 0 0', fontSize:13, color:'#9E8E7E',
+          fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
+          letterSpacing:'0.04em' }}>
+          Today's Reflection
+        </p>
+      </div>
+
+      {/* Quote card */}
+      <div style={{
+        width:'100%', maxWidth:380, position:'relative', zIndex:1,
+        background:'rgba(255,252,248,0.06)',
+        border:`1px solid rgba(232,160,144,0.25)`,
+        borderRadius:BR.card,
+        padding:'28px 26px 24px',
+        backdropFilter:'blur(20px)',
+        boxShadow:`0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(232,160,144,0.1)`,
+        animation:'quoteCardIn 0.6s ease-out 0.2s both',
+      }}>
+
+        {/* Day type label */}
+        {quoteData?.label && (
+          <p style={{ margin:'0 0 16px', fontSize:11, fontWeight:700,
+            textTransform:'uppercase', letterSpacing:'0.12em',
+            color: isSpecial ? '#E8A090' : '#9E8E7E' }}>
+            {quoteData.label}
+          </p>
+        )}
+
+        {/* Quote text or shimmer */}
+        {loading ? (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {[100, 85, 70].map((w, i) => (
+              <div key={i} style={{
+                height:14, width:`${w}%`, borderRadius:7,
+                background:'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%)',
+                backgroundSize:'400px 100%',
+                animation:'shimmer 1.4s infinite linear',
+                animationDelay:`${i*0.15}s`,
+              }} />
+            ))}
+          </div>
+        ) : (
+          <p style={{
+            margin:0, fontSize:18, lineHeight:1.75,
+            fontFamily:'Cormorant Garamond,serif',
+            fontStyle:'italic', fontWeight:400,
+            color:'#F0E8DC',
+            letterSpacing:'0.01em',
+          }}>
+            "{quoteData?.quote}"
+          </p>
+        )}
+
+        {/* Dismiss button */}
+        {!loading && (
+          <button onClick={() => { setSwiping(true); setTimeout(onDismiss, 350); }}
+            style={{
+              marginTop:24, width:'100%',
+              background:'transparent',
+              border:`1.5px solid rgba(232,160,144,0.4)`,
+              borderRadius:BR.btn,
+              padding:'12px',
+              fontSize:14, fontWeight:700,
+              color:'#E8A090',
+              cursor:'pointer', fontFamily:'inherit',
+              letterSpacing:'0.04em',
+              transition:'background 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(232,160,144,0.12)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}
+          >
+            Enter Kizuna 🌸
+          </button>
+        )}
+      </div>
+
+      {/* Swipe hint */}
+      {!loading && (
+        <p style={{ marginTop:20, fontSize:12, color:'rgba(158,142,126,0.5)',
+          position:'relative', zIndex:1 }}>
+          or swipe down to dismiss
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── SEARCH TAB ──────────────────────────────────────────────────
 // Filter metadata — each preset has:
 //   impliedType — locks Row 2 to this type when active (null = free)
@@ -3053,6 +3469,11 @@ export default function App() {
   const [authError,   setAuthError]   = useState('');
   const [showPass,    setShowPass]    = useState(false);
 
+  // ── Daily Quote ────────────────────────────────────────────────
+  const [quoteData,     setQuoteData]     = useState(null);
+  const [quoteLoading,  setQuoteLoading]  = useState(false);
+  const [showQuote,     setShowQuote]     = useState(false);
+
   // ── User display name ──────────────────────────────────────────
   const [userName,   setUserName]   = useState('');
   const [nameInput,  setNameInput]  = useState('');
@@ -3374,6 +3795,30 @@ export default function App() {
   }, [user, userName]);
 
   // ── Entry mutations ────────────────────────────────────────────
+  // ── Daily Quote fetch ─────────────────────────────────────────
+  // Fires once when user is authenticated and name is ready.
+  // Shows full-screen quote card; app loads silently in background.
+  useEffect(() => {
+    if (!user || !nameReady) return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    // Check cache first — if same day, show immediately
+    try {
+      const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
+      if (cached?.date === todayKey && cached?.quote) {
+        setQuoteData(cached);
+        setShowQuote(true);
+        return;
+      }
+    } catch { /* ignore */ }
+    // No cache — show screen in loading state and fetch
+    setQuoteLoading(true);
+    setShowQuote(true);
+    fetchDailyQuote().then(result => {
+      if (result) setQuoteData(result);
+      else setShowQuote(false); // silent failure — proceed to app
+      setQuoteLoading(false);
+    });
+  }, [user, nameReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const addEntry = useCallback(e => {
     // Stamp userId AND userName so shared readers see who created it
     const stamped = { ...e, userId: user?.id, userName };
@@ -3621,6 +4066,15 @@ export default function App() {
         button { font-family: 'Nunito', system-ui, sans-serif; }
       `}</style>
 
+
+      {/* ── Daily Quote Overlay ─────────────────────────────────── */}
+      {showQuote && (
+        <DailyQuoteScreen
+          quoteData={quoteData}
+          loading={quoteLoading}
+          onDismiss={() => setShowQuote(false)}
+        />
+      )}
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
