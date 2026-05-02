@@ -339,8 +339,8 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION    = 'v2.2.0';
-const APP_BUILD_DATE = 'May 1, 2026';
+const APP_VERSION    = 'v2.3.0';
+const APP_BUILD_DATE = 'May 2, 2026';
 
 // Load own entries from Supabase — simple, reliable query
 async function dbLoadEntries(userId) {
@@ -768,12 +768,13 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
             {(e.type === 'task' || e.type === 'reminder') && isOwn && !isReadOnly && (
               <button onClick={ev => { ev.stopPropagation(); ev.preventDefault(); onToggle && onToggle(e.id); }}
                 style={{ fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0,
-                  padding:'3px 10px', borderRadius:BR.pill, fontFamily:'inherit',
+                  padding:'5px 12px', borderRadius:BR.pill, fontFamily:'inherit',
                   border:`1.5px solid ${e.done ? C.T : C.border}`,
-                  background: e.done ? C.T+'18' : 'transparent',
-                  color: e.done ? C.T : C.muted,
+                  background: e.done ? C.T : C.elevated,
+                  color: e.done ? '#fff' : C.dim,
+                  boxShadow: e.done ? `0 2px 8px ${C.T}40` : 'none',
                   transition:'all 0.15s' }}>
-                {e.done ? '✓ Done' : 'Mark Done'}
+                {e.done ? '✓ Done' : '○ Mark Done'}
               </button>
             )}
             {canEdit && !isReadOnly && (
@@ -858,7 +859,20 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
                 </div>
               ))}
               {canEdit && !isReadOnly && (
-                <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
+                  {/* Done button inside detail panel — task and reminder only */}
+                  {(e.type === 'task' || e.type === 'reminder') && isOwn && (
+                    <button onClick={ev => { ev.stopPropagation(); onToggle && onToggle(e.id); }}
+                      style={{ fontSize:13, fontWeight:700, cursor:'pointer',
+                        padding:'8px 16px', borderRadius:BR.pill, fontFamily:'inherit',
+                        border:`1.5px solid ${e.done ? C.T : C.border}`,
+                        background: e.done ? C.T : C.elevated,
+                        color: e.done ? '#fff' : C.dim,
+                        boxShadow: e.done ? `0 2px 8px ${C.T}40` : 'none',
+                        transition:'all 0.15s' }}>
+                      {e.done ? '✓ Done' : '○ Mark Done'}
+                    </button>
+                  )}
                   <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); onEdit && onEdit(e); }}
                     style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
                   <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); setConfirmDel(true); setOpen(true); }}
@@ -1738,12 +1752,19 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
           .some(f => f && f.toLowerCase().includes(lq)));
     }
     return r.sort((a,b) => {
-      const dCmp = (b.date||'0000').localeCompare(a.date||'0000');
+      // Primary: date, direction controlled by sortAsc
+      const dA = a.date || '0000';
+      const dB = b.date || '0000';
+      const dCmp = sortAsc ? dA.localeCompare(dB) : dB.localeCompare(dA);
       if (dCmp !== 0) return dCmp;
-      // Same date — sort by time descending (later time first), no time goes last
-      return (b.time||'').localeCompare(a.time||'');
+      // Secondary: time, same direction. No time → treat as '00:00'
+      const tA = a.time || '00:00';
+      const tB = b.time || '00:00';
+      return sortAsc ? tA.localeCompare(tB) : tB.localeCompare(tA);
     });
-  }, [entries, q, typeF, quickF]);
+  }, [entries, q, typeF, quickF, sortAsc]);
+
+  const [sortAsc, setSortAsc] = useState(true); // default: earliest first
 
   const hasFilter = quickF || typeF !== 'all';
   const clearAll  = () => { setQuickF(null); setTypeF('all'); setSavedTypeF('all'); setQ(''); };
@@ -1923,15 +1944,26 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
       {/* ── RESULTS ───────────────────────────────────────────── */}
       <div style={{ flex:1, overflowY:'auto', padding:'0 16px 90px',
         boxSizing:'border-box' }}>
-        {/* Results count */}
+        {/* Results count + sort button */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
           padding:'10px 0 6px' }}>
           <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic' }}>
             {results.length === 0
               ? 'No results'
               : `${results.length} result${results.length!==1?'s':''}`}
+            {q && <span style={{ color:C.dim }}> · matching "{q}"</span>}
           </p>
-          {q && <span style={{ fontSize:12, color:C.dim }}>matching "{q}"</span>}
+          <button onClick={() => setSortAsc(p => !p)}
+            style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
+              background: C.card, border:`1.5px solid ${C.border}`,
+              borderRadius:BR.btn, padding:'5px 12px', cursor:'pointer',
+              fontFamily:'inherit', transition:'all 0.15s',
+              boxShadow:SH.subtle }}>
+            <span style={{ fontSize:13 }}>{sortAsc ? '↑' : '↓'}</span>
+            <span style={{ fontSize:12, fontWeight:600, color:C.dim }}>
+              {sortAsc ? 'Earliest first' : 'Latest first'}
+            </span>
+          </button>
         </div>
 
         {results.length === 0
