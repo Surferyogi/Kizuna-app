@@ -1939,17 +1939,21 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
   const [canDismiss,  setCanDismiss]  = useState(false);
   const [countdown,   setCountdown]   = useState(10);
 
-  // 10-second minimum hold before user can dismiss
+  // Countdown starts from MOUNT — not from loading state.
+  // This ensures 10 seconds even if quote is cached and loading=false immediately.
   useEffect(() => {
-    if (loading) return;
     const timer = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) { clearInterval(timer); setCanDismiss(true); return 0; }
+        if (prev <= 1) {
+          clearInterval(timer);
+          setCanDismiss(true);
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [loading]);
+  }, []); // ← empty deps: runs once on mount, never resets
 
   const dismiss = () => {
     if (!canDismiss) return;
@@ -3820,12 +3824,13 @@ export default function App() {
 
   // ── Entry mutations ────────────────────────────────────────────
   // ── Daily Quote fetch ─────────────────────────────────────────
-  // Fires once when user is authenticated and name is ready.
-  // Shows full-screen quote card; app loads silently in background.
+  // Fires ONCE per session when user is authenticated and name is ready.
+  // useRef guard prevents re-firing on subsequent renders.
+  const quoteFiredRef = useRef(false);
   useEffect(() => {
-    if (!user || !nameReady) return;
+    if (!user || !nameReady || quoteFiredRef.current) return;
+    quoteFiredRef.current = true; // fire exactly once per session
     const todayKey = new Date().toISOString().slice(0, 10);
-    // Check cache first — if same day, show immediately
     try {
       const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
       if (cached?.date === todayKey && cached?.quote) {
@@ -3834,12 +3839,11 @@ export default function App() {
         return;
       }
     } catch { /* ignore */ }
-    // No cache — show screen in loading state and fetch
     setQuoteLoading(true);
     setShowQuote(true);
     fetchDailyQuote().then(result => {
       if (result) setQuoteData(result);
-      else setShowQuote(false); // silent failure — proceed to app
+      // On failure: leave showQuote true, quoteData null — screen stays, no quote shown
       setQuoteLoading(false);
     });
   }, [user, nameReady]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3875,7 +3879,10 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
     logAudit('updated', updated, changes.length > 0 ? changes : null);
     setEditingEntry(null);
-    if (user) dbUpsertEntry(user.id, updated);
+    // Always use the entry's original owner userId for the DB write.
+    // The RLS policy must allow workspace admins to update members' entries.
+    const ownerUserId = original.userId || user?.id;
+    if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
   }, [logAudit, user]);
 
   const deleteEntry = useCallback(id => {
@@ -3883,7 +3890,9 @@ export default function App() {
     if (!current) return;
     setEntries(prev => prev.filter(e => e.id !== id));
     logAudit('deleted', current);
-    if (user) dbDeleteEntry(user.id, id);
+    // Use the entry owner's userId so admin deletes the correct row
+    const ownerUserId = current.userId || user?.id;
+    if (ownerUserId) dbDeleteEntry(ownerUserId, id);
   }, [logAudit, user]);
 
   const resetData = useCallback(async () => {
