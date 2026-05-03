@@ -8,13 +8,18 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // injectManifest: use our custom sw.js so we can handle push events
+      strategies:   'injectManifest',
+      srcDir:       'src',
+      filename:     'sw.js',
       registerType: 'autoUpdate',
-      // Force new service worker to take control immediately
-      // without waiting for all tabs to close
+      injectManifest: {
+        // Don't cache Supabase API calls
+        globIgnores: ['**/functions/**', '**supabase**'],
+      },
       workbox: {
         clientsClaim: true,
         skipWaiting:  true,
-        // Don't cache API calls or Supabase
         navigateFallbackDenylist: [/^\/functions\//, /supabase/],
       },
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
