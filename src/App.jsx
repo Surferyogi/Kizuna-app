@@ -1793,7 +1793,8 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                             <div>
                               <span style={{ fontSize:12, fontWeight:700, color:ac }}>{h.name}</span>
                               <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                                {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'} Public Holiday
+                                {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                                {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' Public Holiday'}
                               </span>
                             </div>
                           </div>
@@ -1895,7 +1896,8 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                       <span style={{ fontSize:13, fontWeight:700,
                         color:accentColor }}>{h.name}</span>
                       <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                        Public Holiday · {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                        {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                        {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' · Public Holiday'}
                         {info && !isExpanded && <span style={{ color:C.rose }}> · Tap</span>}
                       </span>
                     </div>
@@ -3019,7 +3021,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
                                 color:accentColor }}>{h.name}</p>
                               <p style={{ margin:0, fontSize:12, color:C.muted }}>
                                 {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
-                                {' · Public Holiday'}
+                                {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' · Public Holiday'}
                                 {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
                               </p>
                             </div>
