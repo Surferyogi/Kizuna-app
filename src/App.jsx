@@ -1521,15 +1521,45 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
   const cells       = [...Array(offset).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
   const selDayEs    = entries.filter(e=>e.date===selDate)
                              .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+  const [showFlights, setShowFlights] = useState(false);
+  const flightRefs  = useRef({});
+
+  // All flights in current month — sorted by date then time
+  const monthFlights = useMemo(() =>
+    entries.filter(e => e.type==='flight' &&
+      e.date?.startsWith(`${vm.y}-${p2(vm.m+1)}`))
+      .sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||'')),
+    [entries, vm.y, vm.m]);
+
+  // Flight lookup by date for grid overlay
+  const flightsByDate = useMemo(() => {
+    const map = {};
+    monthFlights.forEach(e => {
+      if (!map[e.date]) map[e.date] = [];
+      map[e.date].push(e);
+    });
+    return map;
+  }, [monthFlights]);
+
+  const today = fd(new Date());
+
+  const handleFlightDateClick = (ds) => {
+    setSelDate(ds);
+    // Scroll to first flight card for that date
+    setTimeout(() => {
+      const ref = flightRefs.current[ds];
+      if (ref) ref.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 80);
+  };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      {/* Nav row */}
       <div style={{ display:'flex', alignItems:'center', padding:'8px 18px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => {
             const nvm = vm.m===0?{y:vm.y-1,m:11}:{y:vm.y,m:vm.m-1};
-            setVm(nvm);
-            setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
+            setVm(nvm); setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
           }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
@@ -1537,7 +1567,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
           color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
           {MFULL[vm.m]} {vm.y}
         </span>
-        {/* Today pill — between title and › arrow */}
+        {/* Today pill */}
         {goToday && (
           <button onClick={goToday}
             style={{ padding:'5px 12px', borderRadius:BR.pill,
@@ -1545,86 +1575,248 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
               background: isToday ? C.rose : 'transparent',
               color: isToday ? '#fff' : C.rose,
               fontSize:12, fontWeight:700, cursor:'pointer',
-              marginRight:8, flexShrink:0,
-              transition:'all 0.15s' }}>
+              marginRight:6, flexShrink:0, transition:'all 0.15s' }}>
             Today
           </button>
         )}
+        {/* ✈ Flights toggle */}
+        <button onClick={() => setShowFlights(p => !p)}
+          style={{ padding:'5px 11px', borderRadius:BR.pill,
+            border:`1.5px solid ${showFlights ? C.F : C.border}`,
+            background: showFlights
+              ? `linear-gradient(135deg,${C.F},${C.M})`
+              : 'transparent',
+            color: showFlights ? '#fff' : C.dim,
+            fontSize:12, fontWeight:700, cursor:'pointer',
+            marginRight:8, flexShrink:0,
+            boxShadow: showFlights ? `0 2px 10px ${C.F}50` : 'none',
+            transition:'all 0.2s', display:'flex', alignItems:'center', gap:4 }}>
+          <span style={{ fontSize:13 }}>✈</span>
+          <span>{monthFlights.length > 0 ? `${monthFlights.length}` : ''}</span>
+        </button>
         <button onClick={() => {
             const nvm = vm.m===11?{y:vm.y+1,m:0}:{y:vm.y,m:vm.m+1};
-            setVm(nvm);
-            setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
+            setVm(nvm); setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
           }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
+
       {/* Weekday labels */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
         padding:'6px 6px 0', flexShrink:0, background:C.card }}>
         {['M','T','W','T','F','S','S'].map((d,i) => (
-          <div key={i} style={{ textAlign:'center', fontSize:14, color:C.muted, fontWeight:600, padding:'3px 0' }}>{d}</div>
+          <div key={i} style={{ textAlign:'center', fontSize:14, color:C.muted,
+            fontWeight:600, padding:'3px 0' }}>{d}</div>
         ))}
       </div>
+
       {/* Day grid */}
       <div style={{ padding:'0 6px', flexShrink:0, background:C.card }}>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2 }}>
           {cells.map((day,i) => {
-            if (!day) return <div key={`e${i}`} style={{ height:42 }} />;
-            const ds     = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
-            const isT    = ds===fd(new Date()), isSel = ds===selDate;
-            const isPast = new Date(ds+'T00:00:00') < new Date() && !isT;
-            const dots   = [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
+            if (!day) return <div key={`e${i}`} style={{ height: showFlights ? 56 : 42 }} />;
+            const ds      = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
+            const isT     = ds===fd(new Date()), isSel = ds===selDate;
+            const isPast  = new Date(ds+'T00:00:00') < new Date() && !isT;
+            const dots    = showFlights
+              ? [] // hide dots in flight mode — route labels replace them
+              : [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
+            const dayFlights = flightsByDate[ds] || [];
+            const hasFlight  = dayFlights.length > 0;
+
             return (
-              <button key={ds} onClick={() => setSelDate(ds)}
-                style={{ background:'transparent', border:'none',
-                  cursor:'pointer',
+              <button key={ds}
+                onClick={() => hasFlight && showFlights
+                  ? handleFlightDateClick(ds)
+                  : setSelDate(ds)}
+                style={{ background:'transparent', border:'none', cursor:'pointer',
                   padding:'3px 1px', textAlign:'center',
-                  opacity: isPast ? 0.4 : 1 }}>
+                  opacity: isPast ? (showFlights && hasFlight ? 0.5 : 0.4) : 1 }}>
+                {/* Day number circle */}
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
-                  background: isSel?C.rose : isT?C.rose+'20':'transparent',
-                  border: isT&&!isSel?`1.5px solid ${C.rose}60`:'1.5px solid transparent',
-                  boxShadow: isSel?`0 2px 12px ${C.rose}35`:'none',
-                  display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <span style={{ fontSize:16, fontWeight:isSel?700:400,
-                    color: isSel?'#fff' : isT?C.rose:C.text }}>{day}</span>
+                  background: isSel ? (showFlights && hasFlight ? C.F : C.rose)
+                    : isT ? (showFlights && hasFlight ? C.F+'20' : C.rose+'20') : 'transparent',
+                  border: isT && !isSel
+                    ? `1.5px solid ${showFlights && hasFlight ? '#5BB8E880' : '#B8715C60'}`
+                    : isSel ? 'none' : '1.5px solid transparent',
+                  boxShadow: isSel ? `0 2px 12px ${showFlights&&hasFlight?C.F:C.rose}35` : 'none',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  position:'relative' }}>
+                  <span style={{ fontSize:15, fontWeight:isSel?700:400,
+                    color: isSel ? '#fff'
+                      : isT ? (showFlights&&hasFlight?C.F:C.rose)
+                      : showFlights&&hasFlight ? C.F : C.text }}>{day}</span>
+                  {/* Flight indicator dot on day circle */}
+                  {showFlights && hasFlight && !isSel && (
+                    <div style={{ position:'absolute', top:2, right:2,
+                      width:6, height:6, borderRadius:3,
+                      background: isPast ? C.F+'80' : C.F,
+                      boxShadow:`0 0 4px ${C.F}60` }} />
+                  )}
                 </div>
-                <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:7 }}>
-                  {dots.map((col,j) => (
-                    <div key={j} style={{ width:7, height:7, borderRadius:4, background:col+'90' }} />
-                  ))}
-                </div>
+                {/* Flight mode: show DEP→ARR route text */}
+                {showFlights && hasFlight ? (
+                  <div style={{ marginTop:3, lineHeight:1.2 }}>
+                    {dayFlights.slice(0,2).map((f,fi) => (
+                      <div key={fi} style={{ fontSize:9, fontWeight:700,
+                        color: isPast ? C.F+'70' : C.F,
+                        letterSpacing:'0.02em',
+                        whiteSpace:'nowrap', overflow:'hidden',
+                        textOverflow:'ellipsis', maxWidth:44, margin:'0 auto' }}>
+                        {f.depCity||'?'}→{f.arrCity||'?'}
+                      </div>
+                    ))}
+                    {dayFlights.length > 2 && (
+                      <div style={{ fontSize:8, color:C.muted }}>+{dayFlights.length-2}</div>
+                    )}
+                  </div>
+                ) : (
+                  /* Normal dots */
+                  <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:7 }}>
+                    {dots.map((col,j) => (
+                      <div key={j} style={{ width:7, height:7, borderRadius:4, background:col+'90' }} />
+                    ))}
+                  </div>
+                )}
               </button>
             );
           })}
         </div>
       </div>
-      {/* Selected day entries */}
+
+      {/* Bottom section — flight mode shows all month flights; normal shows selected day */}
       <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px',
         borderTop:`1px solid ${C.border}`, marginTop:8, boxSizing:'border-box' }}>
-        <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
-          textTransform:'uppercase', letterSpacing:'0.12em', fontWeight:700 }}>
-          {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
-        </p>
-        {selDayEs.length===0
-          ? <div style={{ textAlign:'center', padding:'24px 18px',
+
+        {showFlights ? (<>
+          {/* Flight mode header */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'10px 0 8px' }}>
+            <p style={{ margin:0, fontSize:12, color:C.F, fontWeight:700,
+              textTransform:'uppercase', letterSpacing:'0.12em' }}>
+              ✈ {monthFlights.length} Flight{monthFlights.length!==1?'s':''} · {MFULL[vm.m]}
+            </p>
+            <button onClick={() => setShowFlights(false)}
+              style={{ fontSize:12, color:C.muted, background:'transparent',
+                border:`1px solid ${C.border}`, borderRadius:BR.pill,
+                padding:'3px 10px', cursor:'pointer' }}>Done</button>
+          </div>
+
+          {monthFlights.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'32px 18px',
               background:C.card, borderRadius:BR.card,
               border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-              <p style={{ margin:'0 0 10px', fontSize:16, fontWeight:600, color:C.dim, fontStyle:'italic' }}>
-                Nothing on this day
+              <div style={{ fontSize:40, marginBottom:10, opacity:0.3 }}>✈</div>
+              <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
+                No flights in {MFULL[vm.m]}
               </p>
-              <button onClick={() => onAdd(selDate)}
-                style={{ background:C.rose, border:'none', color:'#fff',
-                  borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
-                  cursor:'pointer', fontFamily:'inherit',
-                  boxShadow:`0 4px 14px ${C.rose}40` }}>
-                + Schedule something
-              </button>
             </div>
-          : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
-              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} readOnly={!isAdmin && new Date(selDate+'T23:59:59') < new Date()} />)}
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+              {monthFlights.map(e => {
+                const isPastFlight = e.date < today;
+                return (
+                  <div key={e.id}
+                    ref={el => { flightRefs.current[e.date] = el; }}
+                    style={{ opacity: isPastFlight ? 0.55 : 1,
+                      transition:'opacity 0.15s' }}>
+                    {/* Date chip above each card */}
+                    <div style={{ display:'flex', alignItems:'center', gap:8,
+                      padding:'8px 0 4px' }}>
+                      <div style={{ height:1, flex:1, background:C.border }} />
+                      <span style={{ fontSize:11, fontWeight:700, color: isPastFlight ? C.muted : C.F,
+                        textTransform:'uppercase', letterSpacing:'0.1em', flexShrink:0 }}>
+                        {e.date === today ? 'Today' :
+                          new Date(e.date+'T00:00:00').toLocaleDateString('en-US',
+                            { weekday:'short', day:'numeric', month:'short' })}
+                        {isPastFlight && ' · Past'}
+                      </span>
+                      <div style={{ height:1, flex:1, background:C.border }} />
+                    </div>
+                    {/* Flight ECard */}
+                    <div style={{ background:C.card, borderRadius:BR.card,
+                      border:`1px solid ${isPastFlight ? C.border : '#5BB8E840'}`,
+                      boxShadow: isPastFlight ? SH.subtle : `0 2px 12px ${C.F}18`,
+                      overflow:'hidden', marginBottom:4 }}>
+                      {/* Route hero strip */}
+                      <div style={{ background: isPastFlight
+                          ? C.elevated
+                          : `linear-gradient(135deg,${C.F}18,${C.M}12)`,
+                        padding:'10px 16px', display:'flex', alignItems:'center',
+                        gap:10, borderBottom:`1px solid ${C.border}` }}>
+                        <div style={{ textAlign:'center', minWidth:48 }}>
+                          <div style={{ fontSize:18, fontWeight:700,
+                            fontFamily:'Cormorant Garamond,serif',
+                            color: isPastFlight ? C.muted : C.M }}>
+                            {e.depCity || '?'}
+                          </div>
+                          <div style={{ fontSize:10, color:C.muted, fontWeight:600,
+                            letterSpacing:'0.06em' }}>FROM</div>
+                        </div>
+                        <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
+                          <div style={{ flex:1, height:1, background: isPastFlight ? C.border : C.F+'60' }} />
+                          <span style={{ fontSize:14, color: isPastFlight ? C.muted : C.F }}>✈</span>
+                          <div style={{ flex:1, height:1, background: isPastFlight ? C.border : C.F+'60' }} />
+                        </div>
+                        <div style={{ textAlign:'center', minWidth:48 }}>
+                          <div style={{ fontSize:18, fontWeight:700,
+                            fontFamily:'Cormorant Garamond,serif',
+                            color: isPastFlight ? C.muted : C.M }}>
+                            {e.arrCity || '?'}
+                          </div>
+                          <div style={{ fontSize:10, color:C.muted, fontWeight:600,
+                            letterSpacing:'0.06em' }}>TO</div>
+                        </div>
+                        {e.time && (
+                          <div style={{ marginLeft:'auto', textAlign:'right', flexShrink:0 }}>
+                            <div style={{ fontSize:14, fontWeight:700,
+                              color: isPastFlight ? C.muted : C.text }}>{pt(e.time)}</div>
+                            {e.airline && <div style={{ fontSize:11, color:C.muted }}>{e.airline}</div>}
+                          </div>
+                        )}
+                      </div>
+                      {/* ECard below route strip */}
+                      <ECard e={e} onToggle={onToggle} onEdit={onEdit}
+                        onDelete={onDelete} currentUserId={currentUserId}
+                        isAdmin={isAdmin}
+                        readOnly={!isAdmin && isPastFlight} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-        }
+          )}
+        </>) : (<>
+          {/* Normal day view */}
+          <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
+            textTransform:'uppercase', letterSpacing:'0.12em', fontWeight:700 }}>
+            {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',
+              {weekday:'long',month:'long',day:'numeric'})}
+          </p>
+          {selDayEs.length===0
+            ? <div style={{ textAlign:'center', padding:'24px 18px',
+                background:C.card, borderRadius:BR.card,
+                border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+                <p style={{ margin:'0 0 10px', fontSize:16, fontWeight:600,
+                  color:C.dim, fontStyle:'italic' }}>Nothing on this day</p>
+                <button onClick={() => onAdd(selDate)}
+                  style={{ background:C.rose, border:'none', color:'#fff',
+                    borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
+                    cursor:'pointer', fontFamily:'inherit',
+                    boxShadow:`0 4px 14px ${C.rose}40` }}>
+                  + Schedule something
+                </button>
+              </div>
+            : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
+                boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+                {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle}
+                  onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId}
+                  isAdmin={isAdmin}
+                  readOnly={!isAdmin && new Date(selDate+'T23:59:59') < new Date()} />)}
+              </div>
+          }
+        </>)}
       </div>
     </div>
   );
