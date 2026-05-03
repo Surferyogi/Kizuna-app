@@ -3169,7 +3169,6 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
 // ─── PUSH NOTIFICATIONS ──────────────────────────────────────────
 const VAPID_PUBLIC_KEY = 'BD8nfPF27K6GrPLtXX3GYfPOTlvnIJ1brHN8d1ZbH-02OyxAArUZuOhzffwUWMoRUhjm5KnGhEpyHPqEjdue7NI';
 
-// Convert base64url to Uint8Array for PushManager
 function urlBase64ToUint8Array(base64String) {
   const pad = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + pad).replace(/-/g, '+').replace(/_/g, '/');
@@ -3178,22 +3177,34 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function MorningSummarySection({ userId }) {
-  const [status,   setStatus]   = useState('checking'); // 'checking'|'unsupported'|'denied'|'off'|'on'|'loading'
+  const [status,   setStatus]   = useState('checking');
   const [subError, setSubError] = useState('');
 
-  // Check current subscription state on mount
+  // Detect iOS — Web Push on iOS requires PWA standalone mode
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
+
   useEffect(() => {
+    // On iOS in browser (not PWA) — push won't work, show install prompt
+    if (isIOS && !isStandalone) {
+      setStatus('needs-install'); return;
+    }
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       setStatus('unsupported'); return;
     }
     if (Notification.permission === 'denied') {
       setStatus('denied'); return;
     }
+    // Timeout — if SW takes >4s to be ready, assume 'off' (show button)
+    const timeout = setTimeout(() => setStatus('off'), 4000);
     navigator.serviceWorker.ready.then(reg => {
+      clearTimeout(timeout);
       reg.pushManager.getSubscription().then(sub => {
         setStatus(sub ? 'on' : 'off');
-      });
-    }).catch(() => setStatus('off'));
+      }).catch(() => setStatus('off'));
+    }).catch(() => { clearTimeout(timeout); setStatus('off'); });
+    return () => clearTimeout(timeout);
   }, []);
 
   const enable = async () => {
@@ -3201,27 +3212,25 @@ function MorningSummarySection({ userId }) {
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') { setStatus('denied'); return; }
-
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
-
       const j = sub.toJSON();
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id:      userId,
         endpoint:     j.endpoint,
         p256dh:       j.keys.p256dh,
         auth:         j.keys.auth,
+        display_name: null,
         updated_at:   new Date().toISOString(),
       }, { onConflict: 'user_id,endpoint' });
-
       if (error) throw error;
       setStatus('on');
     } catch (err) {
       console.error('Push subscribe error:', err);
-      setSubError(err.message || 'Failed to enable notifications');
+      setSubError(err.message || 'Could not enable notifications');
       setStatus('off');
     }
   };
@@ -3237,10 +3246,7 @@ function MorningSummarySection({ userId }) {
         await sub.unsubscribe();
       }
       setStatus('off');
-    } catch (err) {
-      console.error('Push unsubscribe error:', err);
-      setStatus('on');
-    }
+    } catch { setStatus('on'); }
   };
 
   const badge = (label, color) => (
@@ -3250,11 +3256,12 @@ function MorningSummarySection({ userId }) {
   );
 
   const statusBadge = () => {
-    if (status === 'on')          return badge('✓ On',    SUCCESS);
-    if (status === 'off')         return badge('Off',     C.muted);
-    if (status === 'loading')     return badge('…',       C.dim);
-    if (status === 'denied')      return badge('Blocked', WARN);
-    if (status === 'unsupported') return badge('N/A',     C.muted);
+    if (status === 'on')            return badge('✓ On',    SUCCESS);
+    if (status === 'off')           return badge('Off',     C.muted);
+    if (status === 'loading')       return badge('…',       C.dim);
+    if (status === 'denied')        return badge('Blocked', WARN);
+    if (status === 'unsupported' || status === 'needs-install')
+                                    return badge('N/A',     C.muted);
     return badge('…', C.dim);
   };
 
@@ -3264,37 +3271,53 @@ function MorningSummarySection({ userId }) {
         <div style={{ display:'flex', alignItems:'center',
           justifyContent:'space-between', marginBottom:6 }}>
           <div>
-            <p style={{ margin:'0 0 2px', fontSize:16, fontWeight:500, color:C.text }}>
-              Morning Summary
-            </p>
+            <p style={{ margin:'0 0 2px', fontSize:16, fontWeight:500,
+              color:C.text }}>Morning Summary</p>
             <p style={{ margin:0, fontSize:13, color:C.muted }}>
-              Daily schedule sent to this device at 8:00 AM
+              Daily schedule at 8:00 AM · this device
             </p>
           </div>
           {statusBadge()}
         </div>
 
+        {/* iOS — not installed as PWA */}
+        {status === 'needs-install' && (
+          <div style={{ background:C.rose+'10', borderRadius:BR.btn,
+            borderLeft:`3px solid ${C.rose}`, padding:'10px 14px', marginTop:8 }}>
+            <p style={{ margin:'0 0 4px', fontSize:13, fontWeight:700,
+              color:C.rose }}>Install Kizuna first</p>
+            <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
+              On iPhone, notifications only work when Kizuna is installed to your home screen.
+            </p>
+            <p style={{ margin:'6px 0 0', fontSize:13, color:C.dim, lineHeight:1.6 }}>
+              In Safari: tap the <strong>Share</strong> button → <strong>Add to Home Screen</strong> → open Kizuna from the home screen icon, then return here.
+            </p>
+          </div>
+        )}
+
+        {/* Fully unsupported */}
         {status === 'unsupported' && (
           <p style={{ margin:'8px 0 0', fontSize:13, color:C.muted,
             fontStyle:'italic', background:C.elevated, borderRadius:BR.btn,
             padding:'8px 12px' }}>
-            Install Kizuna as a PWA (Add to Home Screen) to enable notifications.
+            Your browser does not support push notifications.
           </p>
         )}
+
+        {/* Blocked */}
         {status === 'denied' && (
           <p style={{ margin:'8px 0 0', fontSize:13, color:WARN,
-            fontStyle:'italic' }}>
-            Notifications are blocked. Go to Settings → Safari → Kizuna → Notifications to allow.
+            lineHeight:1.6 }}>
+            Notifications are blocked. Go to <strong>iPhone Settings → Safari → Kizuna → Notifications</strong> to allow.
           </p>
         )}
-        {subError ? (
-          <p style={{ margin:'8px 0 0', fontSize:13, color:WARN }}>{subError}</p>
-        ) : null}
 
+        {subError ? <p style={{ margin:'8px 0 0', fontSize:13, color:WARN }}>{subError}</p> : null}
+
+        {/* Enable / Disable button */}
         {(status === 'off' || status === 'on') && (
-          <button
-            onClick={status === 'on' ? disable : enable}
-            style={{ marginTop:10, width:'100%', padding:'11px',
+          <button onClick={status === 'on' ? disable : enable}
+            style={{ marginTop:12, width:'100%', padding:'11px',
               background: status === 'on'
                 ? 'transparent'
                 : `linear-gradient(135deg,${C.rose},${C.roseL})`,
@@ -3306,9 +3329,10 @@ function MorningSummarySection({ userId }) {
             {status === 'on' ? 'Turn Off Notifications' : 'Enable Morning Summary 🔔'}
           </button>
         )}
+
         {status === 'loading' && (
-          <div style={{ marginTop:10, textAlign:'center',
-            fontSize:13, color:C.muted, fontStyle:'italic' }}>Setting up…</div>
+          <p style={{ marginTop:10, textAlign:'center', fontSize:13,
+            color:C.muted, fontStyle:'italic' }}>Setting up…</p>
         )}
       </div>
     </SS>
