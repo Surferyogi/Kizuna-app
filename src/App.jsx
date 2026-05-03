@@ -1085,26 +1085,24 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
 
         <div style={{ display:'flex', alignItems:'flex-start',
           justifyContent:'space-between', position:'relative' }}>
-          <div style={{ flex:1 }}>
+          <div style={{ flex:1, minWidth:0 }}>
             {/* App name */}
-            <h1 style={{ margin:'0 0 2px', fontSize:38, fontWeight:700, color:C.text,
+            <h1 style={{ margin:'0 0 2px', fontSize:'clamp(30px, 8vw, 38px)',
+              fontWeight:700, color:C.text,
               fontFamily:'Cormorant Garamond,serif', lineHeight:1,
               letterSpacing:'-0.01em' }}>
               Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
             </h1>
-            {/* Tagline */}
-            <p style={{ margin:'10px 0 0', fontSize:18, color:C.rose,
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.5,
-              fontWeight:600, letterSpacing:'0.01em' }}>
+            {/* Tagline — fluid font sizes for all screen widths */}
+            <p style={{ margin:'10px 0 0', fontSize:'clamp(14px, 4vw, 18px)',
+              color:C.rose, fontFamily:'Cormorant Garamond,serif',
+              lineHeight:1.4, fontWeight:600, letterSpacing:'0.01em' }}>
               Bonding with trust, loyalty & love
             </p>
-            <p style={{ margin:'2px 0 0', fontSize:16, color:C.dim, fontStyle:'italic',
+            <p style={{ margin:'2px 0 0', fontSize:'clamp(12px, 3.4vw, 16px)',
+              color:C.dim, fontStyle:'italic',
               fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
-              Nurturing the invisible thread that connects hearts
-            </p>
-            <p style={{ margin:0, fontSize:16, color:C.dim, fontStyle:'italic',
-              fontFamily:'Cormorant Garamond,serif', lineHeight:1.6 }}>
-              across time and distance
+              Nurturing the invisible thread that connects hearts across time and distance
             </p>
           </div>
           {/* Sakura icon — static flowers + animated falling petals */}
