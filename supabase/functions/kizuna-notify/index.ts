@@ -208,15 +208,27 @@ Deno.serve(async (req: Request) => {
 
   const { data: subs, error: subErr } = await db
     .from('push_subscriptions')
-    .select('user_id, endpoint, p256dh, auth, display_name')
+    .select('user_id, endpoint, p256dh, auth, display_name, notify_hour')
 
   if (subErr) { console.error('DB error:', subErr.message); return json({ error: subErr.message }, 500) }
   if (!subs?.length) { console.log('No subscriptions'); return json({ sent: 0 }) }
 
-  console.log(`Found ${subs.length} subscription(s)`)
+  // Current hour in SGT (UTC+8)
+  const nowUTC  = new Date()
+  const hourSGT = (nowUTC.getUTCHours() + 8) % 24
+
+  console.log(`Found ${subs.length} subscription(s) — SGT hour: ${hourSGT}`)
+
+  // Filter to subscriptions whose notify_hour matches current SGT hour
+  // Default notify_hour is 8 (8am SGT)
+  const dueSubs = subs.filter((s: any) => (s.notify_hour ?? 8) === hourSGT)
+  if (!dueSubs.length) {
+    console.log(`No subscriptions due at hour ${hourSGT}`)
+    return json({ sent: 0, message: `No notifications due at SGT ${hourSGT}:00` })
+  }
   const results = []
 
-  for (const sub of subs) {
+  for (const sub of dueSubs) {
     try {
       // Get display name
       let name = sub.display_name
@@ -225,9 +237,33 @@ Deno.serve(async (req: Request) => {
         name = p?.display_name || 'there'
       }
 
-      // Load today's entries
-      const { data: rows } = await db.from('entries').select('data').eq('user_id', sub.user_id)
-      const entries = (rows || []).map((r: any) => r.data).filter(Boolean)
+      // Load entries for this user AND shared entries from all workspace members
+      // Step 1: get all workspace member user_ids
+      const WORKSPACE_ID = '091ddb7a-c8a4-420f-b74f-e620916a44c2'
+      const { data: members } = await db
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', WORKSPACE_ID)
+      const memberIds = (members || []).map((m: any) => m.user_id)
+
+      // Step 2: load own entries
+      const { data: ownRows } = await db.from('entries').select('data')
+        .eq('user_id', sub.user_id)
+      const ownEntries = (ownRows || []).map((r: any) => r.data).filter(Boolean)
+
+      // Step 3: load shared entries from other workspace members
+      const otherIds = memberIds.filter((id: string) => id !== sub.user_id)
+      let sharedEntries: any[] = []
+      for (const memberId of otherIds) {
+        const { data: sharedRows } = await db.from('entries').select('data')
+          .eq('user_id', memberId)
+        const memberEntries = (sharedRows || [])
+          .map((r: any) => r.data)
+          .filter((e: any) => e && e.visibility === 'shared')
+        sharedEntries = [...sharedEntries, ...memberEntries]
+      }
+
+      const entries = [...ownEntries, ...sharedEntries]
 
       const { title, body } = buildSummary(name, entries)
       console.log(`Sending to ${name}: "${title}"`)
