@@ -2513,16 +2513,28 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
   const [quickF,     setQuickF]    = useState('week');
   const [savedTypeF, setSavedTypeF]= useState('all');
   const [showFilters,setShowFilters]= useState(true);
-  const [activeTab,  setActiveTab] = useState('search'); // 'search' | 'holidays'
+  const [activeTab,    setActiveTab]   = useState('search'); // 'search' | 'holidays'
+  const [holidayRange, setHolidayRange]= useState('3m');     // '1w'|'1m'|'3m'|'6m'|'1y'
+  const [holidayCountry, setHolidayCountry] = useState('all'); // 'all'|'SG'|'JP'
 
-  // Upcoming holidays — next 90 days, both countries
+  const HOLIDAY_RANGES = [
+    { k:'1w', l:'This Week',   days:7   },
+    { k:'1m', l:'This Month',  days:30  },
+    { k:'3m', l:'3 Months',    days:90  },
+    { k:'6m', l:'6 Months',    days:180 },
+    { k:'1y', l:'1 Year',      days:365 },
+  ];
+
+  // Upcoming holidays — filtered by range and country
   const upcomingHolidays = useMemo(() => {
     const today = fd(new Date());
-    const limit = fd(new Date(Date.now() + 90*86400000));
+    const rangeDays = HOLIDAY_RANGES.find(r => r.k === holidayRange)?.days || 90;
+    const limit = fd(new Date(Date.now() + rangeDays*86400000));
     return PUBLIC_HOLIDAYS
-      .filter(h => h.date >= today && h.date <= limit)
+      .filter(h => h.date >= today && h.date <= limit &&
+        (holidayCountry === 'all' || h.country === holidayCountry))
       .sort((a,b) => a.date.localeCompare(b.date));
-  }, []);
+  }, [holidayRange, holidayCountry]);
 
   // ── Row 1 handler ─────────────────────────────────────────────
   const handleQuickF = (key) => {
@@ -2617,21 +2629,71 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
 
       {/* ── HOLIDAYS TAB ──────────────────────────────────────── */}
       {activeTab === 'holidays' && (
-        <div style={{ flex:1, overflowY:'auto', padding:'12px 16px 90px' }}>
-          <p style={{ margin:'0 0 14px', fontSize:12, color:C.muted,
-            fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em' }}>
-            Next 90 days · Singapore & Japan
-          </p>
+        <div style={{ flex:1, overflowY:'auto', padding:'0 0 90px', display:'flex', flexDirection:'column' }}>
+          {/* Filter bar */}
+          <div style={{ background:C.card, borderBottom:`1px solid ${C.border}`,
+            padding:'10px 16px', flexShrink:0 }}>
+            {/* Range filters */}
+            <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.1em' }}>Time Range</p>
+            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
+              {HOLIDAY_RANGES.map(r => (
+                <button key={r.k} onClick={() => setHolidayRange(r.k)}
+                  style={{ flexShrink:0, padding:'5px 13px', borderRadius:BR.pill,
+                    background: holidayRange===r.k ? C.rose : C.elevated,
+                    border:`1.5px solid ${holidayRange===r.k ? C.rose : C.border}`,
+                    color: holidayRange===r.k ? '#fff' : C.dim,
+                    fontSize:13, fontWeight: holidayRange===r.k ? 700 : 400,
+                    cursor:'pointer', transition:'all 0.15s',
+                    boxShadow: holidayRange===r.k ? `0 2px 8px ${C.rose}35` : 'none' }}>
+                  {r.l}
+                </button>
+              ))}
+            </div>
+            {/* Country filters */}
+            <p style={{ margin:'10px 0 7px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.1em' }}>Country</p>
+            <div style={{ display:'flex', gap:6 }}>
+              {[
+                { k:'all', l:'All', icon:'🌏' },
+                { k:'SG',  l:'Singapore', icon:'🇸🇬' },
+                { k:'JP',  l:'Japan',     icon:'🇯🇵' },
+              ].map(c => (
+                <button key={c.k} onClick={() => setHolidayCountry(c.k)}
+                  style={{ flexShrink:0, display:'flex', alignItems:'center', gap:5,
+                    padding:'5px 13px', borderRadius:BR.pill,
+                    background: holidayCountry===c.k
+                      ? (c.k==='SG' ? HC.SG : c.k==='JP' ? HC.JP : C.rose)
+                      : C.elevated,
+                    border:`1.5px solid ${holidayCountry===c.k
+                      ? (c.k==='SG' ? HC.SG : c.k==='JP' ? HC.JP : C.rose)
+                      : C.border}`,
+                    color: holidayCountry===c.k ? '#fff' : C.dim,
+                    fontSize:13, fontWeight: holidayCountry===c.k ? 700 : 400,
+                    cursor:'pointer', transition:'all 0.15s' }}>
+                  <span>{c.icon}</span><span>{c.l}</span>
+                </button>
+              ))}
+            </div>
+            {/* Results summary */}
+            <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, fontStyle:'italic' }}>
+              {upcomingHolidays.length} holiday{upcomingHolidays.length!==1?'s':''} ·{' '}
+              {HOLIDAY_RANGES.find(r=>r.k===holidayRange)?.l} ·{' '}
+              {holidayCountry==='all' ? 'SG & JP' : holidayCountry==='SG' ? 'Singapore' : 'Japan'}
+            </p>
+          </div>
+
+          {/* Holiday list */}
+          <div style={{ flex:1, overflowY:'auto', padding:'12px 16px' }}>
           {upcomingHolidays.length === 0 ? (
             <div style={{ textAlign:'center', padding:'40px 20px',
               background:C.card, borderRadius:BR.card, border:`1px solid ${C.border}` }}>
               <div style={{ fontSize:36, marginBottom:10, opacity:0.3 }}>🏖</div>
               <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
-                No upcoming holidays in the next 90 days
+                No holidays in this period
               </p>
             </div>
           ) : (() => {
-            // Group holidays by date
             const grouped = upcomingHolidays.reduce((acc, h) => {
               if (!acc[h.date]) acc[h.date] = [];
               acc[h.date].push(h);
@@ -2643,7 +2705,6 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
               const daysAway = Math.ceil((dt - new Date().setHours(0,0,0,0)) / 86400000);
               return (
                 <div key={date} style={{ marginBottom:10 }}>
-                  {/* Date header */}
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
                     <div style={{ background: isToday ? C.rose : C.elevated,
                       borderRadius:BR.btn, padding:'4px 10px',
@@ -2660,7 +2721,6 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
                       </span>
                     )}
                   </div>
-                  {/* Holiday cards */}
                   {hs.map((h,i) => (
                     <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
                       background:C.card,
@@ -2684,6 +2744,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
               );
             });
           })()}
+          </div>
         </div>
       )}
 
