@@ -1766,26 +1766,40 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                       </span>
                       <div style={{ height:1, flex:1, background:C.border }} />
                     </div>
-                    {/* Holiday banners for this flight's departure date */}
-                    {(HOLIDAYS_BY_DATE[e.date]||[]).map((h,hi) => (
-                      <div key={hi} style={{ display:'flex', alignItems:'center', gap:10,
-                        background: HC_LIGHT[h.country]||'#FEE8EA',
-                        border:`1px solid ${HC[h.country]||'#EF3340'}20`,
-                        borderLeft:`3px solid ${HC[h.country]||'#EF3340'}`,
-                        borderRadius:BR.input, padding:'6px 12px', marginBottom:5,
-                        opacity: isPastFlight ? 0.7 : 1 }}>
-                        <span style={{ fontSize:16, flexShrink:0 }}>
-                          {h.country==='SG'?'🇸🇬':'🇯🇵'}
-                        </span>
-                        <div>
-                          <span style={{ fontSize:12, fontWeight:700,
-                            color:HC[h.country]||'#EF3340' }}>{h.name}</span>
-                          <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                            {h.country==='SG'?'Singapore':'Japan'} Public Holiday
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                    {/* Holiday banners for this flight's departure date — merged SG+JP */}
+                    {(() => {
+                      const raw = HOLIDAYS_BY_DATE[e.date] || [];
+                      const merged = [];
+                      raw.forEach(h => {
+                        const ex = merged.find(m => m.name === h.name);
+                        if (ex) ex.countries.push(h.country);
+                        else merged.push({ ...h, countries: [h.country] });
+                      });
+                      return merged.map((h, hi) => {
+                        const isBoth = h.countries.length > 1;
+                        const ac = isBoth ? C.rose : (HC[h.countries[0]]||'#EF3340');
+                        const bg = isBoth ? '#FFF0EC' : (HC_LIGHT[h.countries[0]]||'#FEE8EA');
+                        return (
+                          <div key={hi} style={{ display:'flex', alignItems:'center', gap:10,
+                            background: bg,
+                            border:`1px solid ${ac}20`,
+                            borderLeft:`3px solid ${ac}`,
+                            borderRadius:BR.input, padding:'6px 12px', marginBottom:5,
+                            opacity: isPastFlight ? 0.7 : 1 }}>
+                            <span style={{ fontSize:16, flexShrink:0, letterSpacing:2 }}>
+                              {h.countries.includes('SG') ? '🇸🇬' : ''}
+                              {h.countries.includes('JP') ? '🇯🇵' : ''}
+                            </span>
+                            <div>
+                              <span style={{ fontSize:12, fontWeight:700, color:ac }}>{h.name}</span>
+                              <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
+                                {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'} Public Holiday
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                     {/* Flight ECard */}
                     <div style={{ background:C.card, borderRadius:BR.card,
                       border:`1px solid ${isPastFlight ? C.border : '#5BB8E840'}`,
@@ -1846,47 +1860,62 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',
               {weekday:'long',month:'long',day:'numeric'})}
           </p>
-          {/* Holiday banner for selected day — tappable to show writeup */}
-          {(HOLIDAYS_BY_DATE[selDate]||[]).map((h,i) => {
-            const calKey = `${h.name}|${selDate}`;
-            const isExpanded = expandedCalHoliday === calKey;
-            const info = HOLIDAY_INFO[h.name];
-            return (
-              <div key={i}
-                onClick={() => setExpandedCalHoliday(isExpanded ? null : calKey)}
-                style={{ cursor: info ? 'pointer' : 'default',
-                  background: HC_LIGHT[h.country]||'#FEE8EA',
-                  border:`1px solid ${HC[h.country]||'#EF3340'}30`,
-                  borderLeft:`3px solid ${HC[h.country]||'#EF3340'}`,
-                  borderRadius:BR.input, padding:'7px 12px', marginBottom:6,
-                  boxShadow: isExpanded ? `0 3px 12px ${HC[h.country]||'#EF3340'}15` : 'none',
-                  transition:'box-shadow 0.15s' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <span style={{ fontSize:14 }}>{h.country==='SG'?'🇸🇬':'🇯🇵'}</span>
-                  <div style={{ flex:1 }}>
-                    <span style={{ fontSize:13, fontWeight:700,
-                      color: HC[h.country]||'#EF3340' }}>{h.name}</span>
-                    <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                      Public Holiday · {h.country==='SG'?'Singapore':'Japan'}
-                      {info && !isExpanded && <span style={{ color:C.rose }}> · Tap</span>}
+          {/* Holiday banner for selected day — merged SG+JP if same name */}
+          {(() => {
+            const raw = HOLIDAYS_BY_DATE[selDate] || [];
+            const merged = [];
+            raw.forEach(h => {
+              const existing = merged.find(m => m.name === h.name);
+              if (existing) { existing.countries.push(h.country); }
+              else { merged.push({ ...h, countries: [h.country] }); }
+            });
+            return merged.map((h, i) => {
+              const isBoth = h.countries.length > 1;
+              const accentColor = isBoth ? C.rose : (HC[h.countries[0]]||'#EF3340');
+              const bgColor    = isBoth ? '#FFF0EC' : (HC_LIGHT[h.countries[0]]||'#FEE8EA');
+              const calKey = `${h.name}|${selDate}`;
+              const isExpanded = expandedCalHoliday === calKey;
+              const info = HOLIDAY_INFO[h.name];
+              return (
+                <div key={i}
+                  onClick={() => setExpandedCalHoliday(isExpanded ? null : calKey)}
+                  style={{ cursor: info ? 'pointer' : 'default',
+                    background: bgColor,
+                    border:`1px solid ${accentColor}30`,
+                    borderLeft:`3px solid ${accentColor}`,
+                    borderRadius:BR.input, padding:'7px 12px', marginBottom:6,
+                    boxShadow: isExpanded ? `0 3px 12px ${accentColor}15` : 'none',
+                    transition:'box-shadow 0.15s' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:14, letterSpacing:2, flexShrink:0 }}>
+                      {h.countries.includes('SG') ? '🇸🇬' : ''}
+                      {h.countries.includes('JP') ? '🇯🇵' : ''}
                     </span>
+                    <div style={{ flex:1 }}>
+                      <span style={{ fontSize:13, fontWeight:700,
+                        color:accentColor }}>{h.name}</span>
+                      <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
+                        Public Holiday · {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                        {info && !isExpanded && <span style={{ color:C.rose }}> · Tap</span>}
+                      </span>
+                    </div>
+                    {info && (
+                      <span style={{ fontSize:13, color:C.muted, flexShrink:0,
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition:'transform 0.2s' }}>⌄</span>
+                    )}
                   </div>
-                  {info && (
-                    <span style={{ fontSize:13, color:C.muted, flexShrink:0,
-                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition:'transform 0.2s' }}>⌄</span>
-                  )}
-                </div>
-                {isExpanded && info && (
+                  {isExpanded && info && (
                   <p style={{ margin:'8px 0 0', fontSize:13, color:C.dim,
                     lineHeight:1.7, fontStyle:'italic',
-                    paddingTop:8, borderTop:`1px solid ${HC[h.country]||'#EF3340'}20` }}>
+                    paddingTop:8, borderTop:`1px solid ${accentColor}20` }}>
                     {info.text}
                   </p>
                 )}
               </div>
             );
-          })}
+          });
+          })()}
           {selDayEs.length===0
             ? <div style={{ textAlign:'center', padding:'24px 18px',
                 background:C.card, borderRadius:BR.card,
@@ -2957,51 +2986,62 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
                       </span>
                     )}
                   </div>
-                  {hs.map((h,i) => {
-                    const infoKey = `${h.name}|${date}`;
-                    const isExpanded = expandedHoliday === infoKey;
-                    const info = HOLIDAY_INFO[h.name];
-                    return (
-                      <div key={i}
-                        onClick={() => setExpandedHoliday(isExpanded ? null : infoKey)}
-                        style={{ cursor:'pointer',
-                          background:C.card,
-                          border:`1px solid ${HC[h.country]||'#EF3340'}25`,
-                          borderLeft:`4px solid ${HC[h.country]||'#EF3340'}`,
-                          borderRadius:BR.card, padding:'12px 16px', marginBottom:6,
-                          boxShadow: isExpanded ? `0 4px 16px ${HC[h.country]||'#EF3340'}18` : SH.subtle,
-                          transition:'box-shadow 0.15s' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                          <span style={{ fontSize:26, flexShrink:0 }}>
-                            {h.country==='SG'?'🇸🇬':'🇯🇵'}
-                          </span>
-                          <div style={{ flex:1 }}>
-                            <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
-                              color: HC[h.country]||'#EF3340' }}>{h.name}</p>
-                            <p style={{ margin:0, fontSize:12, color:C.muted }}>
-                              {h.country==='SG' ? 'Singapore' : 'Japan'} · Public Holiday
-                              {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
-                            </p>
+                  {(() => {
+                    // Merge holidays with the same name (e.g. SG+JP Mother's Day → one card)
+                    const merged = [];
+                    hs.forEach(h => {
+                      const existing = merged.find(m => m.name === h.name);
+                      if (existing) { existing.countries.push(h.country); }
+                      else { merged.push({ ...h, countries: [h.country] }); }
+                    });
+                    return merged.map((h, i) => {
+                      const isBoth = h.countries.length > 1;
+                      const accentColor = isBoth ? C.rose : (HC[h.countries[0]]||'#EF3340');
+                      const infoKey = `${h.name}|${date}`;
+                      const isExpanded = expandedHoliday === infoKey;
+                      const info = HOLIDAY_INFO[h.name];
+                      return (
+                        <div key={i}
+                          onClick={() => setExpandedHoliday(isExpanded ? null : infoKey)}
+                          style={{ cursor:'pointer', background:C.card,
+                            border:`1px solid ${accentColor}25`,
+                            borderLeft:`4px solid ${accentColor}`,
+                            borderRadius:BR.card, padding:'12px 16px', marginBottom:6,
+                            boxShadow: isExpanded ? `0 4px 16px ${accentColor}18` : SH.subtle,
+                            transition:'box-shadow 0.15s' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                            <span style={{ fontSize:22, flexShrink:0, letterSpacing:2 }}>
+                              {h.countries.includes('SG') ? '🇸🇬' : ''}
+                              {h.countries.includes('JP') ? '🇯🇵' : ''}
+                            </span>
+                            <div style={{ flex:1 }}>
+                              <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
+                                color:accentColor }}>{h.name}</p>
+                              <p style={{ margin:0, fontSize:12, color:C.muted }}>
+                                {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                                {' · Public Holiday'}
+                                {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
+                              </p>
+                            </div>
+                            {info && (
+                              <span style={{ fontSize:14, color:C.muted, flexShrink:0,
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition:'transform 0.2s' }}>⌄</span>
+                            )}
                           </div>
-                          {info && (
-                            <span style={{ fontSize:14, color:C.muted,
-                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition:'transform 0.2s', flexShrink:0 }}>⌄</span>
+                          {isExpanded && info && (
+                            <div style={{ marginTop:12, paddingTop:12,
+                              borderTop:`1px solid ${accentColor}20` }}>
+                              <p style={{ margin:0, fontSize:14, color:C.dim,
+                                lineHeight:1.7, fontStyle:'italic' }}>
+                                {info.text}
+                              </p>
+                            </div>
                           )}
                         </div>
-                        {/* Expandable writeup */}
-                        {isExpanded && info && (
-                          <div style={{ marginTop:12, paddingTop:12,
-                            borderTop:`1px solid ${HC[h.country]||'#EF3340'}20` }}>
-                            <p style={{ margin:0, fontSize:14, color:C.dim,
-                              lineHeight:1.7, fontStyle:'italic' }}>
-                              {info.text}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               );
             });
