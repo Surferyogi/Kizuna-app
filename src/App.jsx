@@ -339,8 +339,8 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION    = 'v2.3.0';
-const APP_BUILD_DATE = 'May 2, 2026';
+const APP_VERSION    = 'v2.2.0';
+const APP_BUILD_DATE = 'May 1, 2026';
 
 // Load own entries from Supabase — simple, reliable query
 async function dbLoadEntries(userId) {
@@ -463,20 +463,11 @@ async function dbLoadWorkspace(userId) {
 
   if (!workspaceId) return null;
 
-  // Step 3: get all members of this workspace
+  // Step 3: get all members of this workspace with display names
   const { data: members } = await supabase
     .from('workspace_members')
-    .select('user_id, role')
+    .select('user_id, role, profiles(display_name)')
     .eq('workspace_id', workspaceId);
-
-  // Step 4: get display names separately — avoids FK join requirement
-  const memberIds = (members || []).map(m => m.user_id);
-  const { data: profiles } = memberIds.length > 0
-    ? await supabase.from('profiles').select('id, display_name').in('id', memberIds)
-    : { data: [] };
-
-  const profileMap = {};
-  (profiles || []).forEach(p => { profileMap[p.id] = p.display_name; });
 
   return {
     id:      workspaceId,
@@ -485,7 +476,7 @@ async function dbLoadWorkspace(userId) {
     role:    resolvedRole,
     members: (members || []).map(m => ({
       id:   m.user_id,
-      name: profileMap[m.user_id] || 'Unknown',
+      name: m.profiles?.display_name || 'Unknown',
       role: m.role,
     })),
   };
@@ -550,17 +541,14 @@ const SR = ({ label, sub, right, noBorder }) => (
 );
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
-function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, isAdmin=false }) {
+function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false }) {
   const isReadOnly = readOnly || e._virtual === true;
   const col  = TC[e.type];
   const dcol = DTC[e.type] || col;
   const [open,       setOpen]       = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
 
   const isOwn = !e.userId || e.userId === currentUserId;
-  // Admin can edit/delete any entry — own or others'
-  const canEdit = isOwn || isAdmin;
 
   // F12: flights are past when departure time has passed
   // Use arrival time if available for more accurate "landed" detection
@@ -670,18 +658,16 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
       borderBottom:`1px solid ${C.border}`,
       opacity: isFlightLanded ? 0.7 : 1 }}>
 
-      {/* Colour stripe */}
+      {/* V6: thicker stripe — 7px, full opacity */}
       <div style={{ width:5, minHeight:32, borderRadius:3,
         background: isFlightLanded ? C.T : col,
         flexShrink:0, marginTop:2 }} />
 
       <div style={{ flex:1, minWidth:0 }}>
-        {/* Title row — tappable to toggle detail view */}
-        <div onClick={() => { if (!open) setShowDetail(p=>!p); }}
-          style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6,
-            cursor:'pointer' }}>
-          {(e.type === 'task' || e.type === 'reminder' || (isPastDue && isOwn)) && (
-            <button onClick={ev => { ev.stopPropagation(); isOwn && onToggle && onToggle(e.id); }}
+        {/* Title row */}
+        <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6 }}>
+          {(e.type === 'task' || (isPastDue && isOwn)) && (
+            <button onClick={() => isOwn && onToggle && onToggle(e.id)}
               style={{ width:26, height:26, borderRadius:7,
                 border:`2px solid ${e.done ? C.T : isPastDue ? WARN : C.border}`,
                 background: e.done ? C.T+'22' : isPastDue ? '#C46A1408' : 'transparent',
@@ -732,7 +718,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
               const tomorrow = fd(new Date(Date.now()+86400000));
               const label = e.date === today    ? 'Today'
                           : e.date === tomorrow ? 'Tomorrow'
-                          : `${DAY[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]} ${dt.getFullYear()}`;
+                          : `${DAY[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]}`;
               return (
                 <span style={{ fontSize:13, fontWeight:700, color:C.rose,
                   background:C.rose+'12', borderRadius:BR.pill,
@@ -764,32 +750,12 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
                 👤 {e.userName || 'Team member'}
               </span>
             )}
-            {/* Done button — task and reminder only */}
-            {(e.type === 'task' || e.type === 'reminder') && isOwn && !isReadOnly && (
-              <button onClick={ev => { ev.stopPropagation(); ev.preventDefault(); onToggle && onToggle(e.id); }}
-                style={{ fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0,
-                  padding:'5px 12px', borderRadius:BR.pill, fontFamily:'inherit',
-                  border:`1.5px solid ${e.done ? C.T : C.border}`,
-                  background: e.done ? C.T : C.elevated,
-                  color: e.done ? '#fff' : C.dim,
-                  boxShadow: e.done ? `0 2px 8px ${C.T}40` : 'none',
-                  transition:'all 0.15s' }}>
-                {e.done ? '✓ Done' : '○ Mark Done'}
-              </button>
-            )}
-            {canEdit && !isReadOnly && (
+            {isOwn && !isReadOnly && (
               <button onClick={openMenu}
                 style={{ marginLeft:'auto', fontSize:15, color:C.muted,
                   background:'transparent', border:`1px solid ${C.border}`,
                   borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
                   letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>···</button>
-            )}
-            {!canEdit && !isReadOnly && (
-              <button onClick={ev => { ev.stopPropagation(); setShowDetail(p=>!p); }}
-                style={{ marginLeft:'auto', fontSize:12, color:C.muted,
-                  background:'transparent', border:`1px solid ${C.border}`,
-                  borderRadius:BR.input, padding:'5px 10px', cursor:'pointer',
-                  flexShrink:0 }}>{showDetail ? '▲' : '▼'}</button>
             )}
             {isReadOnly && (
               <span style={{ marginLeft:'auto', fontSize:11, color:C.muted,
@@ -800,88 +766,17 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
           </div>
         ) : !confirmDel ? (
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
+            <button onClick={handleEdit}  style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
             <button onClick={handleDelReq} style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
-            <button onClick={closeMenu}    style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
+            <button onClick={closeMenu}   style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
           </div>
         ) : (
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>Remove this entry?</span>
-            <button onClick={closeMenu}    style={pill(C.elevated,C.dim,C.border)}>Cancel</button>
-            <button onClick={handleDelOk}  style={pill('#A04E08','#fff','#A04E08')}>Remove</button>
+            <button onClick={closeMenu}   style={pill(C.elevated,C.dim,C.border)}>Cancel</button>
+            <button onClick={handleDelOk} style={pill('#A04E08','#fff','#A04E08')}>Remove</button>
           </div>
         )}
-
-        {/* Detail panel — shown when card is tapped */}
-        {showDetail && !open && (() => {
-          const rows = [
-            e.date     && ['Date',     (() => { const dt=new Date(e.date+'T00:00:00'); return `${DAY[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]} ${dt.getFullYear()}`; })()],
-            e.time     && ['Time',     `${pt(e.time)}${e.endTime?' – '+pt(e.endTime):''}`],
-            e.location && ['Location', e.location],
-            e.attendees&& ['Attendees',e.attendees],
-            e.flightNum&& ['Flight',   `${e.airline||''} ${e.flightNum}`],
-            e.depCity  && ['Route',    `${e.depCity} → ${e.arrCity||'?'}`],
-            e.seat     && ['Seat',     e.seat],
-            e.terminal && ['Terminal', e.terminal],
-            e.gate     && ['Gate',     e.gate],
-            e.tags     && ['Tags',     e.tags],
-            e.repeat && e.repeat!=='none' && ['Repeats', e.repeat.charAt(0).toUpperCase()+e.repeat.slice(1)],
-            e.message  && ['Message',  e.message],
-            e.notes    && ['Notes',    e.notes],
-          ].filter(Boolean);
-
-          return (
-            <div style={{ marginTop:10, padding:'10px 12px',
-              background:C.elevated, borderRadius:BR.input,
-              border:`1px solid ${C.border}` }}>
-              {/* Detail panel header with close button */}
-              <div style={{ display:'flex', alignItems:'center',
-                justifyContent:'space-between', marginBottom:8 }}>
-                <span style={{ fontSize:11, fontWeight:700, color:C.muted,
-                  textTransform:'uppercase', letterSpacing:'0.1em' }}>
-                  {TL[e.type] || e.type} Details
-                </span>
-                <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); }}
-                  style={{ background:'transparent', border:`1px solid ${C.border}`,
-                    borderRadius:BR.btn, width:26, height:26, cursor:'pointer',
-                    color:C.muted, fontSize:14, fontWeight:700, lineHeight:1,
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    flexShrink:0, padding:0 }}>✕</button>
-              </div>
-              {rows.map(([label, val]) => (
-                <div key={label} style={{ display:'flex', gap:8,
-                  padding:'5px 0', borderBottom:`1px solid ${C.border}` }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:C.muted,
-                    textTransform:'uppercase', letterSpacing:'0.07em',
-                    flexShrink:0, minWidth:72 }}>{label}</span>
-                  <span style={{ fontSize:13, color:C.text, lineHeight:1.5,
-                    wordBreak:'break-word' }}>{val}</span>
-                </div>
-              ))}
-              {canEdit && !isReadOnly && (
-                <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
-                  {/* Done button inside detail panel — task and reminder only */}
-                  {(e.type === 'task' || e.type === 'reminder') && isOwn && (
-                    <button onClick={ev => { ev.stopPropagation(); onToggle && onToggle(e.id); }}
-                      style={{ fontSize:13, fontWeight:700, cursor:'pointer',
-                        padding:'8px 16px', borderRadius:BR.pill, fontFamily:'inherit',
-                        border:`1.5px solid ${e.done ? C.T : C.border}`,
-                        background: e.done ? C.T : C.elevated,
-                        color: e.done ? '#fff' : C.dim,
-                        boxShadow: e.done ? `0 2px 8px ${C.T}40` : 'none',
-                        transition:'all 0.15s' }}>
-                      {e.done ? '✓ Done' : '○ Mark Done'}
-                    </button>
-                  )}
-                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); onEdit && onEdit(e); }}
-                    style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
-                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); setConfirmDel(true); setOpen(true); }}
-                    style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
-                </div>
-              )}
-            </div>
-          );
-        })()}
       </div>
     </div>
   );
@@ -1002,7 +897,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, isAdmin=false }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus }) {
   // Single live date source — everything derives from this one value.
   // useState ensures React re-renders atomically when date changes.
   const [now, setNow] = useState(() => new Date());
@@ -1238,7 +1133,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           <Sec label="Pending Tasks" count={openTasks} />
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
           </div>
         </>)}
 
@@ -1264,7 +1159,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           ) : (
             <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
           )}
         </>)}
@@ -1333,7 +1228,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
             </div>
             <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
           </div>
         );
@@ -1376,7 +1271,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
             boxShadow:SH.subtle }}>
             <p style={{ fontSize:12, color:C.muted, margin:'8px 0 2px',
               textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>All day</p>
-            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
           </div>
         )}
         {/* Hourly slots */}
@@ -1514,52 +1409,22 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
   const cells       = [...Array(offset).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
   const selDayEs    = entries.filter(e=>e.date===selDate)
                              .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
-  const [showFlights, setShowFlights] = useState(false);
-  const flightRefs  = useRef({});
-
-  // All flights in current month — sorted by date then time
-  const monthFlights = useMemo(() =>
-    entries.filter(e => e.type==='flight' &&
-      e.date?.startsWith(`${vm.y}-${p2(vm.m+1)}`))
-      .sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||'')),
-    [entries, vm.y, vm.m]);
-
-  // Flight lookup by date for grid overlay
-  const flightsByDate = useMemo(() => {
-    const map = {};
-    monthFlights.forEach(e => {
-      if (!map[e.date]) map[e.date] = [];
-      map[e.date].push(e);
-    });
-    return map;
-  }, [monthFlights]);
-
-  const today = fd(new Date());
-
-  const handleFlightDateClick = (ds) => {
-    setSelDate(ds);
-    // Scroll to first flight card for that date
-    setTimeout(() => {
-      const ref = flightRefs.current[ds];
-      if (ref) ref.scrollIntoView({ behavior:'smooth', block:'center' });
-    }, 80);
-  };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      {/* Nav row */}
       <div style={{ display:'flex', alignItems:'center', padding:'8px 18px',
         borderBottom:`1px solid ${C.border}`, flexShrink:0, background:C.card }}>
         <button onClick={() => {
             const nvm = vm.m===0?{y:vm.y-1,m:11}:{y:vm.y,m:vm.m-1};
-            setVm(nvm); setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
+            setVm(nvm);
+            setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
           }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>‹</button>
@@ -1567,7 +1432,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
           color:C.text, fontFamily:'Cormorant Garamond,serif' }}>
           {MFULL[vm.m]} {vm.y}
         </span>
-        {/* Today pill */}
+        {/* Today pill — between title and › arrow */}
         {goToday && (
           <button onClick={goToday}
             style={{ padding:'5px 12px', borderRadius:BR.pill,
@@ -1575,297 +1440,86 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
               background: isToday ? C.rose : 'transparent',
               color: isToday ? '#fff' : C.rose,
               fontSize:12, fontWeight:700, cursor:'pointer',
-              marginRight:6, flexShrink:0, transition:'all 0.15s' }}>
+              marginRight:8, flexShrink:0,
+              transition:'all 0.15s' }}>
             Today
           </button>
         )}
-        {/* ✈ Flights toggle */}
-        <button onClick={() => setShowFlights(p => !p)}
-          style={{ padding:'5px 11px', borderRadius:BR.pill,
-            border:`1.5px solid ${showFlights ? C.F : C.border}`,
-            background: showFlights
-              ? `linear-gradient(135deg,${C.F},${C.M})`
-              : 'transparent',
-            color: showFlights ? '#fff' : C.dim,
-            fontSize:12, fontWeight:700, cursor:'pointer',
-            marginRight:8, flexShrink:0,
-            boxShadow: showFlights ? `0 2px 10px ${C.F}50` : 'none',
-            transition:'all 0.2s', display:'flex', alignItems:'center', gap:4 }}>
-          <span style={{ fontSize:13 }}>✈</span>
-          <span>{monthFlights.length > 0 ? `${monthFlights.length}` : ''}</span>
-        </button>
         <button onClick={() => {
             const nvm = vm.m===11?{y:vm.y+1,m:0}:{y:vm.y,m:vm.m+1};
-            setVm(nvm); setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
+            setVm(nvm);
+            setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
           }}
           style={{ background:C.elevated, border:`1px solid ${C.border}`, color:C.text,
             borderRadius:BR.btn, padding:'7px 14px', cursor:'pointer', fontSize:20 }}>›</button>
       </div>
-
       {/* Weekday labels */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)',
         padding:'6px 6px 0', flexShrink:0, background:C.card }}>
         {['M','T','W','T','F','S','S'].map((d,i) => (
-          <div key={i} style={{ textAlign:'center', fontSize:14, color:C.muted,
-            fontWeight:600, padding:'3px 0' }}>{d}</div>
+          <div key={i} style={{ textAlign:'center', fontSize:14, color:C.muted, fontWeight:600, padding:'3px 0' }}>{d}</div>
         ))}
       </div>
-
       {/* Day grid */}
       <div style={{ padding:'0 6px', flexShrink:0, background:C.card }}>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2 }}>
           {cells.map((day,i) => {
-            if (!day) return <div key={`e${i}`} style={{ height: showFlights ? 56 : 42 }} />;
-            const ds      = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
-            const isT     = ds===fd(new Date()), isSel = ds===selDate;
-            const isPast  = new Date(ds+'T00:00:00') < new Date() && !isT;
-            const dots    = showFlights
-              ? [] // hide dots in flight mode — route labels replace them
-              : [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
-            const dayFlights  = flightsByDate[ds] || [];
-            const hasFlight   = dayFlights.length > 0;
-            const dayHolidays = HOLIDAYS_BY_DATE[ds] || [];
-            const hasHoliday  = dayHolidays.length > 0;
-
+            if (!day) return <div key={`e${i}`} style={{ height:42 }} />;
+            const ds     = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
+            const isT    = ds===fd(new Date()), isSel = ds===selDate;
+            const isPast = new Date(ds+'T00:00:00') < new Date() && !isT;
+            const dots   = [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
             return (
-              <button key={ds}
-                onClick={() => hasFlight && showFlights
-                  ? handleFlightDateClick(ds)
-                  : setSelDate(ds)}
-                style={{ background:'transparent', border:'none', cursor:'pointer',
+              <button key={ds} onClick={() => setSelDate(ds)}
+                style={{ background:'transparent', border:'none',
+                  cursor:'pointer',
                   padding:'3px 1px', textAlign:'center',
-                  opacity: isPast ? (showFlights && hasFlight ? 0.5 : 0.4) : 1 }}>
-                {/* Day number circle */}
+                  opacity: isPast ? 0.4 : 1 }}>
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
-                  background: isSel ? (showFlights && hasFlight ? C.F : C.rose)
-                    : isT ? (showFlights && hasFlight ? C.F+'20' : C.rose+'20')
-                    : hasHoliday && !showFlights ? HC_LIGHT[dayHolidays[0].country]||'#FEE8EA' : 'transparent',
-                  border: isSel ? 'none'
-                    : hasHoliday && !showFlights
-                      ? `1.5px solid ${HC[dayHolidays[0].country]||'#EF3340'}40`
-                      : isT ? `1.5px solid ${showFlights && hasFlight ? '#5BB8E880' : '#B8715C60'}`
-                      : '1.5px solid transparent',
-                  boxShadow: isSel ? `0 2px 12px ${showFlights&&hasFlight?C.F:C.rose}35` : 'none',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  position:'relative' }}>
-                  <span style={{ fontSize:15, fontWeight:isSel?700:400,
-                    color: isSel ? '#fff'
-                      : isT ? (showFlights&&hasFlight?C.F:C.rose)
-                      : showFlights&&hasFlight ? C.F
-                      : hasHoliday ? HC[dayHolidays[0].country]||'#EF3340'
-                      : C.text }}>{day}</span>
-                  {/* Flight indicator dot */}
-                  {showFlights && hasFlight && !isSel && (
-                    <div style={{ position:'absolute', top:2, right:2,
-                      width:6, height:6, borderRadius:3,
-                      background: isPast ? C.F+'80' : C.F,
-                      boxShadow:`0 0 4px ${C.F}60` }} />
-                  )}
-                  {/* Holiday indicator dot */}
-                  {hasHoliday && !showFlights && !isSel && (
-                    <div style={{ position:'absolute', bottom:2, right:2,
-                      width:5, height:5, borderRadius:3,
-                      background: HC[dayHolidays[0].country]||'#EF3340' }} />
-                  )}
+                  background: isSel?C.rose : isT?C.rose+'20':'transparent',
+                  border: isT&&!isSel?`1.5px solid ${C.rose}60`:'1.5px solid transparent',
+                  boxShadow: isSel?`0 2px 12px ${C.rose}35`:'none',
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <span style={{ fontSize:16, fontWeight:isSel?700:400,
+                    color: isSel?'#fff' : isT?C.rose:C.text }}>{day}</span>
                 </div>
-                {/* Flight mode: show DEP→ARR route text */}
-                {showFlights && hasFlight ? (
-                  <div style={{ marginTop:3, lineHeight:1.2 }}>
-                    {dayFlights.slice(0,2).map((f,fi) => (
-                      <div key={fi} style={{ fontSize:9, fontWeight:700,
-                        color: isPast ? C.F+'70' : C.F,
-                        letterSpacing:'0.04em',
-                        whiteSpace:'nowrap', margin:'0 auto' }}>
-                        {(f.depCity||'???').slice(0,3).toUpperCase()}-{(f.arrCity||'???').slice(0,3).toUpperCase()}
-                      </div>
-                    ))}
-                    {dayFlights.length > 2 && (
-                      <div style={{ fontSize:8, color:C.muted }}>+{dayFlights.length-2}</div>
-                    )}
-                  </div>
-                ) : (
-                  /* Normal dots */
-                  <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:7 }}>
-                    {dots.map((col,j) => (
-                      <div key={j} style={{ width:7, height:7, borderRadius:4, background:col+'90' }} />
-                    ))}
-                  </div>
-                )}
+                <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:7 }}>
+                  {dots.map((col,j) => (
+                    <div key={j} style={{ width:7, height:7, borderRadius:4, background:col+'90' }} />
+                  ))}
+                </div>
               </button>
             );
           })}
         </div>
       </div>
-
-      {/* Bottom section — flight mode shows all month flights; normal shows selected day */}
+      {/* Selected day entries */}
       <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px',
         borderTop:`1px solid ${C.border}`, marginTop:8, boxSizing:'border-box' }}>
-
-        {showFlights ? (<>
-          {/* Flight mode header */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'10px 0 8px' }}>
-            <p style={{ margin:0, fontSize:12, color:C.F, fontWeight:700,
-              textTransform:'uppercase', letterSpacing:'0.12em' }}>
-              ✈ {monthFlights.length} Flight{monthFlights.length!==1?'s':''} · {MFULL[vm.m]}
-            </p>
-            <button onClick={() => setShowFlights(false)}
-              style={{ fontSize:12, color:C.muted, background:'transparent',
-                border:`1px solid ${C.border}`, borderRadius:BR.pill,
-                padding:'3px 10px', cursor:'pointer' }}>Done</button>
-          </div>
-
-          {monthFlights.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'32px 18px',
+        <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
+          textTransform:'uppercase', letterSpacing:'0.12em', fontWeight:700 }}>
+          {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
+        </p>
+        {selDayEs.length===0
+          ? <div style={{ textAlign:'center', padding:'24px 18px',
               background:C.card, borderRadius:BR.card,
               border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-              <div style={{ fontSize:40, marginBottom:10, opacity:0.3 }}>✈</div>
-              <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
-                No flights in {MFULL[vm.m]}
+              <p style={{ margin:'0 0 10px', fontSize:16, fontWeight:600, color:C.dim, fontStyle:'italic' }}>
+                Nothing on this day
               </p>
+              <button onClick={() => onAdd(selDate)}
+                style={{ background:C.rose, border:'none', color:'#fff',
+                  borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
+                  cursor:'pointer', fontFamily:'inherit',
+                  boxShadow:`0 4px 14px ${C.rose}40` }}>
+                + Schedule something
+              </button>
             </div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-              {monthFlights.map(e => {
-                const isPastFlight = e.date < today;
-                return (
-                  <div key={e.id}
-                    ref={el => { flightRefs.current[e.date] = el; }}
-                    style={{ opacity: isPastFlight ? 0.55 : 1,
-                      transition:'opacity 0.15s' }}>
-                    {/* Date chip above each card */}
-                    <div style={{ display:'flex', alignItems:'center', gap:8,
-                      padding:'8px 0 4px' }}>
-                      <div style={{ height:1, flex:1, background:C.border }} />
-                      <span style={{ fontSize:11, fontWeight:700, color: isPastFlight ? C.muted : C.F,
-                        textTransform:'uppercase', letterSpacing:'0.1em', flexShrink:0 }}>
-                        {e.date === today ? 'Today' :
-                          new Date(e.date+'T00:00:00').toLocaleDateString('en-US',
-                            { weekday:'short', day:'numeric', month:'short' })}
-                        {isPastFlight && ' · Past'}
-                      </span>
-                      <div style={{ height:1, flex:1, background:C.border }} />
-                    </div>
-                    {/* Holiday banners for this flight's departure date */}
-                    {(HOLIDAYS_BY_DATE[e.date]||[]).map((h,hi) => (
-                      <div key={hi} style={{ display:'flex', alignItems:'center', gap:10,
-                        background: HC_LIGHT[h.country]||'#FEE8EA',
-                        border:`1px solid ${HC[h.country]||'#EF3340'}20`,
-                        borderLeft:`3px solid ${HC[h.country]||'#EF3340'}`,
-                        borderRadius:BR.input, padding:'6px 12px', marginBottom:5,
-                        opacity: isPastFlight ? 0.7 : 1 }}>
-                        <span style={{ fontSize:16, flexShrink:0 }}>
-                          {h.country==='SG'?'🇸🇬':'🇯🇵'}
-                        </span>
-                        <div>
-                          <span style={{ fontSize:12, fontWeight:700,
-                            color:HC[h.country]||'#EF3340' }}>{h.name}</span>
-                          <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                            {h.country==='SG'?'Singapore':'Japan'} Public Holiday
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    {/* Flight ECard */}
-                    <div style={{ background:C.card, borderRadius:BR.card,
-                      border:`1px solid ${isPastFlight ? C.border : '#5BB8E840'}`,
-                      boxShadow: isPastFlight ? SH.subtle : `0 2px 12px ${C.F}18`,
-                      overflow:'hidden', marginBottom:4 }}>
-                      {/* Route hero strip */}
-                      <div style={{ background: isPastFlight
-                          ? C.elevated
-                          : `linear-gradient(135deg,${C.F}18,${C.M}12)`,
-                        padding:'10px 16px', display:'flex', alignItems:'center',
-                        gap:10, borderBottom:`1px solid ${C.border}` }}>
-                        <div style={{ textAlign:'center', minWidth:48 }}>
-                          <div style={{ fontSize:18, fontWeight:700,
-                            fontFamily:'Cormorant Garamond,serif',
-                            color: isPastFlight ? C.muted : C.M }}>
-                            {e.depCity || '?'}
-                          </div>
-                          <div style={{ fontSize:10, color:C.muted, fontWeight:600,
-                            letterSpacing:'0.06em' }}>FROM</div>
-                        </div>
-                        <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
-                          <div style={{ flex:1, height:1, background: isPastFlight ? C.border : C.F+'60' }} />
-                          <span style={{ fontSize:14, color: isPastFlight ? C.muted : C.F }}>✈</span>
-                          <div style={{ flex:1, height:1, background: isPastFlight ? C.border : C.F+'60' }} />
-                        </div>
-                        <div style={{ textAlign:'center', minWidth:48 }}>
-                          <div style={{ fontSize:18, fontWeight:700,
-                            fontFamily:'Cormorant Garamond,serif',
-                            color: isPastFlight ? C.muted : C.M }}>
-                            {e.arrCity || '?'}
-                          </div>
-                          <div style={{ fontSize:10, color:C.muted, fontWeight:600,
-                            letterSpacing:'0.06em' }}>TO</div>
-                        </div>
-                        {e.time && (
-                          <div style={{ marginLeft:'auto', textAlign:'right', flexShrink:0 }}>
-                            <div style={{ fontSize:14, fontWeight:700,
-                              color: isPastFlight ? C.muted : C.text }}>{pt(e.time)}</div>
-                            {e.airline && <div style={{ fontSize:11, color:C.muted }}>{e.airline}</div>}
-                          </div>
-                        )}
-                      </div>
-                      {/* ECard below route strip */}
-                      <ECard e={e} onToggle={onToggle} onEdit={onEdit}
-                        onDelete={onDelete} currentUserId={currentUserId}
-                        isAdmin={isAdmin}
-                        readOnly={!isAdmin && isPastFlight} />
-                    </div>
-                  </div>
-                );
-              })}
+          : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
+              boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+              {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} readOnly={new Date(selDate+'T23:59:59') < new Date()} />)}
             </div>
-          )}
-        </>) : (<>
-          {/* Normal day view */}
-          <p style={{ fontSize:12, color:C.dim, margin:'10px 0 8px',
-            textTransform:'uppercase', letterSpacing:'0.12em', fontWeight:700 }}>
-            {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',
-              {weekday:'long',month:'long',day:'numeric'})}
-          </p>
-          {/* Holiday banner for selected day */}
-          {(HOLIDAYS_BY_DATE[selDate]||[]).map((h,i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
-              background: HC_LIGHT[h.country]||'#FEE8EA',
-              border:`1px solid ${HC[h.country]||'#EF3340'}30`,
-              borderLeft:`3px solid ${HC[h.country]||'#EF3340'}`,
-              borderRadius:BR.input, padding:'7px 12px', marginBottom:6 }}>
-              <span style={{ fontSize:14 }}>{h.country==='SG'?'🇸🇬':'🇯🇵'}</span>
-              <div>
-                <span style={{ fontSize:13, fontWeight:700,
-                  color: HC[h.country]||'#EF3340' }}>{h.name}</span>
-                <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                  Public Holiday · {h.country==='SG'?'Singapore':'Japan'}
-                </span>
-              </div>
-            </div>
-          ))}
-          {selDayEs.length===0
-            ? <div style={{ textAlign:'center', padding:'24px 18px',
-                background:C.card, borderRadius:BR.card,
-                border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-                <p style={{ margin:'0 0 10px', fontSize:16, fontWeight:600,
-                  color:C.dim, fontStyle:'italic' }}>Nothing on this day</p>
-                <button onClick={() => onAdd(selDate)}
-                  style={{ background:C.rose, border:'none', color:'#fff',
-                    borderRadius:BR.btn, padding:'10px 24px', fontSize:15, fontWeight:700,
-                    cursor:'pointer', fontFamily:'inherit',
-                    boxShadow:`0 4px 14px ${C.rose}40` }}>
-                  + Schedule something
-                </button>
-              </div>
-            : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
-                boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-                {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle}
-                  onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId}
-                  isAdmin={isAdmin}
-                  readOnly={!isAdmin && new Date(selDate+'T23:59:59') < new Date()} />)}
-              </div>
-          }
-        </>)}
+        }
       </div>
     </div>
   );
@@ -1873,7 +1527,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false }) {
+function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
   const now = new Date();
   const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -1892,1389 +1546,140 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
         <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
           vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
           onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
-          currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin} />
+          currentUserId={currentUserId} onAdd={onAdd} />
       </div>
     </div>
   );
 }
-
-// ─── DAILY QUOTE SYSTEM ──────────────────────────────────────────
-// Fetches one quote per calendar day from Claude API.
-// Cached in localStorage — no repeat calls on same day.
-// Special day detection: birthdays > anniversary > festive > standard themes.
-// Privacy: birth years & anniversary year stay local — only prompt text leaves device.
-
-const QUOTE_CACHE_KEY  = 'kizuna_daily_quote_v1';
-
-// Three time slots per day — quote refreshes at each slot boundary
-function getQuoteSlot(now = new Date()) {
-  const h = now.getHours();
-  if (h < 12) return 'morning';
-  if (h < 17) return 'afternoon';
-  return 'evening';
-}
-
-function getSlotKey(now = new Date()) {
-  return `${now.toISOString().slice(0,10)}-${getQuoteSlot(now)}`;
-}
-const ANNA_BIRTH_MONTH = 4;  // April
-const ANNA_BIRTH_DAY   = 16;
-const ANNA_BIRTH_YEAR  = 2025;
-const SOPHIA_BIRTH_MONTH = 6;  // June
-const SOPHIA_BIRTH_DAY   = 16;
-const KOKSUM_BIRTH_MONTH = 8;  // August
-const KOKSUM_BIRTH_DAY   = 27;
-const ANNIV_MONTH = 7;  // July
-const ANNIV_DAY   = 24;
-const ANNIV_YEAR  = 2022;
-
-// Anna's developmental milestone by age
-function annaMilestone(age) {
-  if (age < 1)  return 'Newborn wonder — eye contact, first smiles, recognising voices';
-  if (age < 2)  return 'First steps, first words, discovering the world';
-  if (age < 3)  return 'Explosion of language, curiosity, and imaginative play';
-  if (age < 5)  return 'Storytelling, friendships, and growing independence';
-  if (age < 10) return 'Learning to read, school life, and navigating big emotions';
-  return 'Building identity, confidence, and deeper bonds with family';
-}
-
-// Fixed-date festive days
-const FIXED_FESTIVE = [
-  { month:12, day:24, name:'Christmas Eve' },
-  { month:12, day:25, name:'Christmas Day' },
-  { month:1,  day:1,  name:'New Year\'s Day' },
-  { month:2,  day:3,  name:'Setsubun' },
-  { month:3,  day:3,  name:'Hinamatsuri' },
-  { month:7,  day:7,  name:'Tanabata' },
-  { month:11, day:15, name:'Shichi-Go-San' },
-];
-
-// Hardcoded variable festive dates 2025–2035 (no external API needed)
-const VARIABLE_FESTIVE = {
-  cny: [
-    '2025-01-29','2026-02-17','2027-02-06','2028-01-26','2029-02-13',
-    '2030-02-03','2031-01-23','2032-02-11','2033-01-31','2034-02-19','2035-02-08',
-  ],
-  midAutumn: [
-    '2025-10-06','2026-09-25','2027-10-15','2028-10-03','2029-09-22',
-    '2030-10-11','2031-10-01','2032-09-19','2033-10-08','2034-09-27','2035-09-17',
-  ],
-  // Golden Week Apr 29 – May 5 (fixed window, no lookup needed)
-  // Obon Aug 13–15 (fixed, no lookup needed)
-};
-
-// 4 standard themes — rotate by day-of-year
-const STANDARD_THEMES = [
-  { key:'couple',  label:'Husband & Wife',
-    prompt:'the deep, quiet bond between a husband and wife — the small moments that hold a marriage together' },
-  { key:'family',  label:'Family',
-    prompt:'the warmth of a family — a husband, wife, and daughter growing together through everyday life' },
-  { key:'mindset', label:'Mindset',
-    prompt:'the power of mindset and the language we use to shape our inner world' },
-  { key:'calm',    label:'Inner Calm',
-    prompt:'inner calm, deep rest, and the stillness that heals from within' },
-];
-
-function detectSpecialDay(now = new Date()) {
-  const m = now.getMonth() + 1;
-  const d = now.getDate();
-  const yr = now.getFullYear();
-  const ds = `${yr}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-
-  // ── Birthdays ────────────────────────────────────────────────
-  const isAnnaBirthday    = m === ANNA_BIRTH_MONTH    && d === ANNA_BIRTH_DAY;
-  const isSophiaBirthday  = m === SOPHIA_BIRTH_MONTH  && d === SOPHIA_BIRTH_DAY;
-  const isKoksumBirthday  = m === KOKSUM_BIRTH_MONTH  && d === KOKSUM_BIRTH_DAY;
-
-  // ── Anniversary ──────────────────────────────────────────────
-  const isAnniversary     = m === ANNIV_MONTH && d === ANNIV_DAY;
-  const anniversaryYears  = yr - ANNIV_YEAR;
-
-  // ── Fixed festive ────────────────────────────────────────────
-  const fixedFestive = FIXED_FESTIVE.find(f => f.month === m && f.day === d) || null;
-
-  // ── Variable festive ─────────────────────────────────────────
-  const isCNY        = VARIABLE_FESTIVE.cny.includes(ds);
-  const isMidAutumn  = VARIABLE_FESTIVE.midAutumn.includes(ds);
-  const isGoldenWeek = (m === 4 && d >= 29) || (m === 5 && d <= 5);
-  const isObon       = m === 8 && d >= 13 && d <= 15;
-
-  let festiveName = null;
-  if (isCNY)        festiveName = 'Chinese New Year';
-  else if (isMidAutumn) festiveName = 'Mid-Autumn Festival';
-  else if (isGoldenWeek) festiveName = 'Golden Week';
-  else if (isObon)  festiveName = 'Obon';
-  else if (fixedFestive) festiveName = fixedFestive.name;
-
-  return {
-    isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
-    isAnniversary, anniversaryYears,
-    festiveName,
-    annaAge: yr - ANNA_BIRTH_YEAR - (
-      new Date(yr, ANNA_BIRTH_MONTH-1, ANNA_BIRTH_DAY) > now ? 1 : 0
-    ),
-  };
-}
-
-function buildQuoteLabel(day) {
-  const { isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
-          isAnniversary, festiveName } = day;
-
-  const parts = [];
-  if (isAnnaBirthday)   parts.push("Anna's Birthday");
-  else if (isSophiaBirthday) parts.push("Sophia's Birthday");
-  else if (isKoksumBirthday) parts.push("Koksum's Birthday");
-  if (isAnniversary)    parts.push('Wedding Anniversary');
-  if (festiveName)      parts.push(festiveName);
-
-  const suffix = parts.length > 0 ? ' · Today\'s Quote' : ' · Today\'s Reflection';
-  return (parts.length > 0 ? parts.join(' & ') : null) + suffix;
-}
-
-function buildQuotePrompt(day, themeIndex) {
-  const { isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
-          isAnniversary, anniversaryYears, festiveName, annaAge } = day;
-  const milestone = annaMilestone(annaAge);
-  const theme = STANDARD_THEMES[themeIndex % 4];
-
-  // Combined scenarios (priority: birthday > anniversary > festive)
-  const hasBirthday = isAnnaBirthday || isSophiaBirthday || isKoksumBirthday;
-  const bdName = isAnnaBirthday ? 'Anna' : isSophiaBirthday ? 'Sophia' : 'Koksum';
-
-  if (hasBirthday && isAnniversary && festiveName) {
-    const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
-    return `Write a quote where today is ${festiveName}, ${bdName}'s ${annaAge > 0 && isAnnaBirthday ? annaAge+'th ' : ''}birthday, and the couple's ${anniversaryYears}th wedding anniversary.${bdExtra} Lead with the birthday, honour the anniversary, and let the festive occasion set a joyful atmosphere.`;
-  }
-  if (hasBirthday && festiveName) {
-    const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
-    const age = isAnnaBirthday ? `${annaAge}th ` : '';
-    return `Write a quote for a family celebrating ${festiveName} and also their ${bdName === 'Anna' ? 'daughter' : bdName === 'Sophia' ? 'wife' : 'husband'} ${bdName}'s ${age}birthday on the same day.${bdExtra} Lead with the birthday as the heart of the message, and let the festive occasion enrich the backdrop.`;
-  }
-  if (hasBirthday && isAnniversary) {
-    const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
-    const age = isAnnaBirthday ? `${annaAge}th ` : '';
-    return `Write a quote for a family where today is both ${bdName}'s ${age}birthday and the couple's ${anniversaryYears}th wedding anniversary.${bdExtra} Lead with the birthday, and weave in the anniversary as a beautiful shared milestone.`;
-  }
-  if (isAnniversary && festiveName) {
-    return `Write a quote for a couple celebrating their ${anniversaryYears}th wedding anniversary on ${festiveName}. Let the festive spirit enrich the anniversary message — intimate, warm, and celebratory.`;
-  }
-
-  // Single special days
-  if (isAnnaBirthday) {
-    return `Write a birthday quote for a daughter named Anna who is turning ${annaAge} today. She is at the developmental stage of: ${milestone}. The quote should speak to her parents — warm, tender, and full of wonder at watching her grow.`;
-  }
-  if (isSophiaBirthday) {
-    return `Write a warm birthday quote celebrating a wife named Sophia. The tone should feel like a loving tribute from her family — joyful, heartfelt, and personal.`;
-  }
-  if (isKoksumBirthday) {
-    return `Write a warm birthday quote celebrating a husband and father named Koksum. The tone should feel like a loving tribute from his wife and daughter — proud, warm, and celebratory.`;
-  }
-  if (isAnniversary) {
-    return `Write an anniversary quote for a couple celebrating ${anniversaryYears} years of marriage today, July 24. The tone should feel intimate and reflective — honouring the depth of a relationship built over ${anniversaryYears} years.`;
-  }
-  if (festiveName) {
-    return `Write a warm family quote for ${festiveName}. The tone should be joyful, grounding, and focused on the meaning of the day for a close-knit family.`;
-  }
-
-  // Standard theme
-  return `Write a quote on the theme: "${theme.prompt}".`;
-}
-
-async function fetchDailyQuote(supabaseClient) {
-  const slotKey = getSlotKey(); // e.g. '2026-05-03-morning'
-
-  // Serve cache if same slot
-  try {
-    const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
-    if (cached?.slot === slotKey && cached?.quote) return cached;
-  } catch { /* ignore */ }
-
-  // Build prompt
-  const now = new Date();
-  const day = detectSpecialDay(now);
-  const themeIndex = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000) % 4;
-  const prompt   = buildQuotePrompt(day, themeIndex);
-  const label    = buildQuoteLabel(day) ||
-    (STANDARD_THEMES[themeIndex % 4].label + ' · Today\'s Reflection');
-  const isSpecial = day.isAnnaBirthday || day.isSophiaBirthday || day.isKoksumBirthday ||
-                    day.isAnniversary  || !!day.festiveName;
-
-  try {
-    // Call via Supabase Edge Function — API key stays server-side in Vault
-    const { data, error } = await supabaseClient.functions.invoke('kizuna-quote', {
-      body: { prompt, label, isSpecial },
-    });
-
-    if (error || !data?.quote) {
-      console.error('kizuna-quote error:', error?.message || 'no quote in response');
-      return null;
-    }
-
-    const result = { slot: slotKey, quote: data.quote, label, isSpecial };
-    localStorage.setItem(QUOTE_CACHE_KEY, JSON.stringify(result));
-    return result;
-  } catch (err) {
-    console.error('fetchDailyQuote failed:', err);
-    return null;
-  }
-}
-
-// ─── FULL-SCREEN SAKURA PETAL CSS ───────────────────────────────
-const SPLASH_PETAL_CSS = `
-@keyframes splashPetal1 {
-  0%   { transform: translate(0, -20px) rotate(0deg);    opacity:0; }
-  8%   { opacity:0.8; }
-  100% { transform: translate(35px, 110vh) rotate(480deg); opacity:0; }
-}
-@keyframes splashPetal2 {
-  0%   { transform: translate(0, -10px) rotate(25deg);   opacity:0; }
-  12%  { opacity:0.6; }
-  100% { transform: translate(-45px, 110vh) rotate(-540deg); opacity:0; }
-}
-@keyframes splashPetal3 {
-  0%   { transform: translate(0, -15px) rotate(-15deg);  opacity:0; }
-  10%  { opacity:0.7; }
-  100% { transform: translate(20px, 110vh) rotate(600deg); opacity:0; }
-}
-@keyframes splashPetal4 {
-  0%   { transform: translate(0, -5px)  rotate(40deg);   opacity:0; }
-  15%  { opacity:0.5; }
-  100% { transform: translate(-30px, 110vh) rotate(-420deg); opacity:0; }
-}
-@keyframes splashPetal5 {
-  0%   { transform: translate(0, -25px) rotate(-30deg);  opacity:0; }
-  9%   { opacity:0.65; }
-  100% { transform: translate(50px, 110vh) rotate(560deg); opacity:0; }
-}
-@keyframes splashPetal6 {
-  0%   { transform: translate(0, -8px)  rotate(15deg);   opacity:0; }
-  11%  { opacity:0.55; }
-  100% { transform: translate(-25px, 110vh) rotate(-380deg); opacity:0; }
-}
-@keyframes quoteCardIn {
-  0%   { opacity:0; transform:translateY(32px); }
-  100% { opacity:1; transform:translateY(0); }
-}
-@keyframes shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-@keyframes quoteSwipeDown {
-  0%   { transform:translateY(0); opacity:1; }
-  100% { transform:translateY(110vh); opacity:0; }
-}
-`;
-
-const SPLASH_PETALS = [
-  { left:'8%',  anim:'splashPetal1', dur:'5.2s', delay:'0.0s', size:9,  color:'#EAA898' },
-  { left:'20%', anim:'splashPetal3', dur:'6.8s', delay:'0.6s', size:7,  color:'#F0C0B4' },
-  { left:'35%', anim:'splashPetal2', dur:'5.8s', delay:'1.2s', size:10, color:'#EAB8A8' },
-  { left:'52%', anim:'splashPetal5', dur:'7.1s', delay:'0.3s', size:8,  color:'#E8A090' },
-  { left:'66%', anim:'splashPetal4', dur:'6.2s', delay:'1.8s', size:6,  color:'#F5CCBC' },
-  { left:'78%', anim:'splashPetal1', dur:'5.5s', delay:'0.9s', size:9,  color:'#EAA898' },
-  { left:'90%', anim:'splashPetal6', dur:'6.5s', delay:'2.1s', size:7,  color:'#F0C0B4' },
-  { left:'14%', anim:'splashPetal2', dur:'7.4s', delay:'3.0s', size:8,  color:'#EAB8A8' },
-  { left:'44%', anim:'splashPetal3', dur:'5.9s', delay:'1.5s', size:6,  color:'#E8A090' },
-  { left:'62%', anim:'splashPetal5', dur:'6.7s', delay:'2.7s', size:10, color:'#F5CCBC' },
-  { left:'28%', anim:'splashPetal6', dur:'8.0s', delay:'0.4s', size:7,  color:'#EAA898' },
-  { left:'85%', anim:'splashPetal4', dur:'5.6s', delay:'3.5s', size:8,  color:'#F0C0B4' },
-];
-
-function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
-  const [swiping,     setSwiping]     = useState(false);
-  const [touchStartY, setTouchStartY] = useState(null);
-
-  const dismiss = () => {
-    setSwiping(true);
-    setTimeout(onDismiss, 350);
-  };
-
-  const handleTouchStart = e => setTouchStartY(e.touches[0].clientY);
-  const handleTouchEnd   = e => {
-    if (touchStartY !== null &&
-        (e.changedTouches[0].clientY - touchStartY) > 60) dismiss();
-    setTouchStartY(null);
-  };
-
-  const isSpecial = quoteData?.isSpecial;
-
-  return (
-    <div
-      onClick={dismiss}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      style={{
-        position:'fixed', inset:0, zIndex:200,
-        background:`linear-gradient(160deg, ${C.bg} 0%, #F2EDE5 50%, #EDE4D8 100%)`,
-        display:'flex', flexDirection:'column',
-        alignItems:'center', justifyContent:'center',
-        padding:'32px 24px',
-        cursor:'pointer',
-        animation: swiping ? 'quoteSwipeDown 0.35s ease-in forwards' : 'none',
-      }}>
-      <style>{SPLASH_PETAL_CSS}</style>
-
-      {/* Falling sakura petals — full screen */}
-      {SPLASH_PETALS.map((p, i) => (
-        <div key={i} style={{
-          position:'absolute', top:0, left:p.left,
-          width:p.size, height:p.size,
-          borderRadius:'50% 50% 50% 0', background:p.color, opacity:0,
-          animationName:p.anim, animationDuration:p.dur,
-          animationDelay:p.delay, animationTimingFunction:'ease-in',
-          animationIterationCount:'infinite', animationFillMode:'both',
-          pointerEvents:'none',
-        }} />
-      ))}
-
-      {/* Kizuna logo */}
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
-        marginBottom:36, position:'relative', zIndex:1 }}>
-        <div style={{ transform:'scale(1.6)', marginBottom:14 }}>
-          <KizunaIcon />
-        </div>
-        <h1 style={{ margin:0, fontSize:34, fontWeight:700,
-          fontFamily:'Cormorant Garamond,serif',
-          color:C.text, letterSpacing:'0.02em', lineHeight:1 }}>
-          Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
-        </h1>
-        <p style={{ margin:'6px 0 0', fontSize:13, color:C.muted,
-          fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
-          letterSpacing:'0.04em' }}>
-          Today's Reflection
-        </p>
-      </div>
-
-      {/* Quote card — matches ECard style */}
-      <div onClick={e => e.stopPropagation()} style={{
-        width:'100%', maxWidth:380, position:'relative', zIndex:1,
-        background:C.card,
-        border:`1px solid ${C.border}`,
-        borderRadius:BR.card,
-        padding:'28px 26px 24px',
-        boxShadow:SH.float,
-        animation:'quoteCardIn 0.6s ease-out 0.2s both',
-      }}>
-        {/* Type label */}
-        {quoteData?.label && (
-          <p style={{ margin:'0 0 14px', fontSize:11, fontWeight:700,
-            textTransform:'uppercase', letterSpacing:'0.12em',
-            color: isSpecial ? C.rose : C.muted }}>
-            {quoteData.label}
-          </p>
-        )}
-
-        {/* Colour stripe — matches entry cards */}
-        <div style={{ width:4, height:36, borderRadius:2, background:C.rose,
-          position:'absolute', left:0, top:28, borderTopRightRadius:2,
-          borderBottomRightRadius:2 }} />
-
-        {/* Quote text or shimmer */}
-        {loading ? (
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {[100, 85, 70].map((w, i) => (
-              <div key={i} style={{
-                height:13, width:`${w}%`, borderRadius:7,
-                background:`linear-gradient(90deg, ${C.elevated} 25%, ${C.border} 50%, ${C.elevated} 75%)`,
-                backgroundSize:'400px 100%',
-                animation:'shimmer 1.4s infinite linear',
-                animationDelay:`${i*0.15}s`,
-              }} />
-            ))}
-          </div>
-        ) : (
-          <p style={{
-            margin:0, fontSize:19, lineHeight:1.8,
-            fontFamily:'Cormorant Garamond,serif',
-            fontStyle:'italic', fontWeight:400,
-            color:C.text, letterSpacing:'0.01em',
-          }}>
-            "{quoteData?.quote}"
-          </p>
-        )}
-
-        {/* Dismiss button */}
-        {!loading && (
-          <button
-            onClick={e => { e.stopPropagation(); dismiss(); }}
-            style={{
-              marginTop:22, width:'100%',
-              background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
-              border:`1.5px solid ${C.rose}`,
-              borderRadius:BR.btn, padding:'12px',
-              fontSize:14, fontWeight:700,
-              color:'#fff', cursor:'pointer',
-              fontFamily:'inherit', transition:'all 0.3s',
-              boxShadow:`0 4px 14px ${C.rose}40`,
-            }}>
-            Enter Kizuna 🌸
-          </button>
-        )}
-      </div>
-
-      {/* Tap hint */}
-      {!loading && (
-        <p style={{ marginTop:16, fontSize:12, color:C.muted,
-          position:'relative', zIndex:1, fontStyle:'italic' }}>
-          tap anywhere or swipe down to continue
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─── PUBLIC HOLIDAYS ─────────────────────────────────────────────
-// Singapore (SG) and Japan (JP) national bank holidays 2026–2035.
-// Hardcoded from official sources — no external API needed.
-const PUBLIC_HOLIDAYS = [
-  // 2026
-  {date:'2026-01-01',name:"New Year's Day",country:'SG'},{date:'2026-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2026-01-12',name:'Coming of Age Day',country:'JP'},{date:'2026-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2026-02-17',name:'Chinese New Year',country:'SG'},{date:'2026-02-18',name:'Chinese New Year',country:'SG'},
-  {date:'2026-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2026-03-20',name:'Spring Equinox',country:'JP'},
-  {date:'2026-03-30',name:'Hari Raya Puasa',country:'SG'},{date:'2026-04-03',name:'Good Friday',country:'SG'},
-  {date:'2026-04-29',name:'Showa Day',country:'JP'},{date:'2026-05-01',name:'Labour Day',country:'SG'},
-  {date:'2026-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2026-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2026-05-05',name:"Children's Day",country:'JP'},{date:'2026-05-12',name:'Vesak Day',country:'SG'},
-  {date:'2026-06-06',name:'Hari Raya Haji',country:'SG'},{date:'2026-07-20',name:'Marine Day',country:'JP'},
-  {date:'2026-08-09',name:'National Day',country:'SG'},{date:'2026-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2026-09-21',name:'Respect for the Aged Day',country:'JP'},{date:'2026-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2026-10-12',name:'Sports Day',country:'JP'},{date:'2026-10-20',name:'Deepavali',country:'SG'},
-  {date:'2026-11-03',name:'Culture Day',country:'JP'},{date:'2026-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2026-12-25',name:'Christmas Day',country:'SG'},
-  // 2027
-  {date:'2027-01-01',name:"New Year's Day",country:'SG'},{date:'2027-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2027-01-11',name:'Coming of Age Day',country:'JP'},{date:'2027-02-06',name:'Chinese New Year',country:'SG'},
-  {date:'2027-02-07',name:'Chinese New Year',country:'SG'},{date:'2027-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2027-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2027-03-20',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2027-03-21',name:'Spring Equinox',country:'JP'},{date:'2027-03-26',name:'Good Friday',country:'SG'},
-  {date:'2027-04-29',name:'Showa Day',country:'JP'},{date:'2027-05-01',name:'Labour Day',country:'SG'},
-  {date:'2027-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2027-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2027-05-05',name:"Children's Day",country:'JP'},{date:'2027-05-27',name:'Hari Raya Haji',country:'SG'},
-  {date:'2027-05-31',name:'Vesak Day',country:'SG'},{date:'2027-07-19',name:'Marine Day',country:'JP'},
-  {date:'2027-08-09',name:'National Day',country:'SG'},{date:'2027-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2027-09-20',name:'Respect for the Aged Day',country:'JP'},{date:'2027-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2027-10-11',name:'Sports Day',country:'JP'},{date:'2027-11-03',name:'Culture Day',country:'JP'},
-  {date:'2027-11-08',name:'Deepavali',country:'SG'},{date:'2027-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2027-12-25',name:'Christmas Day',country:'SG'},
-  // 2028
-  {date:'2028-01-01',name:"New Year's Day",country:'SG'},{date:'2028-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2028-01-10',name:'Coming of Age Day',country:'JP'},{date:'2028-01-24',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2028-01-26',name:'Chinese New Year',country:'SG'},{date:'2028-01-27',name:'Chinese New Year',country:'SG'},
-  {date:'2028-02-11',name:'National Foundation Day',country:'JP'},{date:'2028-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2028-03-09',name:'Hari Raya Puasa',country:'SG'},{date:'2028-03-20',name:'Spring Equinox',country:'JP'},
-  {date:'2028-04-14',name:'Good Friday',country:'SG'},{date:'2028-04-29',name:'Showa Day',country:'JP'},
-  {date:'2028-05-01',name:'Labour Day',country:'SG'},{date:'2028-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2028-05-04',name:'Greenery Day',country:'JP'},{date:'2028-05-05',name:"Children's Day",country:'JP'},
-  {date:'2028-05-16',name:'Hari Raya Haji',country:'SG'},{date:'2028-05-20',name:'Vesak Day',country:'SG'},
-  {date:'2028-07-17',name:'Marine Day',country:'JP'},{date:'2028-08-09',name:'National Day',country:'SG'},
-  {date:'2028-08-11',name:'Mountain Day',country:'JP'},{date:'2028-09-18',name:'Respect for the Aged Day',country:'JP'},
-  {date:'2028-09-22',name:'Autumnal Equinox',country:'JP'},{date:'2028-10-09',name:'Sports Day',country:'JP'},
-  {date:'2028-10-26',name:'Deepavali',country:'SG'},{date:'2028-11-03',name:'Culture Day',country:'JP'},
-  {date:'2028-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2028-12-25',name:'Christmas Day',country:'SG'},
-  // 2029
-  {date:'2029-01-01',name:"New Year's Day",country:'SG'},{date:'2029-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2029-01-08',name:'Coming of Age Day',country:'JP'},{date:'2029-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2029-02-13',name:'Chinese New Year',country:'SG'},{date:'2029-02-14',name:'Chinese New Year',country:'SG'},
-  {date:'2029-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2029-02-26',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2029-03-20',name:'Spring Equinox',country:'JP'},{date:'2029-03-30',name:'Good Friday',country:'SG'},
-  {date:'2029-04-29',name:'Showa Day',country:'JP'},{date:'2029-05-01',name:'Labour Day',country:'SG'},
-  {date:'2029-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2029-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2029-05-05',name:'Hari Raya Haji',country:'SG'},{date:'2029-05-05',name:"Children's Day",country:'JP'},
-  {date:'2029-05-08',name:'Vesak Day',country:'SG'},{date:'2029-07-16',name:'Marine Day',country:'JP'},
-  {date:'2029-08-09',name:'National Day',country:'SG'},{date:'2029-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2029-09-17',name:'Respect for the Aged Day',country:'JP'},{date:'2029-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2029-10-08',name:'Sports Day',country:'JP'},{date:'2029-11-03',name:'Culture Day',country:'JP'},
-  {date:'2029-11-14',name:'Deepavali',country:'SG'},{date:'2029-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2029-12-25',name:'Christmas Day',country:'SG'},
-  // 2030
-  {date:'2030-01-01',name:"New Year's Day",country:'SG'},{date:'2030-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2030-01-14',name:'Coming of Age Day',country:'JP'},{date:'2030-02-03',name:'Chinese New Year',country:'SG'},
-  {date:'2030-02-04',name:'Chinese New Year',country:'SG'},{date:'2030-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2030-02-15',name:'Hari Raya Puasa',country:'SG'},{date:'2030-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2030-03-20',name:'Spring Equinox',country:'JP'},{date:'2030-04-19',name:'Good Friday',country:'SG'},
-  {date:'2030-04-24',name:'Hari Raya Haji',country:'SG'},{date:'2030-04-29',name:'Showa Day',country:'JP'},
-  {date:'2030-05-01',name:'Labour Day',country:'SG'},{date:'2030-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2030-05-04',name:'Greenery Day',country:'JP'},{date:'2030-05-05',name:"Children's Day",country:'JP'},
-  {date:'2030-05-15',name:'Marine Day',country:'JP'},{date:'2030-05-26',name:'Vesak Day',country:'SG'},
-  {date:'2030-08-09',name:'National Day',country:'SG'},{date:'2030-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2030-09-16',name:'Respect for the Aged Day',country:'JP'},{date:'2030-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2030-10-14',name:'Sports Day',country:'JP'},{date:'2030-11-03',name:'Culture Day',country:'JP'},
-  {date:'2030-11-03',name:'Deepavali',country:'SG'},{date:'2030-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2030-12-25',name:'Christmas Day',country:'SG'},
-  // 2031
-  {date:'2031-01-01',name:"New Year's Day",country:'SG'},{date:'2031-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2031-01-13',name:'Coming of Age Day',country:'JP'},{date:'2031-01-23',name:'Chinese New Year',country:'SG'},
-  {date:'2031-01-24',name:'Chinese New Year',country:'SG'},{date:'2031-02-04',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2031-02-11',name:'National Foundation Day',country:'JP'},{date:'2031-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2031-03-21',name:'Spring Equinox',country:'JP'},{date:'2031-04-11',name:'Good Friday',country:'SG'},
-  {date:'2031-04-13',name:'Hari Raya Haji',country:'SG'},{date:'2031-04-29',name:'Showa Day',country:'JP'},
-  {date:'2031-05-01',name:'Labour Day',country:'SG'},{date:'2031-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2031-05-04',name:'Greenery Day',country:'JP'},{date:'2031-05-05',name:"Children's Day",country:'JP'},
-  {date:'2031-05-15',name:'Vesak Day',country:'SG'},{date:'2031-07-21',name:'Marine Day',country:'JP'},
-  {date:'2031-08-09',name:'National Day',country:'SG'},{date:'2031-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2031-09-15',name:'Respect for the Aged Day',country:'JP'},{date:'2031-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2031-10-13',name:'Sports Day',country:'JP'},{date:'2031-10-23',name:'Deepavali',country:'SG'},
-  {date:'2031-11-03',name:'Culture Day',country:'JP'},{date:'2031-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2031-12-25',name:'Christmas Day',country:'SG'},
-  // 2032
-  {date:'2032-01-01',name:"New Year's Day",country:'SG'},{date:'2032-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2032-01-12',name:'Coming of Age Day',country:'JP'},{date:'2032-01-24',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2032-02-11',name:'Chinese New Year',country:'SG'},{date:'2032-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2032-02-12',name:'Chinese New Year',country:'SG'},{date:'2032-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2032-03-20',name:'Spring Equinox',country:'JP'},{date:'2032-03-26',name:'Good Friday',country:'SG'},
-  {date:'2032-04-01',name:'Hari Raya Haji',country:'SG'},{date:'2032-04-29',name:'Showa Day',country:'JP'},
-  {date:'2032-05-01',name:'Labour Day',country:'SG'},{date:'2032-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2032-05-03',name:'Vesak Day',country:'SG'},{date:'2032-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2032-05-05',name:"Children's Day",country:'JP'},{date:'2032-07-19',name:'Marine Day',country:'JP'},
-  {date:'2032-08-09',name:'National Day',country:'SG'},{date:'2032-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2032-09-20',name:'Respect for the Aged Day',country:'JP'},{date:'2032-09-22',name:'Autumnal Equinox',country:'JP'},
-  {date:'2032-10-11',name:'Sports Day',country:'JP'},{date:'2032-11-03',name:'Culture Day',country:'JP'},
-  {date:'2032-11-10',name:'Deepavali',country:'SG'},{date:'2032-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2032-12-25',name:'Christmas Day',country:'SG'},
-  // 2033
-  {date:'2033-01-01',name:"New Year's Day",country:'SG'},{date:'2033-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2033-01-10',name:'Coming of Age Day',country:'JP'},{date:'2033-01-12',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2033-01-31',name:'Chinese New Year',country:'SG'},{date:'2033-02-01',name:'Chinese New Year',country:'SG'},
-  {date:'2033-02-11',name:'National Foundation Day',country:'JP'},{date:'2033-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2033-03-20',name:'Spring Equinox',country:'JP'},{date:'2033-03-21',name:'Hari Raya Haji',country:'SG'},
-  {date:'2033-04-15',name:'Good Friday',country:'SG'},{date:'2033-04-29',name:'Showa Day',country:'JP'},
-  {date:'2033-05-01',name:'Labour Day',country:'SG'},{date:'2033-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2033-05-04',name:'Greenery Day',country:'JP'},{date:'2033-05-05',name:"Children's Day",country:'JP'},
-  {date:'2033-05-22',name:'Vesak Day',country:'SG'},{date:'2033-07-18',name:'Marine Day',country:'JP'},
-  {date:'2033-08-09',name:'National Day',country:'SG'},{date:'2033-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2033-09-19',name:'Respect for the Aged Day',country:'JP'},{date:'2033-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2033-10-10',name:'Sports Day',country:'JP'},{date:'2033-10-30',name:'Deepavali',country:'SG'},
-  {date:'2033-11-03',name:'Culture Day',country:'JP'},{date:'2033-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2033-12-25',name:'Christmas Day',country:'SG'},
-  // 2034
-  {date:'2034-01-01',name:"New Year's Day",country:'SG'},{date:'2034-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2034-01-01',name:'Hari Raya Puasa',country:'SG'},{date:'2034-01-09',name:'Coming of Age Day',country:'JP'},
-  {date:'2034-02-11',name:'National Foundation Day',country:'JP'},{date:'2034-02-19',name:'Chinese New Year',country:'SG'},
-  {date:'2034-02-20',name:'Chinese New Year',country:'SG'},{date:'2034-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2034-03-10',name:'Hari Raya Haji',country:'SG'},{date:'2034-03-21',name:'Spring Equinox',country:'JP'},
-  {date:'2034-03-31',name:'Good Friday',country:'SG'},{date:'2034-04-29',name:'Showa Day',country:'JP'},
-  {date:'2034-05-01',name:'Labour Day',country:'SG'},{date:'2034-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2034-05-04',name:'Greenery Day',country:'JP'},{date:'2034-05-05',name:"Children's Day",country:'JP'},
-  {date:'2034-05-11',name:'Vesak Day',country:'SG'},{date:'2034-07-17',name:'Marine Day',country:'JP'},
-  {date:'2034-08-09',name:'National Day',country:'SG'},{date:'2034-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2034-09-18',name:'Respect for the Aged Day',country:'JP'},{date:'2034-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2034-10-09',name:'Sports Day',country:'JP'},{date:'2034-11-03',name:'Culture Day',country:'JP'},
-  {date:'2034-11-18',name:'Deepavali',country:'SG'},{date:'2034-11-23',name:'Labour Thanksgiving Day',country:'JP'},
-  {date:'2034-12-25',name:'Christmas Day',country:'SG'},
-  // 2035
-  {date:'2035-01-01',name:"New Year's Day",country:'SG'},{date:'2035-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2035-01-08',name:'Coming of Age Day',country:'JP'},{date:'2035-02-08',name:'Chinese New Year',country:'SG'},
-  {date:'2035-02-09',name:'Chinese New Year',country:'SG'},{date:'2035-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2035-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2035-02-28',name:'Hari Raya Haji',country:'SG'},
-  {date:'2035-03-20',name:'Spring Equinox',country:'JP'},{date:'2035-04-20',name:'Good Friday',country:'SG'},
-  {date:'2035-04-29',name:'Showa Day',country:'JP'},{date:'2035-05-01',name:'Labour Day',country:'SG'},
-  {date:'2035-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2035-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2035-05-05',name:"Children's Day",country:'JP'},{date:'2035-05-30',name:'Vesak Day',country:'SG'},
-  {date:'2035-07-16',name:'Marine Day',country:'JP'},{date:'2035-08-09',name:'National Day',country:'SG'},
-  {date:'2035-08-11',name:'Mountain Day',country:'JP'},{date:'2035-09-17',name:'Respect for the Aged Day',country:'JP'},
-  {date:'2035-09-23',name:'Autumnal Equinox',country:'JP'},{date:'2035-10-08',name:'Sports Day',country:'JP'},
-  {date:'2035-11-03',name:'Culture Day',country:'JP'},{date:'2035-11-07',name:'Deepavali',country:'SG'},
-  {date:'2035-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2035-12-21',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2035-12-25',name:'Christmas Day',country:'SG'},
-];
-
-// Fast lookup by date
-const HOLIDAYS_BY_DATE = PUBLIC_HOLIDAYS.reduce((acc, h) => {
-  if (!acc[h.date]) acc[h.date] = [];
-  acc[h.date].push(h);
-  return acc;
-}, {});
-
-// Country colours for holiday badges
-const HC = { SG:'#EF3340', JP:'#BC002D' }; // SG red, JP red (distinct shades)
-const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8' };
-
-// ─── HOLIDAY WRITEUPS ─────────────────────────────────────────────
-// Short, interesting history/origin for each SG and JP public holiday.
-const HOLIDAY_INFO = {
-  // ── Singapore ─────────────────────────────────────────────────
-  "New Year's Day": {
-    country:'SG',
-    text: "Singapore adopted January 1st as a public holiday when it joined the British Commonwealth. The midnight countdown at Marina Bay has grown into one of Asia's most spectacular fireworks displays, drawing over 100,000 revellers annually."
-  },
-  "Chinese New Year": {
-    country:'SG',
-    text: "Rooted in ancient Chinese legend, Chinese New Year wards off a mythical beast called Nian with red lanterns and loud firecrackers. Singapore uniquely celebrates two full days of public holiday — one of only a handful of countries to do so — reflecting its 74% Chinese population."
-  },
-  "Good Friday": {
-    country:'SG',
-    text: "Good Friday commemorates the crucifixion of Jesus Christ. Singapore retained it as a public holiday from its colonial era. Catholics carry out the traditional Stations of the Cross procession at Saint Joseph's Church in Victoria Street, drawing thousands."
-  },
-  "Labour Day": {
-    country:'SG',
-    text: "Celebrated globally since 1886 after the Chicago Haymarket affair, Singapore adopted May Day in 1961. The National Trades Union Congress rally at the Padang was a fixture for decades — today the day marks workers' rights with awards, speeches, and a national holiday."
-  },
-  "Hari Raya Puasa": {
-    country:'SG',
-    text: "Known as Eid al-Fitr globally, Hari Raya Puasa ('Festival of Breaking Fast') marks the end of Ramadan — 30 days of dawn-to-dusk fasting. Geylang Serai transforms into a nightly bazaar for weeks before, filled with traditional Malay kueh, batik, and lanterns."
-  },
-  "Hari Raya Haji": {
-    country:'SG',
-    text: "Eid al-Adha commemorates Ibrahim's willingness to sacrifice his son in obedience to God. Muslims who perform the Haj pilgrimage to Mecca time it to this day. In Singapore, prayers at mosques are followed by the korban — the ritual slaughter and distribution of meat to those in need."
-  },
-  "Vesak Day": {
-    country:'SG',
-    text: "Vesak honours the birth, enlightenment, and passing of the Buddha — all said to have occurred on the same day in different years. Singapore's Buddhist community releases caged birds and lanterns, and temples distribute free vegetarian food to thousands of visitors."
-  },
-  "National Day": {
-    country:'SG',
-    text: "On August 9, 1965, Singapore was unexpectedly separated from Malaysia, with founding Prime Minister Lee Kuan Yew famously weeping as he announced independence. The annual NDP parade — featuring Red Lions skydivers, fighter jet flypasts, and fireworks — remains Singapore's most watched event."
-  },
-  "Deepavali": {
-    country:'SG',
-    text: "The Festival of Lights celebrates the triumph of light over darkness, good over evil. Little India is transformed with hundreds of thousands of fairy lights weeks before the event. Hindus light oil lamps called diyas at home, exchange sweets, and wear new clothes to signal fresh beginnings."
-  },
-  "Christmas Day": {
-    country:'SG',
-    text: "Singapore's Christmas is famously a spectacle of commercialism and community. Orchard Road's Christmas light-up draws millions — Singapore was one of the first Asian cities to adopt the tradition in the 1980s. Despite Christians being only 18% of the population, Christmas is beloved by all faiths."
-  },
-  // ── Japan ──────────────────────────────────────────────────────
-  "New Year's Day": {
-    country:'JP',
-    text: "O-shōgatsu is Japan's most important holiday — families gather for three days, temples ring their bells 108 times at midnight (joya no kane), and 80 million Japanese mail New Year cards (nengajō) that arrive on January 1st by special postal arrangement."
-  },
-  "Coming of Age Day": {
-    country:'JP',
-    text: "Seijin no Hi celebrates those who turned 20 (now 18 after 2022 reform) in the past year. Young people dress in elaborate furisode kimono or hakama and attend municipal ceremonies. The holiday dates to 646 AD when a young prince put on new robes to mark adulthood."
-  },
-  "National Foundation Day": {
-    country:'JP',
-    text: "Kenkoku Kinen no Hi marks the legendary founding of Japan in 660 BC by Emperor Jimmu, who is said to have descended from the sun goddess Amaterasu. Abolished after WWII for militarist associations, it was quietly revived in 1966 without official mythology references."
-  },
-  "Emperor's Birthday": {
-    country:'JP',
-    text: "Tennō Tanjōbi is the only holiday that changes with each new emperor. Emperor Naruhito's birthday on February 23rd replaced the previous February 23rd after his 2019 accession. The public is invited to enter the Imperial Palace — one of only two days per year the grounds open."
-  },
-  "Spring Equinox": {
-    country:'JP',
-    text: "Shunbun no Hi, the vernal equinox, has deep Buddhist roots — the equinox is believed to be when the spiritual world (higan, 'other shore') is closest to the living world. Families visit and clean ancestral graves, and many temples hold special ceremonies."
-  },
-  "Showa Day": {
-    country:'JP',
-    text: "Shōwa no Hi honours Emperor Hirohito, who reigned during Japan's most turbulent century — WWI, WWII, the atomic bombings, and the postwar economic miracle. The day encourages reflection on Japan's 63-year Shōwa era. It was added to the calendar only in 2007."
-  },
-  "Constitution Memorial Day": {
-    country:'JP',
-    text: "Kenpō Kinenbi marks the date Japan's post-WWII constitution came into force on May 3, 1947. Drafted under US occupation, it contains Article 9 — Japan's famous war-renunciation clause — making it one of the world's most distinctive constitutional documents."
-  },
-  "Greenery Day": {
-    country:'JP',
-    text: "Midori no Hi originally honoured Emperor Hirohito's love of plants and nature. When Showa Day was created in 2007, Greenery Day moved to May 4th. Japan plants millions of trees annually in its honour — a nation that covers 68% forest, among the highest ratios in the world."
-  },
-  "Children's Day": {
-    country:'JP',
-    text: "Kodomo no Hi was originally Tango no Sekku — a samurai festival marking boys' maturity with warrior dolls and iris leaves (believed to ward off evil). In 1948 it was renamed Children's Day, honouring all children. Families fly koinobori carp streamers — one per child — outside their homes."
-  },
-  "Marine Day": {
-    country:'JP',
-    text: "Umi no Hi celebrates Japan's deep relationship with the sea. It was established in 1996 to thank the ocean that surrounds the island nation. The date commemorates Emperor Meiji's 1876 voyage from Hokkaido aboard a steam ship — the first time an emperor had travelled by sea."
-  },
-  "Mountain Day": {
-    country:'JP',
-    text: "Yama no Hi, Japan's newest national holiday (added 2016), promotes appreciation of mountains and their benefits. Japan is 73% mountainous — its 111 active volcanoes include Mount Fuji, climbed by 300,000 people annually. The date August 11 was chosen because '8' resembles mountains and '11' resembles trees."
-  },
-  "Respect for the Aged Day": {
-    country:'JP',
-    text: "Keirō no Hi was established in 1966 in the village of Noma-cho, which had declared September 15 'Aged People's Day' since 1947. Japan has the world's oldest population — over 10% are 80 or older. On this day, municipalities send gifts to centenarians, of which Japan has over 90,000."
-  },
-  "Autumnal Equinox": {
-    country:'JP',
-    text: "Shūbun no Hi mirrors the spring equinox — a Buddhist holiday for visiting graves and honouring ancestors. Japanese families share ohagi — sticky rice balls coated in sweet red bean paste — a traditional offering. The equinox week is called Higan, meaning both 'other shore' and a type of spider lily."
-  },
-  "Sports Day": {
-    country:'JP',
-    text: "Taiiku no Hi originally commemorated the opening of the 1964 Tokyo Olympics on October 10 — the date chosen as statistically Tokyo's sunniest autumn day. Renamed Sports Day in 2020 to coincide with the (postponed) Tokyo Olympics, it moved to the second Monday of October."
-  },
-  "Culture Day": {
-    country:'JP',
-    text: "Bunka no Hi marks the date Japan's 1946 post-war constitution was proclaimed. Chosen to symbolise peace and freedom, it's celebrated with the Order of Culture awards presented by the Emperor, parades of traditional performing arts, and free entry to many national museums."
-  },
-  "Labour Thanksgiving Day": {
-    country:'JP',
-    text: "Kinrō Kansha no Hi evolved from Niiname-sai — a 1,500-year-old Shinto harvest ritual where the Emperor offers newly harvested rice to the gods and tastes it himself. Renamed in 1948 to honour labour and production, it quietly bridges ancient agricultural Japan and the modern workforce."
-  },
-};
 
 // ─── SEARCH TAB ──────────────────────────────────────────────────
-// Filter metadata — each preset has:
-//   impliedType — locks Row 2 to this type when active (null = free)
-//   isStatus    — layers on top of typeF (doesn't override it)
-//   icon        — emoji shown in chip
 const QUICK_FILTERS = [
-  { k:'today',    l:'Today',              icon:'📅', impliedType:null,      isStatus:false,
-    f: e => e.date===fd(new Date()) },
-  { k:'week',     l:'This Week',          icon:'🗓', impliedType:null,      isStatus:false,
-    f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date(),w=ad(n,7); return d>=n&&d<=w; } },
-  { k:'month',    l:'This Month',         icon:'📆', impliedType:null,      isStatus:false,
-    f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date();
-      return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d>=n; } },
-  { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
-    f: e => e.type==='flight' && e.date>=fd(new Date()) },
-  { k:'reminders',l:'Upcoming Reminders', icon:'⏰', impliedType:'reminder',isStatus:false,
-    f: e => e.type==='reminder' && e.date>=fd(new Date()) && !e.done },
-  { k:'birthdays',l:'Upcoming Birthdays', icon:'🎂', impliedType:'birthday',isStatus:false,
-    f: e => e.type==='birthday' && e.date>=fd(new Date()) },
-  { k:'pending',  l:'Pending Tasks',      icon:'✓',  impliedType:'task',    isStatus:false,
-    f: e => e.type==='task' && !e.done },
+  { k:'today',   l:'Today',            f: e => e.date===fd(new Date()) },
+  { k:'week',    l:'This Week',        f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date(),w=ad(n,7); return d>=n&&d<=w; } },
+  { k:'flights', l:'Upcoming Flights', f: e => e.type==='flight' && e.date>=fd(new Date()) },
+  { k:'tasks',   l:'Pending Tasks',    f: e => e.type==='task' && !e.done },
 ];
 
-// Time-scope presets — mutually exclusive (only one at a time)
-const TIME_SCOPE_KEYS = new Set(['today','week','month']);
+function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId }) {
+  const [q,      setQ]      = useState('');
+  const [typeF,  setTypeF]  = useState('all');
+  const [quickF, setQuickF] = useState('week');
 
-// Type chip config — icon + label for visual chips
-const TYPE_CHIPS = [
-  { t:'all',      icon:'◉', label:'All' },
-  { t:'meeting',  icon:'◯', label:'Appt' },
-  { t:'task',     icon:'□', label:'Task' },
-  { t:'flight',   icon:'◇', label:'Flight' },
-  { t:'reminder', icon:'◷', label:'Reminder' },
-  { t:'event',    icon:'◈', label:'Event' },
-  { t:'birthday', icon:'🎂', label:'Birthday' },
-];
-
-function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin=false }) {
-  const [q,          setQ]         = useState('');
-  const [typeF,      setTypeF]     = useState('all');
-  const [quickF,     setQuickF]    = useState('week');
-  const [savedTypeF, setSavedTypeF]= useState('all');
-  const [showFilters,setShowFilters]= useState(true);
-  const [activeTab,    setActiveTab]      = useState('search');
-  const [holidayRange, setHolidayRange]   = useState('3m');
-  const [holidayCountry, setHolidayCountry] = useState('all');
-  const [expandedHoliday, setExpandedHoliday] = useState(null); // 'name|date' key
-
-  const HOLIDAY_RANGES = [
-    { k:'1w', l:'This Week',   days:7   },
-    { k:'1m', l:'This Month',  days:30  },
-    { k:'3m', l:'3 Months',    days:90  },
-    { k:'6m', l:'6 Months',    days:180 },
-    { k:'1y', l:'1 Year',      days:365 },
-    { k:'2y', l:'2 Years',     days:730 },
-  ];
-
-  // Upcoming holidays — filtered by range and country
-  const upcomingHolidays = useMemo(() => {
-    const today = fd(new Date());
-    const rangeDays = HOLIDAY_RANGES.find(r => r.k === holidayRange)?.days || 90;
-    const limit = fd(new Date(Date.now() + rangeDays*86400000));
-    return PUBLIC_HOLIDAYS
-      .filter(h => h.date >= today && h.date <= limit &&
-        (holidayCountry === 'all' || h.country === holidayCountry))
-      .sort((a,b) => a.date.localeCompare(b.date));
-  }, [holidayRange, holidayCountry]);
-
-  // ── Row 1 handler ─────────────────────────────────────────────
-  const handleQuickF = (key) => {
-    const qf = QUICK_FILTERS.find(x => x.k === key);
-    const isActive = quickF === key;
-
-    if (isActive) {
-      setQuickF(null);
-      if (qf.impliedType && !qf.isStatus) setTypeF(savedTypeF);
-      return;
-    }
-
-    // Lock type row if preset has impliedType and is not status-based
-    if (qf.impliedType && !qf.isStatus) {
-      const curQf = QUICK_FILTERS.find(x => x.k === quickF);
-      if (!curQf?.impliedType) setSavedTypeF(typeF);
-      setTypeF(qf.impliedType);
-    } else if (qf.isStatus && qf.impliedType) {
-      if (typeF === 'all') setTypeF(qf.impliedType);
-    }
-
-    // Time-scope presets are mutually exclusive — deactivate any other time-scope
-    setQuickF(key);
-  };
-
-  // ── Row 2 handler ─────────────────────────────────────────────
-  const handleTypeF = (type) => {
-    const activeQf = QUICK_FILTERS.find(x => x.k === quickF);
-    if (activeQf?.impliedType && !activeQf.isStatus) return; // locked
-    setTypeF(type);
-    setSavedTypeF(type);
-  };
-
-  const activeQf  = QUICK_FILTERS.find(x => x.k === quickF);
-  const typeLocked = !!(activeQf?.impliedType && !activeQf.isStatus);
-
-  const [sortAsc, setSortAsc] = useState(true); // default: earliest first
-
-  // ── Results ───────────────────────────────────────────────────
   const results = useMemo(() => {
     let r = entries;
-    if (quickF) {
-      const qf = QUICK_FILTERS.find(x => x.k === quickF);
-      if (qf) r = r.filter(qf.f);
-    }
-    if (typeF !== 'all') r = r.filter(e => e.type === typeF);
+    if (quickF) { const qf=QUICK_FILTERS.find(x=>x.k===quickF); if (qf) r=r.filter(qf.f); }
+    if (typeF !== 'all') r = r.filter(e => e.type===typeF);
     if (q.trim()) {
       const lq = q.toLowerCase();
       r = r.filter(e =>
-        [e.title,e.location,e.attendees,e.tags,e.notes,e.message,
-         e.airline,e.flightNum,e.depCity,e.arrCity]
+        [e.title,e.location,e.attendees,e.tags,e.notes,e.message,e.airline,e.flightNum,e.depCity,e.arrCity]
           .some(f => f && f.toLowerCase().includes(lq)));
     }
-    return r.sort((a,b) => {
-      // Primary: date, direction controlled by sortAsc
-      const dA = a.date || '0000';
-      const dB = b.date || '0000';
-      const dCmp = sortAsc ? dA.localeCompare(dB) : dB.localeCompare(dA);
-      if (dCmp !== 0) return dCmp;
-      // Secondary: time, same direction. No time → treat as '00:00'
-      const tA = a.time || '00:00';
-      const tB = b.time || '00:00';
-      return sortAsc ? tA.localeCompare(tB) : tB.localeCompare(tA);
-    });
-  }, [entries, q, typeF, quickF, sortAsc]);
-
-  const hasFilter = quickF || typeF !== 'all';
-  const clearAll  = () => { setQuickF(null); setTypeF('all'); setSavedTypeF('all'); setQ(''); };
+    return r.sort((a,b) => (b.date||'0000').localeCompare(a.date||'0000'));
+  }, [entries, q, typeF, quickF]);
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:C.bg }}>
-
-      {/* ── TAB BAR ───────────────────────────────────────────── */}
-      <div style={{ display:'flex', background:C.card, flexShrink:0,
-        borderBottom:`1px solid ${C.border}` }}>
-        {[
-          { k:'search',   l:'Search',            icon:'🔍' },
-          { k:'holidays', l:'Upcoming Holidays',  icon:'🏖' },
-        ].map(t => (
-          <button key={t.k} onClick={() => setActiveTab(t.k)}
-            style={{ flex:1, padding:'12px 8px', display:'flex', alignItems:'center',
-              justifyContent:'center', gap:6, background:'transparent', border:'none',
-              cursor:'pointer', fontFamily:'inherit',
-              borderBottom: activeTab===t.k ? `2px solid ${C.rose}` : '2px solid transparent',
-              color: activeTab===t.k ? C.rose : C.muted,
-              fontWeight: activeTab===t.k ? 700 : 400, fontSize:13,
-              transition:'all 0.15s' }}>
-            <span>{t.icon}</span><span>{t.l}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── HOLIDAYS TAB ──────────────────────────────────────── */}
-      {activeTab === 'holidays' && (
-        <div style={{ flex:1, overflowY:'auto', padding:'0 0 90px', display:'flex', flexDirection:'column' }}>
-          {/* Filter bar */}
-          <div style={{ background:C.card, borderBottom:`1px solid ${C.border}`,
-            padding:'10px 16px', flexShrink:0 }}>
-            {/* Range filters */}
-            <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>Time Range</p>
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
-              {HOLIDAY_RANGES.map(r => (
-                <button key={r.k} onClick={() => setHolidayRange(r.k)}
-                  style={{ flexShrink:0, padding:'5px 13px', borderRadius:BR.pill,
-                    background: holidayRange===r.k ? C.rose : C.elevated,
-                    border:`1.5px solid ${holidayRange===r.k ? C.rose : C.border}`,
-                    color: holidayRange===r.k ? '#fff' : C.dim,
-                    fontSize:13, fontWeight: holidayRange===r.k ? 700 : 400,
-                    cursor:'pointer', transition:'all 0.15s',
-                    boxShadow: holidayRange===r.k ? `0 2px 8px ${C.rose}35` : 'none' }}>
-                  {r.l}
-                </button>
-              ))}
-            </div>
-            {/* Country filters */}
-            <p style={{ margin:'10px 0 7px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>Country</p>
-            <div style={{ display:'flex', gap:6 }}>
-              {[
-                { k:'all', l:'All', icon:'🌏' },
-                { k:'SG',  l:'Singapore', icon:'🇸🇬' },
-                { k:'JP',  l:'Japan',     icon:'🇯🇵' },
-              ].map(c => (
-                <button key={c.k} onClick={() => setHolidayCountry(c.k)}
-                  style={{ flexShrink:0, display:'flex', alignItems:'center', gap:5,
-                    padding:'5px 13px', borderRadius:BR.pill,
-                    background: holidayCountry===c.k
-                      ? (c.k==='SG' ? HC.SG : c.k==='JP' ? HC.JP : C.rose)
-                      : C.elevated,
-                    border:`1.5px solid ${holidayCountry===c.k
-                      ? (c.k==='SG' ? HC.SG : c.k==='JP' ? HC.JP : C.rose)
-                      : C.border}`,
-                    color: holidayCountry===c.k ? '#fff' : C.dim,
-                    fontSize:13, fontWeight: holidayCountry===c.k ? 700 : 400,
-                    cursor:'pointer', transition:'all 0.15s' }}>
-                  <span>{c.icon}</span><span>{c.l}</span>
-                </button>
-              ))}
-            </div>
-            {/* Results summary */}
-            <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, fontStyle:'italic' }}>
-              {upcomingHolidays.length} holiday{upcomingHolidays.length!==1?'s':''} ·{' '}
-              {HOLIDAY_RANGES.find(r=>r.k===holidayRange)?.l} ·{' '}
-              {holidayCountry==='all' ? 'SG & JP' : holidayCountry==='SG' ? 'Singapore' : 'Japan'}
-            </p>
-          </div>
-
-          {/* Holiday list */}
-          <div style={{ flex:1, overflowY:'auto', padding:'12px 16px' }}>
-          {upcomingHolidays.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'40px 20px',
-              background:C.card, borderRadius:BR.card, border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:36, marginBottom:10, opacity:0.3 }}>🏖</div>
-              <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
-                No holidays in this period
-              </p>
-            </div>
-          ) : (() => {
-            const grouped = upcomingHolidays.reduce((acc, h) => {
-              if (!acc[h.date]) acc[h.date] = [];
-              acc[h.date].push(h);
-              return acc;
-            }, {});
-            return Object.entries(grouped).map(([date, hs]) => {
-              const dt = new Date(date+'T00:00:00');
-              const isToday = date === fd(new Date());
-              const daysAway = Math.ceil((dt - new Date().setHours(0,0,0,0)) / 86400000);
-              return (
-                <div key={date} style={{ marginBottom:10 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
-                    <div style={{ background: isToday ? C.rose : C.elevated,
-                      borderRadius:BR.btn, padding:'4px 10px',
-                      border:`1px solid ${isToday ? C.rose : C.border}` }}>
-                      <span style={{ fontSize:12, fontWeight:700,
-                        color: isToday ? '#fff' : C.text }}>
-                        {isToday ? 'Today' : dt.toLocaleDateString('en-US',
-                          { weekday:'short', day:'numeric', month:'short', year:'numeric' })}
-                      </span>
-                    </div>
-                    {!isToday && (
-                      <span style={{ fontSize:11, color:C.muted, fontStyle:'italic' }}>
-                        in {daysAway} day{daysAway!==1?'s':''}
-                      </span>
-                    )}
-                  </div>
-                  {hs.map((h,i) => {
-                    const infoKey = `${h.name}|${date}`;
-                    const isExpanded = expandedHoliday === infoKey;
-                    const info = HOLIDAY_INFO[h.name];
-                    return (
-                      <div key={i}
-                        onClick={() => setExpandedHoliday(isExpanded ? null : infoKey)}
-                        style={{ cursor:'pointer',
-                          background:C.card,
-                          border:`1px solid ${HC[h.country]||'#EF3340'}25`,
-                          borderLeft:`4px solid ${HC[h.country]||'#EF3340'}`,
-                          borderRadius:BR.card, padding:'12px 16px', marginBottom:6,
-                          boxShadow: isExpanded ? `0 4px 16px ${HC[h.country]||'#EF3340'}18` : SH.subtle,
-                          transition:'box-shadow 0.15s' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                          <span style={{ fontSize:26, flexShrink:0 }}>
-                            {h.country==='SG'?'🇸🇬':'🇯🇵'}
-                          </span>
-                          <div style={{ flex:1 }}>
-                            <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
-                              color: HC[h.country]||'#EF3340' }}>{h.name}</p>
-                            <p style={{ margin:0, fontSize:12, color:C.muted }}>
-                              {h.country==='SG' ? 'Singapore' : 'Japan'} · Public Holiday
-                              {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
-                            </p>
-                          </div>
-                          {info && (
-                            <span style={{ fontSize:14, color:C.muted,
-                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition:'transform 0.2s', flexShrink:0 }}>⌄</span>
-                          )}
-                        </div>
-                        {/* Expandable writeup */}
-                        {isExpanded && info && (
-                          <div style={{ marginTop:12, paddingTop:12,
-                            borderTop:`1px solid ${HC[h.country]||'#EF3340'}20` }}>
-                            <p style={{ margin:0, fontSize:14, color:C.dim,
-                              lineHeight:1.7, fontStyle:'italic' }}>
-                              {info.text}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            });
-          })()}
-          </div>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ padding:'12px 18px', borderBottom:`1px solid ${C.border}`,
+        flexShrink:0, background:C.card }}>
+        {/* Search input */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, background:C.elevated,
+          borderRadius:BR.panel, padding:'11px 16px', border:`1px solid ${C.border}`,
+          boxShadow:SH.subtle }}>
+          <span style={{ color:C.muted, fontSize:19 }}>🔍</span>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search all entries…"
+            style={{ flex:1, background:'transparent', border:'none', outline:'none',
+              color:C.text, fontSize:16, fontFamily:'inherit' }} />
+          {q && (
+            <button onClick={() => setQ('')}
+              style={{ background:'transparent', border:'none', color:C.muted,
+                cursor:'pointer', fontSize:18, padding:0 }}>✕</button>
+          )}
         </div>
-      )}
-
-      {/* ── SEARCH TAB ────────────────────────────────────────── */}
-      {activeTab === 'search' && (<>
-      <div style={{ background:C.card, flexShrink:0,
-        borderBottom:`1px solid ${C.border}`,
-        boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
-
-        {/* Search bar */}
-        <div style={{ padding:'14px 16px 10px' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10,
-            background:C.bg, borderRadius:BR.card,
-            padding:'12px 16px',
-            border:`1.5px solid ${q ? C.rose : C.border}`,
-            boxShadow: q ? `0 0 0 3px ${C.rose}18` : SH.subtle,
-            transition:'border-color 0.15s, box-shadow 0.15s' }}>
-            <span style={{ color: q ? C.rose : C.muted, fontSize:18,
-              transition:'color 0.15s', flexShrink:0 }}>🔍</span>
-            <input value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search entries, flights, tags…"
-              style={{ flex:1, background:'transparent', border:'none', outline:'none',
-                color:C.text, fontSize:16, fontFamily:'inherit' }} />
-            {q
-              ? <button onClick={() => setQ('')}
-                  style={{ background:C.rose+'18', border:'none', color:C.rose,
-                    cursor:'pointer', fontSize:14, fontWeight:700, padding:'3px 8px',
-                    borderRadius:BR.pill, flexShrink:0 }}>✕</button>
-              : null
-            }
-          </div>
-        </div>
-
-        {/* Filter toggle header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-          padding:'0 16px 8px' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontSize:12, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>Filters</span>
-            {hasFilter && (
-              <span style={{ fontSize:11, fontWeight:700, color:'#fff',
-                background:C.rose, borderRadius:BR.pill, padding:'1px 7px',
-                minWidth:18, textAlign:'center' }}>
-                {(quickF ? 1 : 0) + (typeF !== 'all' ? 1 : 0)}
-              </span>
-            )}
-          </div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            {hasFilter && (
-              <button onClick={clearAll}
-                style={{ fontSize:12, color:C.rose, fontWeight:700,
-                  background:C.rose+'12', border:`1px solid ${C.rose}30`,
-                  borderRadius:BR.pill, padding:'3px 10px', cursor:'pointer' }}>
-                Clear
-              </button>
-            )}
-            <button onClick={() => setShowFilters(p=>!p)}
-              style={{ fontSize:12, color:C.dim, background:C.elevated,
-                border:`1px solid ${C.border}`, borderRadius:BR.pill,
-                padding:'3px 10px', cursor:'pointer' }}>
-              {showFilters ? 'Hide ▲' : 'Show ▼'}
-            </button>
-          </div>
-        </div>
-
-        {showFilters && (<>
-          {/* ── ROW 1: Time / Preset Filters ────────────────── */}
-          <div style={{ padding:'0 16px 6px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              When
-            </p>
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
-              {QUICK_FILTERS.map(qf => {
-                const isActive = quickF === qf.k;
-                const isTimeScope = TIME_SCOPE_KEYS.has(qf.k);
-                // Blur other time-scope presets when one is active
-                const isDimmed = !isActive && isTimeScope && quickF && TIME_SCOPE_KEYS.has(quickF);
-                return (
-                  <button key={qf.k} onClick={() => handleQuickF(qf.k)}
-                    style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-                      background: isActive
-                        ? `linear-gradient(135deg,${C.rose},${C.roseL})`
-                        : C.elevated,
-                      border:`1.5px solid ${isActive ? C.rose : isDimmed ? '#E8E0D480' : C.border}`,
-                      color: isActive ? '#fff' : isDimmed ? C.muted : C.dim,
-                      borderRadius:BR.card, padding:'7px 13px',
-                      fontSize:13, fontWeight: isActive ? 700 : 500,
-                      cursor:'pointer', whiteSpace:'nowrap',
-                      opacity: isDimmed ? 0.45 : 1,
-                      boxShadow: isActive ? `0 3px 12px ${C.rose}40` : 'none',
-                      transition:'all 0.15s' }}>
-                    <span style={{ fontSize:14 }}>{qf.icon}</span>
-                    <span>{qf.l}</span>
-                    {qf.impliedType && !qf.isStatus && isActive && (
-                      <span style={{ fontSize:10, opacity:0.8 }}>🔒</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ── ROW 2: Type Filters ──────────────────────────── */}
-          <div style={{ padding:'6px 16px 12px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              Type {typeLocked && <span style={{ color:C.rose, fontStyle:'italic',
-                textTransform:'none', fontWeight:500, letterSpacing:0 }}> · locked by preset</span>}
-            </p>
-            <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:3 }}>
-              {TYPE_CHIPS.map(({ t, icon, label }) => {
-                const isActive = typeF === t;
-                const isLocked = typeLocked && !isActive;
-                const col = t === 'all' ? C.rose : (TC[t] || C.rose);
-                return (
-                  <button key={t} onClick={() => handleTypeF(t)}
-                    style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-                      background: isActive ? col : C.elevated,
-                      border:`1.5px solid ${isActive ? col : isLocked ? '#E8E0D460' : C.border}`,
-                      color: isActive ? '#fff' : isLocked ? C.border : C.dim,
-                      borderRadius:BR.card, padding:'7px 12px',
-                      fontSize:13, fontWeight: isActive ? 700 : 400,
-                      cursor: isLocked ? 'not-allowed' : 'pointer',
-                      whiteSpace:'nowrap',
-                      opacity: isLocked ? 0.3 : 1,
-                      boxShadow: isActive ? `0 3px 10px ${col}50` : 'none',
-                      transition:'all 0.15s' }}>
-                    <span style={{ fontSize:13 }}>{icon}</span>
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>)}
-
-        {/* Active filter summary strip */}
-        {hasFilter && (
-          <div style={{ display:'flex', alignItems:'center', gap:6,
-            padding:'6px 16px 10px', flexWrap:'wrap',
-            borderTop:`1px solid ${C.border}`,
-            background:C.rose+'06' }}>
-            <span style={{ fontSize:11, color:C.muted, fontWeight:600,
-              textTransform:'uppercase', letterSpacing:'0.08em' }}>Active:</span>
-            {quickF && (
-              <span style={{ fontSize:12, fontWeight:700, color:C.rose,
-                background:C.rose+'15', border:`1px solid ${C.rose}30`,
-                borderRadius:BR.pill, padding:'2px 10px', display:'flex',
-                alignItems:'center', gap:4 }}>
-                {QUICK_FILTERS.find(x=>x.k===quickF)?.icon} {QUICK_FILTERS.find(x=>x.k===quickF)?.l}
-                <button onClick={() => { setQuickF(null); if (activeQf?.impliedType && !activeQf.isStatus) setTypeF(savedTypeF); }}
-                  style={{ background:'transparent', border:'none', color:C.rose,
-                    cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
-              </span>
-            )}
-            {typeF !== 'all' && (
-              <span style={{ fontSize:12, fontWeight:700, color:'#fff',
-                background:TC[typeF]||C.rose,
-                borderRadius:BR.pill, padding:'2px 10px', display:'flex',
-                alignItems:'center', gap:4 }}>
-                {TYPE_CHIPS.find(x=>x.t===typeF)?.icon} {TL[typeF]||typeF}
-                {!typeLocked && (
-                  <button onClick={() => { setTypeF('all'); setSavedTypeF('all'); }}
-                    style={{ background:'transparent', border:'none', color:'#fff',
-                      cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
-                )}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── RESULTS ───────────────────────────────────────────── */}
-      <div style={{ flex:1, overflowY:'auto', padding:'0 16px 90px',
-        boxSizing:'border-box' }}>
-        {/* Results count + sort button */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-          padding:'10px 0 6px' }}>
-          <p style={{ margin:0, fontSize:13, color:C.muted, fontStyle:'italic' }}>
-            {results.length === 0
-              ? 'No results'
-              : `${results.length} result${results.length!==1?'s':''}`}
-            {q && <span style={{ color:C.dim }}> · matching "{q}"</span>}
-          </p>
-          <button onClick={() => setSortAsc(p => !p)}
-            style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-              background: C.card, border:`1.5px solid ${C.border}`,
-              borderRadius:BR.btn, padding:'5px 12px', cursor:'pointer',
-              fontFamily:'inherit', transition:'all 0.15s',
-              boxShadow:SH.subtle }}>
-            <span style={{ fontSize:13 }}>{sortAsc ? '↑' : '↓'}</span>
-            <span style={{ fontSize:12, fontWeight:600, color:C.dim }}>
-              {sortAsc ? 'Earliest first' : 'Latest first'}
+        {/* Dynamic date display — shows today's actual date */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:10,
+          background:C.card, borderRadius:BR.input, padding:'12px 16px',
+          border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
+          {/* Live calendar icon with date */}
+          <div style={{ width:44, height:44, borderRadius:BR.input, flexShrink:0,
+            background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+            boxShadow:`0 4px 12px ${C.rose}35`,
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ fontSize:11, fontWeight:700, color:'#fff',
+              textTransform:'uppercase', letterSpacing:'0.06em', lineHeight:1 }}>
+              {DAY[new Date().getDay()]}
             </span>
+            <span style={{ fontSize:20, fontWeight:700, color:'#fff', lineHeight:1.2 }}>
+              {new Date().getDate()}
+            </span>
+          </div>
+          <div>
+            <p style={{ margin:0, fontSize:16, fontWeight:700, color:C.text }}>
+              {MFULL[new Date().getMonth()]} {new Date().getFullYear()}
+            </p>
+            <p style={{ margin:0, fontSize:13, color:C.dim }}>
+              {entries.filter(e=>e.date===fd(new Date())).length} items today
+            </p>
+          </div>
+          <button onClick={() => { setQ(''); setTypeF('all'); setQuickF('today'); }}
+            style={{ marginLeft:'auto', background:C.rose, border:'none', color:'#fff',
+              borderRadius:BR.btn, padding:'8px 16px', fontSize:14, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit',
+              boxShadow:`0 3px 10px ${C.rose}40` }}>
+            View Today
           </button>
         </div>
-
-        {results.length === 0
-          ? <div style={{ textAlign:'center', padding:'48px 24px',
-              background:C.card, borderRadius:BR.card, marginTop:6,
+        {/* Quick filters */}
+        <div style={{ display:'flex', gap:7, marginTop:10, overflowX:'auto', paddingBottom:2 }}>
+          {QUICK_FILTERS.map(qf => (
+            <button key={qf.k} onClick={() => setQuickF(p => p===qf.k?null:qf.k)}
+              style={{ background: quickF===qf.k ? C.rose : C.elevated,
+                border:`1px solid ${quickF===qf.k ? C.rose : C.border}`,
+                color: quickF===qf.k ? '#fff' : C.dim,
+                borderRadius:BR.card, padding:'5px 14px',
+                fontSize:15, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
+                boxShadow: quickF===qf.k?`0 2px 10px ${C.rose}35`:SH.subtle,
+                transition:'background 0.15s' }}>
+              {qf.l}
+            </button>
+          ))}
+        </div>
+        {/* Type filters */}
+        <div style={{ display:'flex', gap:6, marginTop:7, overflowX:'auto', paddingBottom:2 }}>
+          {['all','meeting','task','flight','reminder','event','birthday'].map(t => (
+            <button key={t} onClick={() => setTypeF(t)}
+              style={{ background: typeF===t ? (t==='all' ? C.rose : TC[t]) : C.elevated,
+                border:`1px solid ${typeF===t ? (t==='all' ? C.rose : TC[t]) : C.border}`,
+                color: typeF===t ? '#fff' : C.dim,
+                borderRadius:BR.card, padding:'5px 14px', fontSize:14, fontWeight: typeF===t ? 700 : 500,
+                cursor:'pointer', whiteSpace:'nowrap', textTransform:'capitalize',
+                boxShadow: typeF===t ? `0 2px 8px ${t==='all'?C.rose:TC[t]}50` : 'none',
+                transition:'all 0.15s' }}>
+              {t==='all'?'All':TL[t]||t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'0 18px 90px', boxSizing:'border-box' }}>
+        <p style={{ fontSize:15, color:C.muted, margin:'12px 0 6px', fontStyle:'italic' }}>
+          {results.length} result{results.length!==1?'s':''}
+        </p>
+        {results.length===0
+          ? <div style={{ textAlign:'center', padding:'50px 18px',
+              background:C.card, borderRadius:BR.card, marginTop:12,
               border:`1px solid ${C.border}`, boxShadow:SH.subtle }}>
-              <div style={{ fontSize:40, marginBottom:12, opacity:0.3 }}>🔍</div>
-              <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:600, color:C.dim }}>
-                Nothing found
-              </p>
-              <p style={{ margin:'0 0 16px', fontSize:14, color:C.muted, fontStyle:'italic' }}>
-                Try a different keyword or filter
-              </p>
-              {hasFilter && (
-                <button onClick={clearAll}
-                  style={{ background:C.rose, border:'none', color:'#fff',
-                    borderRadius:BR.btn, padding:'10px 24px', fontSize:14,
-                    fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-                    boxShadow:`0 4px 14px ${C.rose}40` }}>
-                  Clear all filters
-                </button>
-              )}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:10,
+            opacity:0.4, color:C.rose, transform:'scale(1.8)', transformOrigin:'center' }}>
+            <CalIcon />
+          </div>
+          <p style={{ margin:'20px 0 4px', fontSize:16, fontWeight:600, color:C.dim }}>Nothing found</p>
+              <p style={{ margin:0, fontSize:14, color:C.muted, fontStyle:'italic' }}>Try a different search or filter</p>
             </div>
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle}
-                onEdit={onEdit} onDelete={onDelete}
-                currentUserId={currentUserId} isAdmin={isAdmin} />)}
+              {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />)}
             </div>
         }
-      </div>
-      </>)}
-    </div>
-  );
-}
-
-// ─── NEW MEMBER GUIDE ────────────────────────────────────────────
-// Admin-only collapsible guide for registering new members.
-function NewMemberGuide() {
-  const [open, setOpen] = useState(false);
-
-  const Step = ({ n, title, children }) => (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-        <div style={{ width:28, height:28, borderRadius:14, background:C.rose,
-          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <span style={{ fontSize:13, fontWeight:800, color:'#fff' }}>{n}</span>
-        </div>
-        <span style={{ fontSize:15, fontWeight:700, color:C.text }}>{title}</span>
-      </div>
-      <div style={{ marginLeft:38 }}>{children}</div>
-    </div>
-  );
-
-  const Code = ({ children }) => (
-    <div style={{ background:C.elevated, borderRadius:BR.input,
-      padding:'10px 14px', marginTop:6, marginBottom:6,
-      border:`1px solid ${C.border}`, overflowX:'auto' }}>
-      <pre style={{ margin:0, fontSize:11, color:C.text,
-        fontFamily:'Menlo,Courier New,monospace', lineHeight:1.7,
-        whiteSpace:'pre-wrap', wordBreak:'break-all' }}>
-        {children}
-      </pre>
-    </div>
-  );
-
-  const Note = ({ children }) => (
-    <div style={{ background:C.rose+'10', borderRadius:BR.btn,
-      borderLeft:`3px solid ${C.rose}`, padding:'8px 12px', marginTop:6 }}>
-      <span style={{ fontSize:13, color:C.dim, fontStyle:'italic' }}>{children}</span>
-    </div>
-  );
-
-  return (
-    <div style={{ marginBottom:14 }}>
-      <p style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase',
-        letterSpacing:'0.14em', margin:'28px 0 10px' }}>Add New Member</p>
-      <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
-        boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-        <button onClick={() => setOpen(p => !p)}
-          style={{ width:'100%', display:'flex', alignItems:'center',
-            justifyContent:'space-between', padding:'18px 20px',
-            background:'transparent', border:'none', cursor:'pointer',
-            fontFamily:'inherit' }}>
-          <div>
-            <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500,
-              textAlign:'left' }}>Registration Guide</p>
-            <p style={{ margin:0, fontSize:14, color:C.dim, marginTop:3,
-              textAlign:'left' }}>6-step process for adding a new member</p>
-          </div>
-          <span style={{ fontSize:20, color:C.rose, flexShrink:0,
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition:'transform 0.2s' }}>⌄</span>
-        </button>
-
-        {open && (
-          <div style={{ padding:'0 20px 20px',
-            borderTop:`1px solid ${C.border}` }}>
-
-            <Note>Complete all 6 steps in order. The member cannot see shared entries until every step is done.</Note>
-
-            <div style={{ marginTop:20 }}>
-              <Step n="1" title="Create their password login">
-                <p style={{ margin:'0 0 4px', fontSize:13, color:C.dim }}>Run in Supabase SQL Editor:</p>
-                <Code>{`INSERT INTO public.kizuna_users
-  (email, passphrase_hash, display_name, is_active)
-VALUES (
-  'new@email.com',
-  crypt('password', gen_salt('bf', 12)),
-  'Their Name',
-  true
-);`}</Code>
-              </Step>
-
-              <Step n="2" title="Member signs in once">
-                <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
-                  Share the app URL, email, and password with them.{'\n'}
-                  They must sign in at least once to create their account.
-                </p>
-                <Code>{`https://surferyogi.github.io/Kizuna-app/`}</Code>
-              </Step>
-
-              <Step n="3" title="Get their User ID">
-                <p style={{ margin:'0 0 4px', fontSize:13, color:C.dim }}>Run in SQL Editor — copy the UUID returned:</p>
-                <Code>{`SELECT id FROM auth.users
-WHERE email = 'new@email.com';`}</Code>
-              </Step>
-
-              <Step n="4" title="Delete their auto-created workspace">
-                <p style={{ margin:'0 0 4px', fontSize:13, color:C.dim }}>Replace NEW_USER_ID with the ID from Step 3:</p>
-                <Code>{`DELETE FROM public.workspace_members
-WHERE workspace_id = (
-  SELECT id FROM public.workspaces
-  WHERE owner_id = 'NEW_USER_ID'
-);
-DELETE FROM public.workspaces
-WHERE owner_id = 'NEW_USER_ID';`}</Code>
-              </Step>
-
-              <Step n="5" title="Add them to the shared workspace">
-                <Code>{`INSERT INTO public.workspace_members
-  (workspace_id, user_id, role)
-VALUES (
-  '091ddb7a-c8a4-420f-b74f-e620916a44c2',
-  'NEW_USER_ID',
-  'member'
-);`}</Code>
-              </Step>
-
-              <Step n="6" title="Set their display name">
-                <Code>{`INSERT INTO public.profiles (id, display_name, updated_at)
-VALUES ('NEW_USER_ID', 'Their Name', now())
-ON CONFLICT (id) DO UPDATE
-SET display_name = 'Their Name';`}</Code>
-              </Step>
-            </div>
-
-            <div style={{ background:C.rose+'12', borderRadius:BR.card,
-              padding:'14px 16px', marginTop:8,
-              border:`1px solid ${C.rose}30` }}>
-              <p style={{ margin:'0 0 6px', fontSize:14, fontWeight:700, color:C.rose }}>
-                ✓ Final Step
-              </p>
-              <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
-                Member signs out and back in once.{'\n'}
-                Settings → Sign Out → enter email + password → Enter Kizuna 🌸
-              </p>
-            </div>
-
-            <p style={{ margin:'14px 0 0', fontSize:12, color:C.muted,
-              textAlign:'center', fontStyle:'italic' }}>
-              Supabase SQL Editor: supabase.com/dashboard/project/xsbohyvvghhztknikpyf/sql
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -3438,6 +1843,39 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
   );
 }
 
+// ─── DEBUG PANEL ─────────────────────────────────────────────────
+function DebugPanel({ workspace, workspaceLoaded, userId }) {
+  const [result, setResult] = useState('');
+  return (
+    <div style={{ background:'#1A1714', borderRadius:BR.card, padding:16, marginBottom:16,
+      border:'2px solid #C46A14' }}>
+      <p style={{ margin:'0 0 8px', fontSize:12, color:'#C46A14', fontWeight:700,
+        textTransform:'uppercase', letterSpacing:'0.1em' }}>Debug Info</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>userId: {userId}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>loaded: {String(workspaceLoaded)}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>workspaceId: {workspace?.id || 'NULL'}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>role: {workspace?.role || 'NULL'}</p>
+      <p style={{ margin:'0 0 4px', fontSize:12, color:'#fff', fontFamily:'monospace',
+        wordBreak:'break-all', lineHeight:1.6 }}>members({workspace?.members?.length||0}): {JSON.stringify(workspace?.members||[])}</p>
+      <button onClick={async () => {
+        try {
+          const ws = await dbLoadWorkspace(userId);
+          setResult(ws ? 'OK: '+JSON.stringify(ws) : 'NULL returned');
+        } catch(e) { setResult('ERROR: '+e.message); }
+      }} style={{ marginTop:10, background:'#C46A14', border:'none', color:'#fff',
+        borderRadius:8, padding:'8px 16px', fontSize:13, fontWeight:700,
+        cursor:'pointer', fontFamily:'inherit' }}>
+        Force Reload Workspace
+      </button>
+      {result && <p style={{ margin:'8px 0 0', fontSize:11, color:'#FFD700',
+        fontFamily:'monospace', wordBreak:'break-all', lineHeight:1.5 }}>{result}</p>}
+    </div>
+  );
+}
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
@@ -3495,6 +1933,9 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
           </button>
         </div>
       </div>
+
+      {/* DEBUG PANEL — remove after diagnosis */}
+      <DebugPanel workspace={workspace} workspaceLoaded={workspaceLoaded} userId={userId} />
 
       {/* Workspace */}
       <SS title="Workspace">
@@ -3596,9 +2037,6 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
           right={<span style={{ fontSize:15, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
       </SS>
 
-      {/* Add New Member Guide — admin only */}
-      {isAdmin && <NewMemberGuide />}
-
       {/* Reset App Data — admin only */}
       {isAdmin && <ResetSection onReset={onReset} />}
     </div>
@@ -3649,7 +2087,7 @@ function Row2({ children }) {
 const mkBlank = () => ({
   type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
-  terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
+  terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none'
 });
 
 function EForm({ form, set }) {
@@ -3847,13 +2285,10 @@ function EForm({ form, set }) {
         </div>
       </>) : form.type === 'task' ? (<>
         <FL label="Due Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
-        <FL label="Time (optional)"><FI form={form} set={set} field="time" type="time" /></FL>
-        <FL label="Location (optional)"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
         <FL label="Tags"><FI form={form} set={set} field="tags" placeholder="Finance, Legal, M&A" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <FL label="Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
-        <FL label="Location (optional)"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
         <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
       </>) : form.type === 'birthday' ? (<>
         <FL label="Occasion"><FI form={form} set={set} field="title" placeholder="e.g. Mum's Birthday, Wedding Anniversary" autoFocus /></FL>
@@ -4190,11 +2625,6 @@ export default function App() {
   const [authError,   setAuthError]   = useState('');
   const [showPass,    setShowPass]    = useState(false);
 
-  // ── Daily Quote ────────────────────────────────────────────────
-  const [quoteData,     setQuoteData]     = useState(null);
-  const [quoteLoading,  setQuoteLoading]  = useState(false);
-  const [showQuote,     setShowQuote]     = useState(false);
-
   // ── User display name ──────────────────────────────────────────
   const [userName,   setUserName]   = useState('');
   const [nameInput,  setNameInput]  = useState('');
@@ -4307,6 +2737,7 @@ export default function App() {
       } catch { /* silently ignore */ }
 
       // ④ Workspace — non-critical.
+      let wsError = null;
       try {
         const ws = await dbLoadWorkspace(user.id);
         if (ws) {
@@ -4332,8 +2763,13 @@ export default function App() {
               }
             } catch { /* shared entries non-critical */ }
           }
+        } else {
+          wsError = 'dbLoadWorkspace returned null';
         }
-      } catch { /* silently ignore */ }
+      } catch(err) {
+        wsError = err?.message || 'unknown error';
+      }
+      if (wsError) console.error('[ws ERROR]', wsError);
       setWorkspaceLoaded(true);
 
       loadingRef.current = false;
@@ -4516,30 +2952,6 @@ export default function App() {
   }, [user, userName]);
 
   // ── Entry mutations ────────────────────────────────────────────
-  // ── Daily Quote fetch ─────────────────────────────────────────
-  // Fires once per TIME SLOT (morning/afternoon/evening).
-  // useRef stores the last slot shown — prevents re-firing within same slot.
-  const quoteFiredRef = useRef('');
-  useEffect(() => {
-    if (!user || !nameReady) return;
-    const currentSlot = getSlotKey();
-    if (quoteFiredRef.current === currentSlot) return; // already shown this slot
-    quoteFiredRef.current = currentSlot;
-    try {
-      const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
-      if (cached?.slot === currentSlot && cached?.quote) {
-        setQuoteData(cached);
-        setShowQuote(true);
-        return;
-      }
-    } catch { /* ignore */ }
-    setQuoteLoading(true);
-    setShowQuote(true);
-    fetchDailyQuote(supabase).then(result => {
-      if (result) setQuoteData(result);
-      setQuoteLoading(false);
-    });
-  }, [user, nameReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const addEntry = useCallback(e => {
     // Stamp userId AND userName so shared readers see who created it
     const stamped = { ...e, userId: user?.id, userName };
@@ -4572,10 +2984,7 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
     logAudit('updated', updated, changes.length > 0 ? changes : null);
     setEditingEntry(null);
-    // Always use the entry's original owner userId for the DB write.
-    // The RLS policy must allow workspace admins to update members' entries.
-    const ownerUserId = original.userId || user?.id;
-    if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
+    if (user) dbUpsertEntry(user.id, updated);
   }, [logAudit, user]);
 
   const deleteEntry = useCallback(id => {
@@ -4583,9 +2992,7 @@ export default function App() {
     if (!current) return;
     setEntries(prev => prev.filter(e => e.id !== id));
     logAudit('deleted', current);
-    // Use the entry owner's userId so admin deletes the correct row
-    const ownerUserId = current.userId || user?.id;
-    if (ownerUserId) dbDeleteEntry(ownerUserId, id);
+    if (user) dbDeleteEntry(user.id, id);
   }, [logAudit, user]);
 
   const resetData = useCallback(async () => {
@@ -4597,9 +3004,6 @@ export default function App() {
   }, [user]);
 
   const syncColor = syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose;
-
-  // isAdmin — derived from workspace state, used by all tabs
-  const isAdmin = workspaceLoaded && (workspace?.role === 'admin' || workspace?.ownerId === user?.id);
 
   // Expand repeating entries for display — virtual copies for next 365 days
   // All tabs receive expandedEntries so repeating birthdays/events appear everywhere
@@ -4793,20 +3197,11 @@ export default function App() {
       `}</style>
 
 
-      {/* ── Daily Quote Overlay ─────────────────────────────────── */}
-      {showQuote && (
-        <DailyQuoteScreen
-          quoteData={quoteData}
-          loading={quoteLoading}
-          onDismiss={() => setShowQuote(false)}
-        />
-      )}
-
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} isAdmin={isAdmin} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} />}
-        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} />}
+        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
