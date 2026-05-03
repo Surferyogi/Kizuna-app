@@ -1951,15 +1951,30 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
 
 const QUOTE_CACHE_KEY  = 'kizuna_daily_quote_v1';
 
-// Three time slots per day — quote refreshes at each slot boundary
+// 12 quote slots per day — active 5am to 9pm, silent midnight to 5am.
+// Each slot is identified by its start hour.
+const SLOT_HOURS = [5, 8, 9, 11, 12, 13, 15, 17, 18, 19, 20, 21];
+
 function getQuoteSlot(now = new Date()) {
   const h = now.getHours();
-  if (h < 12) return 'morning';
-  if (h < 17) return 'afternoon';
-  return 'evening';
+  // 12am–4:59am: serve last slot of previous cycle (no new quote)
+  if (h < 5) return 21; // last slot = 9pm
+  // Find the most recent slot hour that has passed
+  let slot = 5;
+  for (const s of SLOT_HOURS) {
+    if (h >= s) slot = s;
+  }
+  return slot;
 }
 
 function getSlotKey(now = new Date()) {
+  const h = now.getHours();
+  // 12am–4:59am: use yesterday's date with last slot
+  if (h < 5) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return `${yesterday.toISOString().slice(0,10)}-21`;
+  }
   return `${now.toISOString().slice(0,10)}-${getQuoteSlot(now)}`;
 }
 const ANNA_BIRTH_MONTH = 4;  // April
@@ -2020,6 +2035,10 @@ const STANDARD_THEMES = [
     prompt:'inner calm, deep rest, and the stillness that heals from within' },
 ];
 
+// Mother's Day (2nd Sunday May) and Father's Day (3rd Sunday June) — 2026–2035
+const MOTHERS_DAY_DATES = ['2026-05-10','2027-05-09','2028-05-14','2029-05-13','2030-05-12','2031-05-11','2032-05-09','2033-05-08','2034-05-14','2035-05-13'];
+const FATHERS_DAY_DATES = ['2026-06-21','2027-06-20','2028-06-18','2029-06-17','2030-06-16','2031-06-15','2032-06-20','2033-06-19','2034-06-18','2035-06-17'];
+
 function detectSpecialDay(now = new Date()) {
   const m = now.getMonth() + 1;
   const d = now.getDate();
@@ -2035,6 +2054,10 @@ function detectSpecialDay(now = new Date()) {
   const isAnniversary     = m === ANNIV_MONTH && d === ANNIV_DAY;
   const anniversaryYears  = yr - ANNIV_YEAR;
 
+  // ── Mother's Day & Father's Day ──────────────────────────────
+  const isMothersDay = MOTHERS_DAY_DATES.includes(ds);
+  const isFathersDay = FATHERS_DAY_DATES.includes(ds);
+
   // ── Fixed festive ────────────────────────────────────────────
   const fixedFestive = FIXED_FESTIVE.find(f => f.month === m && f.day === d) || null;
 
@@ -2045,15 +2068,18 @@ function detectSpecialDay(now = new Date()) {
   const isObon       = m === 8 && d >= 13 && d <= 15;
 
   let festiveName = null;
-  if (isCNY)        festiveName = 'Chinese New Year';
+  if (isMothersDay)   festiveName = "Mother's Day";
+  else if (isFathersDay) festiveName = "Father's Day";
+  else if (isCNY)     festiveName = 'Chinese New Year';
   else if (isMidAutumn) festiveName = 'Mid-Autumn Festival';
   else if (isGoldenWeek) festiveName = 'Golden Week';
-  else if (isObon)  festiveName = 'Obon';
+  else if (isObon)    festiveName = 'Obon';
   else if (fixedFestive) festiveName = fixedFestive.name;
 
   return {
     isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
     isAnniversary, anniversaryYears,
+    isMothersDay, isFathersDay,
     festiveName,
     annaAge: yr - ANNA_BIRTH_YEAR - (
       new Date(yr, ANNA_BIRTH_MONTH-1, ANNA_BIRTH_DAY) > now ? 1 : 0
@@ -2376,6 +2402,27 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
 // Singapore (SG) and Japan (JP) national bank holidays 2026–2035.
 // Hardcoded from official sources — no external API needed.
 const PUBLIC_HOLIDAYS = [
+  // 2026 — Mother's Day & Father's Day
+  {date:'2026-05-10',name:"Mother's Day",country:'SG'},{date:'2026-05-10',name:"Mother's Day",country:'JP'},
+  {date:'2026-06-21',name:"Father's Day",country:'SG'},{date:'2026-06-21',name:"Father's Day",country:'JP'},
+  {date:'2027-05-09',name:"Mother's Day",country:'SG'},{date:'2027-05-09',name:"Mother's Day",country:'JP'},
+  {date:'2027-06-20',name:"Father's Day",country:'SG'},{date:'2027-06-20',name:"Father's Day",country:'JP'},
+  {date:'2028-05-14',name:"Mother's Day",country:'SG'},{date:'2028-05-14',name:"Mother's Day",country:'JP'},
+  {date:'2028-06-18',name:"Father's Day",country:'SG'},{date:'2028-06-18',name:"Father's Day",country:'JP'},
+  {date:'2029-05-13',name:"Mother's Day",country:'SG'},{date:'2029-05-13',name:"Mother's Day",country:'JP'},
+  {date:'2029-06-17',name:"Father's Day",country:'SG'},{date:'2029-06-17',name:"Father's Day",country:'JP'},
+  {date:'2030-05-12',name:"Mother's Day",country:'SG'},{date:'2030-05-12',name:"Mother's Day",country:'JP'},
+  {date:'2030-06-16',name:"Father's Day",country:'SG'},{date:'2030-06-16',name:"Father's Day",country:'JP'},
+  {date:'2031-05-11',name:"Mother's Day",country:'SG'},{date:'2031-05-11',name:"Mother's Day",country:'JP'},
+  {date:'2031-06-15',name:"Father's Day",country:'SG'},{date:'2031-06-15',name:"Father's Day",country:'JP'},
+  {date:'2032-05-09',name:"Mother's Day",country:'SG'},{date:'2032-05-09',name:"Mother's Day",country:'JP'},
+  {date:'2032-06-20',name:"Father's Day",country:'SG'},{date:'2032-06-20',name:"Father's Day",country:'JP'},
+  {date:'2033-05-08',name:"Mother's Day",country:'SG'},{date:'2033-05-08',name:"Mother's Day",country:'JP'},
+  {date:'2033-06-19',name:"Father's Day",country:'SG'},{date:'2033-06-19',name:"Father's Day",country:'JP'},
+  {date:'2034-05-14',name:"Mother's Day",country:'SG'},{date:'2034-05-14',name:"Mother's Day",country:'JP'},
+  {date:'2034-06-18',name:"Father's Day",country:'SG'},{date:'2034-06-18',name:"Father's Day",country:'JP'},
+  {date:'2035-05-13',name:"Mother's Day",country:'SG'},{date:'2035-05-13',name:"Mother's Day",country:'JP'},
+  {date:'2035-06-17',name:"Father's Day",country:'SG'},{date:'2035-06-17',name:"Father's Day",country:'JP'},
   // 2026
   {date:'2026-01-01',name:"New Year's Day",country:'SG'},{date:'2026-01-01',name:"New Year's Day",country:'JP'},
   {date:'2026-01-12',name:'Coming of Age Day',country:'JP'},{date:'2026-02-11',name:'National Foundation Day',country:'JP'},
@@ -2583,7 +2630,14 @@ const HOLIDAY_INFO = {
     country:'SG',
     text: "Singapore's Christmas is famously a spectacle of commercialism and community. Orchard Road's Christmas light-up draws millions — Singapore was one of the first Asian cities to adopt the tradition in the 1980s. Despite Christians being only 18% of the population, Christmas is beloved by all faiths."
   },
-  // ── Japan ──────────────────────────────────────────────────────
+  "Mother's Day": {
+    country:'SG',
+    text: "First celebrated in 1908 when Anna Jarvis held a memorial for her mother in West Virginia, Mother's Day became a US national holiday in 1914. In Singapore and Japan, children honour their mothers with flowers — carnations are the traditional symbol, white for those who have passed, red for the living."
+  },
+  "Father's Day": {
+    country:'SG',
+    text: "Father's Day was inspired by Mother's Day and first celebrated in 1910 in Washington State. Sonora Smart Dodd wanted to honour her father who raised six children alone after his wife died. The third Sunday of June became the official US date in 1972 — now celebrated across Singapore, Japan, and over 100 countries."
+  },
   "New Year's Day": {
     country:'JP',
     text: "O-shōgatsu is Japan's most important holiday — families gather for three days, temples ring their bells 108 times at midnight (joya no kane), and 80 million Japanese mail New Year cards (nengajō) that arrive on January 1st by special postal arrangement."
@@ -2794,7 +2848,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
         borderBottom:`1px solid ${C.border}` }}>
         {[
           { k:'search',   l:'Search',            icon:'🔍' },
-          { k:'holidays', l:'Upcoming Holidays',  icon:'🏖' },
+          { k:'holidays', l:'Upcoming Festive',  icon:'🏖' },
         ].map(t => (
           <button key={t.k} onClick={() => setActiveTab(t.k)}
             style={{ flex:1, padding:'12px 8px', display:'flex', alignItems:'center',
