@@ -1002,7 +1002,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, isAdmin=false }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false }) {
   // Single live date source — everything derives from this one value.
   // useState ensures React re-renders atomically when date changes.
   const [now, setNow] = useState(() => new Date());
@@ -1131,7 +1131,11 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               background: syncStatus==='synced' ? C.T+'18' : syncStatus==='error' ? '#C46A1415' : C.rose+'18',
               borderRadius:BR.pill, padding:'3px 10px', flexShrink:0,
               border:`1px solid ${syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose}40` }}>
-              {syncStatus==='loading' ? 'Syncing…' : syncStatus==='synced' ? 'Synced' : 'Sync Error'}
+              {flightSyncCount > 0
+                ? `✈ Updating ${flightSyncCount} flight${flightSyncCount!==1?'s':''}…`
+                : syncStatus==='loading' ? 'Syncing…'
+                : syncStatus==='synced'  ? 'Synced'
+                : 'Sync Error'}
             </span>
           </div>
           <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
@@ -4206,6 +4210,7 @@ export default function App() {
   const [addDate,      setAddDate]      = useState(null);  // pre-fill date when opening from calendar
   const [editingEntry, setEditingEntry] = useState(null);
   const [syncStatus,   setSyncStatus]   = useState('loading');
+  const [flightSyncCount, setFlightSyncCount] = useState(0); // how many flights being synced
   const [workspace,       setWorkspace]       = useState(null); // {id, name, ownerId, role, members}
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
 
@@ -4544,7 +4549,66 @@ export default function App() {
   }, [user, userName]);
 
   // ── Entry mutations ────────────────────────────────────────────
-  // ── Daily Quote fetch ─────────────────────────────────────────
+  // ── Background flight sync on launch ──────────────────────────
+  // Fires once per session after entries are loaded.
+  // Finds all upcoming flights with a flight number and refreshes
+  // their gate, terminal, delay, and status from the API.
+  // Staggers calls by 1.5s to respect rate limits.
+  const flightSyncRef = useRef(false);
+  useEffect(() => {
+    if (!user || !workspaceLoaded || flightSyncRef.current) return;
+    const upcoming = entries.filter(e =>
+      e.type === 'flight' &&
+      e.flightNum &&
+      e.date >= fd(new Date())
+    );
+    if (upcoming.length === 0) return;
+    flightSyncRef.current = true;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !anonKey) return;
+
+    const syncFlight = async (e, delay) => {
+      await new Promise(r => setTimeout(r, delay));
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/flight-status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({ flightNumber: e.flightNum, date: e.date }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.error || !data?.label) return;
+
+        // Build updated entry — only overwrite fields API actually returned
+        const updated = { ...e };
+        if (data.terminal)   updated.terminal  = data.terminal;
+        if (data.gate)       updated.gate      = data.gate;
+        if (data.airline)    updated.airline   = data.airlineName || e.airline;
+        if (data.delayMins !== undefined) {
+          updated.delayMins  = data.delayMins;
+          updated.delayLabel = data.delayLabel;
+        }
+        if (data.revisedDep) updated.revisedDep = data.revisedDep;
+        if (data.scheduledArr) updated.scheduledArr = data.scheduledArr;
+
+        // Update in state and persist to Supabase
+        setEntries(prev => prev.map(x => x.id === e.id ? updated : x));
+        const ownerUserId = e.userId || user?.id;
+        if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
+      } catch { /* silent — flight sync is best-effort */ }
+    };
+
+    // Stagger each flight call by 1.5 seconds
+    setFlightSyncCount(upcoming.length);
+    upcoming.forEach((e, i) => syncFlight(e, i * 1500).finally(() => {
+      setFlightSyncCount(prev => Math.max(0, prev - 1));
+    }));
+  }, [user, workspaceLoaded, entries.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Fires once per TIME SLOT (morning/afternoon/evening).
   // useRef stores the last slot shown — prevents re-firing within same slot.
   const quoteFiredRef = useRef('');
@@ -4832,7 +4896,7 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} isAdmin={isAdmin} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} />}
         {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
