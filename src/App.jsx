@@ -2490,6 +2490,117 @@ const HOLIDAYS_BY_DATE = PUBLIC_HOLIDAYS.reduce((acc, h) => {
 const HC = { SG:'#EF3340', JP:'#BC002D' }; // SG red, JP red (distinct shades)
 const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8' };
 
+// ─── HOLIDAY WRITEUPS ─────────────────────────────────────────────
+// Short, interesting history/origin for each SG and JP public holiday.
+const HOLIDAY_INFO = {
+  // ── Singapore ─────────────────────────────────────────────────
+  "New Year's Day": {
+    country:'SG',
+    text: "Singapore adopted January 1st as a public holiday when it joined the British Commonwealth. The midnight countdown at Marina Bay has grown into one of Asia's most spectacular fireworks displays, drawing over 100,000 revellers annually."
+  },
+  "Chinese New Year": {
+    country:'SG',
+    text: "Rooted in ancient Chinese legend, Chinese New Year wards off a mythical beast called Nian with red lanterns and loud firecrackers. Singapore uniquely celebrates two full days of public holiday — one of only a handful of countries to do so — reflecting its 74% Chinese population."
+  },
+  "Good Friday": {
+    country:'SG',
+    text: "Good Friday commemorates the crucifixion of Jesus Christ. Singapore retained it as a public holiday from its colonial era. Catholics carry out the traditional Stations of the Cross procession at Saint Joseph's Church in Victoria Street, drawing thousands."
+  },
+  "Labour Day": {
+    country:'SG',
+    text: "Celebrated globally since 1886 after the Chicago Haymarket affair, Singapore adopted May Day in 1961. The National Trades Union Congress rally at the Padang was a fixture for decades — today the day marks workers' rights with awards, speeches, and a national holiday."
+  },
+  "Hari Raya Puasa": {
+    country:'SG',
+    text: "Known as Eid al-Fitr globally, Hari Raya Puasa ('Festival of Breaking Fast') marks the end of Ramadan — 30 days of dawn-to-dusk fasting. Geylang Serai transforms into a nightly bazaar for weeks before, filled with traditional Malay kueh, batik, and lanterns."
+  },
+  "Hari Raya Haji": {
+    country:'SG',
+    text: "Eid al-Adha commemorates Ibrahim's willingness to sacrifice his son in obedience to God. Muslims who perform the Haj pilgrimage to Mecca time it to this day. In Singapore, prayers at mosques are followed by the korban — the ritual slaughter and distribution of meat to those in need."
+  },
+  "Vesak Day": {
+    country:'SG',
+    text: "Vesak honours the birth, enlightenment, and passing of the Buddha — all said to have occurred on the same day in different years. Singapore's Buddhist community releases caged birds and lanterns, and temples distribute free vegetarian food to thousands of visitors."
+  },
+  "National Day": {
+    country:'SG',
+    text: "On August 9, 1965, Singapore was unexpectedly separated from Malaysia, with founding Prime Minister Lee Kuan Yew famously weeping as he announced independence. The annual NDP parade — featuring Red Lions skydivers, fighter jet flypasts, and fireworks — remains Singapore's most watched event."
+  },
+  "Deepavali": {
+    country:'SG',
+    text: "The Festival of Lights celebrates the triumph of light over darkness, good over evil. Little India is transformed with hundreds of thousands of fairy lights weeks before the event. Hindus light oil lamps called diyas at home, exchange sweets, and wear new clothes to signal fresh beginnings."
+  },
+  "Christmas Day": {
+    country:'SG',
+    text: "Singapore's Christmas is famously a spectacle of commercialism and community. Orchard Road's Christmas light-up draws millions — Singapore was one of the first Asian cities to adopt the tradition in the 1980s. Despite Christians being only 18% of the population, Christmas is beloved by all faiths."
+  },
+  // ── Japan ──────────────────────────────────────────────────────
+  "New Year's Day": {
+    country:'JP',
+    text: "O-shōgatsu is Japan's most important holiday — families gather for three days, temples ring their bells 108 times at midnight (joya no kane), and 80 million Japanese mail New Year cards (nengajō) that arrive on January 1st by special postal arrangement."
+  },
+  "Coming of Age Day": {
+    country:'JP',
+    text: "Seijin no Hi celebrates those who turned 20 (now 18 after 2022 reform) in the past year. Young people dress in elaborate furisode kimono or hakama and attend municipal ceremonies. The holiday dates to 646 AD when a young prince put on new robes to mark adulthood."
+  },
+  "National Foundation Day": {
+    country:'JP',
+    text: "Kenkoku Kinen no Hi marks the legendary founding of Japan in 660 BC by Emperor Jimmu, who is said to have descended from the sun goddess Amaterasu. Abolished after WWII for militarist associations, it was quietly revived in 1966 without official mythology references."
+  },
+  "Emperor's Birthday": {
+    country:'JP',
+    text: "Tennō Tanjōbi is the only holiday that changes with each new emperor. Emperor Naruhito's birthday on February 23rd replaced the previous February 23rd after his 2019 accession. The public is invited to enter the Imperial Palace — one of only two days per year the grounds open."
+  },
+  "Spring Equinox": {
+    country:'JP',
+    text: "Shunbun no Hi, the vernal equinox, has deep Buddhist roots — the equinox is believed to be when the spiritual world (higan, 'other shore') is closest to the living world. Families visit and clean ancestral graves, and many temples hold special ceremonies."
+  },
+  "Showa Day": {
+    country:'JP',
+    text: "Shōwa no Hi honours Emperor Hirohito, who reigned during Japan's most turbulent century — WWI, WWII, the atomic bombings, and the postwar economic miracle. The day encourages reflection on Japan's 63-year Shōwa era. It was added to the calendar only in 2007."
+  },
+  "Constitution Memorial Day": {
+    country:'JP',
+    text: "Kenpō Kinenbi marks the date Japan's post-WWII constitution came into force on May 3, 1947. Drafted under US occupation, it contains Article 9 — Japan's famous war-renunciation clause — making it one of the world's most distinctive constitutional documents."
+  },
+  "Greenery Day": {
+    country:'JP',
+    text: "Midori no Hi originally honoured Emperor Hirohito's love of plants and nature. When Showa Day was created in 2007, Greenery Day moved to May 4th. Japan plants millions of trees annually in its honour — a nation that covers 68% forest, among the highest ratios in the world."
+  },
+  "Children's Day": {
+    country:'JP',
+    text: "Kodomo no Hi was originally Tango no Sekku — a samurai festival marking boys' maturity with warrior dolls and iris leaves (believed to ward off evil). In 1948 it was renamed Children's Day, honouring all children. Families fly koinobori carp streamers — one per child — outside their homes."
+  },
+  "Marine Day": {
+    country:'JP',
+    text: "Umi no Hi celebrates Japan's deep relationship with the sea. It was established in 1996 to thank the ocean that surrounds the island nation. The date commemorates Emperor Meiji's 1876 voyage from Hokkaido aboard a steam ship — the first time an emperor had travelled by sea."
+  },
+  "Mountain Day": {
+    country:'JP',
+    text: "Yama no Hi, Japan's newest national holiday (added 2016), promotes appreciation of mountains and their benefits. Japan is 73% mountainous — its 111 active volcanoes include Mount Fuji, climbed by 300,000 people annually. The date August 11 was chosen because '8' resembles mountains and '11' resembles trees."
+  },
+  "Respect for the Aged Day": {
+    country:'JP',
+    text: "Keirō no Hi was established in 1966 in the village of Noma-cho, which had declared September 15 'Aged People's Day' since 1947. Japan has the world's oldest population — over 10% are 80 or older. On this day, municipalities send gifts to centenarians, of which Japan has over 90,000."
+  },
+  "Autumnal Equinox": {
+    country:'JP',
+    text: "Shūbun no Hi mirrors the spring equinox — a Buddhist holiday for visiting graves and honouring ancestors. Japanese families share ohagi — sticky rice balls coated in sweet red bean paste — a traditional offering. The equinox week is called Higan, meaning both 'other shore' and a type of spider lily."
+  },
+  "Sports Day": {
+    country:'JP',
+    text: "Taiiku no Hi originally commemorated the opening of the 1964 Tokyo Olympics on October 10 — the date chosen as statistically Tokyo's sunniest autumn day. Renamed Sports Day in 2020 to coincide with the (postponed) Tokyo Olympics, it moved to the second Monday of October."
+  },
+  "Culture Day": {
+    country:'JP',
+    text: "Bunka no Hi marks the date Japan's 1946 post-war constitution was proclaimed. Chosen to symbolise peace and freedom, it's celebrated with the Order of Culture awards presented by the Emperor, parades of traditional performing arts, and free entry to many national museums."
+  },
+  "Labour Thanksgiving Day": {
+    country:'JP',
+    text: "Kinrō Kansha no Hi evolved from Niiname-sai — a 1,500-year-old Shinto harvest ritual where the Emperor offers newly harvested rice to the gods and tastes it himself. Renamed in 1948 to honour labour and production, it quietly bridges ancient agricultural Japan and the modern workforce."
+  },
+};
+
 // ─── SEARCH TAB ──────────────────────────────────────────────────
 // Filter metadata — each preset has:
 //   impliedType — locks Row 2 to this type when active (null = free)
@@ -2533,9 +2644,10 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
   const [quickF,     setQuickF]    = useState('week');
   const [savedTypeF, setSavedTypeF]= useState('all');
   const [showFilters,setShowFilters]= useState(true);
-  const [activeTab,    setActiveTab]   = useState('search'); // 'search' | 'holidays'
-  const [holidayRange, setHolidayRange]= useState('3m');     // '1w'|'1m'|'3m'|'6m'|'1y'
-  const [holidayCountry, setHolidayCountry] = useState('all'); // 'all'|'SG'|'JP'
+  const [activeTab,    setActiveTab]      = useState('search');
+  const [holidayRange, setHolidayRange]   = useState('3m');
+  const [holidayCountry, setHolidayCountry] = useState('all');
+  const [expandedHoliday, setExpandedHoliday] = useState(null); // 'name|date' key
 
   const HOLIDAY_RANGES = [
     { k:'1w', l:'This Week',   days:7   },
@@ -2543,6 +2655,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
     { k:'3m', l:'3 Months',    days:90  },
     { k:'6m', l:'6 Months',    days:180 },
     { k:'1y', l:'1 Year',      days:365 },
+    { k:'2y', l:'2 Years',     days:730 },
   ];
 
   // Upcoming holidays — filtered by range and country
@@ -2741,25 +2854,51 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
                       </span>
                     )}
                   </div>
-                  {hs.map((h,i) => (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
-                      background:C.card,
-                      border:`1px solid ${HC[h.country]||'#EF3340'}25`,
-                      borderLeft:`4px solid ${HC[h.country]||'#EF3340'}`,
-                      borderRadius:BR.card, padding:'12px 16px', marginBottom:6,
-                      boxShadow:SH.subtle }}>
-                      <span style={{ fontSize:26, flexShrink:0 }}>
-                        {h.country==='SG'?'🇸🇬':'🇯🇵'}
-                      </span>
-                      <div style={{ flex:1 }}>
-                        <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
-                          color: HC[h.country]||'#EF3340' }}>{h.name}</p>
-                        <p style={{ margin:0, fontSize:12, color:C.muted }}>
-                          {h.country==='SG' ? 'Singapore' : 'Japan'} · Public Holiday
-                        </p>
+                  {hs.map((h,i) => {
+                    const infoKey = `${h.name}|${date}`;
+                    const isExpanded = expandedHoliday === infoKey;
+                    const info = HOLIDAY_INFO[h.name];
+                    return (
+                      <div key={i}
+                        onClick={() => setExpandedHoliday(isExpanded ? null : infoKey)}
+                        style={{ cursor:'pointer',
+                          background:C.card,
+                          border:`1px solid ${HC[h.country]||'#EF3340'}25`,
+                          borderLeft:`4px solid ${HC[h.country]||'#EF3340'}`,
+                          borderRadius:BR.card, padding:'12px 16px', marginBottom:6,
+                          boxShadow: isExpanded ? `0 4px 16px ${HC[h.country]||'#EF3340'}18` : SH.subtle,
+                          transition:'box-shadow 0.15s' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                          <span style={{ fontSize:26, flexShrink:0 }}>
+                            {h.country==='SG'?'🇸🇬':'🇯🇵'}
+                          </span>
+                          <div style={{ flex:1 }}>
+                            <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
+                              color: HC[h.country]||'#EF3340' }}>{h.name}</p>
+                            <p style={{ margin:0, fontSize:12, color:C.muted }}>
+                              {h.country==='SG' ? 'Singapore' : 'Japan'} · Public Holiday
+                              {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
+                            </p>
+                          </div>
+                          {info && (
+                            <span style={{ fontSize:14, color:C.muted,
+                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition:'transform 0.2s', flexShrink:0 }}>⌄</span>
+                          )}
+                        </div>
+                        {/* Expandable writeup */}
+                        {isExpanded && info && (
+                          <div style={{ marginTop:12, paddingTop:12,
+                            borderTop:`1px solid ${HC[h.country]||'#EF3340'}20` }}>
+                            <p style={{ margin:0, fontSize:14, color:C.dim,
+                              lineHeight:1.7, fontStyle:'italic' }}>
+                              {info.text}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             });
