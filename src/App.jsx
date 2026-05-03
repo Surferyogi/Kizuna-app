@@ -3166,6 +3166,155 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
   );
 }
 
+// ─── PUSH NOTIFICATIONS ──────────────────────────────────────────
+const VAPID_PUBLIC_KEY = 'BD8nfPF27K6GrPLtXX3GYfPOTlvnIJ1brHN8d1ZbH-02OyxAArUZuOhzffwUWMoRUhjm5KnGhEpyHPqEjdue7NI';
+
+// Convert base64url to Uint8Array for PushManager
+function urlBase64ToUint8Array(base64String) {
+  const pad = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+function MorningSummarySection({ userId }) {
+  const [status,   setStatus]   = useState('checking'); // 'checking'|'unsupported'|'denied'|'off'|'on'|'loading'
+  const [subError, setSubError] = useState('');
+
+  // Check current subscription state on mount
+  useEffect(() => {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      setStatus('unsupported'); return;
+    }
+    if (Notification.permission === 'denied') {
+      setStatus('denied'); return;
+    }
+    navigator.serviceWorker.ready.then(reg => {
+      reg.pushManager.getSubscription().then(sub => {
+        setStatus(sub ? 'on' : 'off');
+      });
+    }).catch(() => setStatus('off'));
+  }, []);
+
+  const enable = async () => {
+    setStatus('loading'); setSubError('');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setStatus('denied'); return; }
+
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
+      const j = sub.toJSON();
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id:      userId,
+        endpoint:     j.endpoint,
+        p256dh:       j.keys.p256dh,
+        auth:         j.keys.auth,
+        updated_at:   new Date().toISOString(),
+      }, { onConflict: 'user_id,endpoint' });
+
+      if (error) throw error;
+      setStatus('on');
+    } catch (err) {
+      console.error('Push subscribe error:', err);
+      setSubError(err.message || 'Failed to enable notifications');
+      setStatus('off');
+    }
+  };
+
+  const disable = async () => {
+    setStatus('loading');
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await supabase.from('push_subscriptions')
+          .delete().eq('user_id', userId).eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setStatus('off');
+    } catch (err) {
+      console.error('Push unsubscribe error:', err);
+      setStatus('on');
+    }
+  };
+
+  const badge = (label, color) => (
+    <span style={{ fontSize:13, fontWeight:700, color,
+      background: color+'18', borderRadius:BR.pill, padding:'2px 10px',
+      border:`1px solid ${color}30` }}>{label}</span>
+  );
+
+  const statusBadge = () => {
+    if (status === 'on')          return badge('✓ On',    SUCCESS);
+    if (status === 'off')         return badge('Off',     C.muted);
+    if (status === 'loading')     return badge('…',       C.dim);
+    if (status === 'denied')      return badge('Blocked', WARN);
+    if (status === 'unsupported') return badge('N/A',     C.muted);
+    return badge('…', C.dim);
+  };
+
+  return (
+    <SS title="Notifications">
+      <div style={{ padding:'16px 18px' }}>
+        <div style={{ display:'flex', alignItems:'center',
+          justifyContent:'space-between', marginBottom:6 }}>
+          <div>
+            <p style={{ margin:'0 0 2px', fontSize:16, fontWeight:500, color:C.text }}>
+              Morning Summary
+            </p>
+            <p style={{ margin:0, fontSize:13, color:C.muted }}>
+              Daily schedule sent to this device at 8:00 AM
+            </p>
+          </div>
+          {statusBadge()}
+        </div>
+
+        {status === 'unsupported' && (
+          <p style={{ margin:'8px 0 0', fontSize:13, color:C.muted,
+            fontStyle:'italic', background:C.elevated, borderRadius:BR.btn,
+            padding:'8px 12px' }}>
+            Install Kizuna as a PWA (Add to Home Screen) to enable notifications.
+          </p>
+        )}
+        {status === 'denied' && (
+          <p style={{ margin:'8px 0 0', fontSize:13, color:WARN,
+            fontStyle:'italic' }}>
+            Notifications are blocked. Go to Settings → Safari → Kizuna → Notifications to allow.
+          </p>
+        )}
+        {subError ? (
+          <p style={{ margin:'8px 0 0', fontSize:13, color:WARN }}>{subError}</p>
+        ) : null}
+
+        {(status === 'off' || status === 'on') && (
+          <button
+            onClick={status === 'on' ? disable : enable}
+            style={{ marginTop:10, width:'100%', padding:'11px',
+              background: status === 'on'
+                ? 'transparent'
+                : `linear-gradient(135deg,${C.rose},${C.roseL})`,
+              border:`1.5px solid ${status==='on' ? C.border : C.rose}`,
+              borderRadius:BR.btn, fontSize:14, fontWeight:700,
+              color: status === 'on' ? C.dim : '#fff',
+              cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s',
+              boxShadow: status === 'on' ? 'none' : `0 4px 14px ${C.rose}35` }}>
+            {status === 'on' ? 'Turn Off Notifications' : 'Enable Morning Summary 🔔'}
+          </button>
+        )}
+        {status === 'loading' && (
+          <div style={{ marginTop:10, textAlign:'center',
+            fontSize:13, color:C.muted, fontStyle:'italic' }}>Setting up…</div>
+        )}
+      </div>
+    </SS>
+  );
+}
+
 // ─── NEW MEMBER GUIDE ────────────────────────────────────────────
 // Admin-only collapsible guide for registering new members.
 function NewMemberGuide() {
@@ -3596,6 +3745,9 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
           ))}
         </div>
       </SS>
+
+      {/* Notifications — Morning Summary */}
+      <MorningSummarySection userId={userId} />
 
       {/* Data & Privacy */}
       <SS title="Data & Privacy">
