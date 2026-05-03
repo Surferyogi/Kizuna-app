@@ -3200,6 +3200,7 @@ function MorningSummarySection({ userId }) {
   const [subError,    setSubError]   = useState('');
   const [notifyHour,  setNotifyHour] = useState(8);
   const [savingTime,  setSavingTime] = useState(false);
+  const [timeLocked,  setTimeLocked] = useState(true); // locked by default
 
   useEffect(() => {
     // Detect inside useEffect — window guaranteed available here
@@ -3312,7 +3313,7 @@ function MorningSummarySection({ userId }) {
           justifyContent:'space-between', marginBottom:6 }}>
           <div>
             <p style={{ margin:'0 0 2px', fontSize:16, fontWeight:500, color:C.text }}>
-              Morning Summary
+              Daily Summary
             </p>
             <p style={{ margin:0, fontSize:13, color:C.muted }}>
               Daily schedule notification · this device
@@ -3349,28 +3350,52 @@ function MorningSummarySection({ userId }) {
 
         {/* Time picker — shown when enabled */}
         {status === 'on' && (
-          <div style={{ marginTop:14 }}>
-            <p style={{ margin:'0 0 8px', fontSize:13, fontWeight:700, color:C.dim,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              Notification Time (SGT)
-              {savingTime && <span style={{ color:C.muted, fontWeight:400 }}> · saving…</span>}
-            </p>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              {TIME_OPTIONS.map(({ h, label }) => (
-                <button key={h} onClick={() => saveTime(h)}
-                  style={{ padding:'6px 13px', borderRadius:BR.pill,
-                    background: notifyHour===h
-                      ? `linear-gradient(135deg,${C.rose},${C.roseL})`
-                      : C.elevated,
-                    border:`1.5px solid ${notifyHour===h ? C.rose : C.border}`,
-                    color: notifyHour===h ? '#fff' : C.dim,
-                    fontSize:13, fontWeight: notifyHour===h ? 700 : 400,
-                    cursor:'pointer', transition:'all 0.15s',
-                    boxShadow: notifyHour===h ? `0 2px 8px ${C.rose}35` : 'none' }}>
-                  {label}
-                </button>
-              ))}
+          <div style={{ marginTop:14, background:C.elevated,
+            borderRadius:BR.input, padding:'12px 14px',
+            border:`1px solid ${C.border}` }}>
+            <div style={{ display:'flex', alignItems:'center',
+              justifyContent:'space-between', marginBottom: timeLocked ? 0 : 10 }}>
+              <div>
+                <p style={{ margin:0, fontSize:13, fontWeight:700, color:C.text }}>
+                  Notification Time (SGT)
+                </p>
+                {timeLocked && (
+                  <p style={{ margin:'2px 0 0', fontSize:12, color:C.muted }}>
+                    {TIME_OPTIONS.find(t => t.h === notifyHour)?.label || `${notifyHour}:00`}
+                    {savingTime && <span style={{ color:C.rose }}> · saving…</span>}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setTimeLocked(p => !p)}
+                style={{ display:'flex', alignItems:'center', gap:5,
+                  padding:'5px 11px', borderRadius:BR.pill, cursor:'pointer',
+                  background: timeLocked ? C.elevated : C.rose+'18',
+                  border:`1.5px solid ${timeLocked ? C.border : C.rose}`,
+                  color: timeLocked ? C.muted : C.rose,
+                  fontSize:12, fontWeight:700, fontFamily:'inherit',
+                  transition:'all 0.15s' }}>
+                <span>{timeLocked ? '🔒' : '🔓'}</span>
+                <span>{timeLocked ? 'Locked' : 'Unlock'}</span>
+              </button>
             </div>
+            {!timeLocked && (
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {TIME_OPTIONS.map(({ h, label }) => (
+                  <button key={h} onClick={() => saveTime(h)}
+                    style={{ padding:'6px 13px', borderRadius:BR.pill,
+                      background: notifyHour===h
+                        ? `linear-gradient(135deg,${C.rose},${C.roseL})`
+                        : C.card,
+                      border:`1.5px solid ${notifyHour===h ? C.rose : C.border}`,
+                      color: notifyHour===h ? '#fff' : C.dim,
+                      fontSize:13, fontWeight: notifyHour===h ? 700 : 400,
+                      cursor:'pointer', transition:'all 0.15s',
+                      boxShadow: notifyHour===h ? `0 2px 8px ${C.rose}35` : 'none' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -3386,7 +3411,7 @@ function MorningSummarySection({ userId }) {
               color: status === 'on' ? C.dim : '#fff',
               cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s',
               boxShadow: status === 'on' ? 'none' : `0 4px 14px ${C.rose}35` }}>
-            {status === 'on' ? 'Turn Off Notifications' : 'Enable Morning Summary 🔔'}
+            {status === 'on' ? 'Turn Off Notifications' : 'Enable Daily Summary 🔔'}
           </button>
         )}
 
@@ -3830,7 +3855,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
         </div>
       </SS>
 
-      {/* Notifications — Morning Summary */}
+      {/* Notifications — Daily Summary */}
       <MorningSummarySection userId={userId} />
 
       {/* Data & Privacy */}
