@@ -39,7 +39,9 @@ function isRateLimited(userId: string): boolean {
   return false
 }
 
-const SYSTEM_PROMPT = `You are a warm, emotionally intelligent quote writer for a personal life companion app used by a family. Generate a single original uplifting quote based on the context provided. 2–3 sentences maximum. Return the quote text only — no title, no attribution, no explanation, no quotation marks. Never use the words 'NLP', 'Neuro-Linguistic Programming', 'Hypnotherapy', or 'Hypnosis' anywhere — not even indirectly. Express all themes through feeling, metaphor, and outcome only.`
+const SYSTEM_PROMPT = `You are a warm, emotionally intelligent quote writer for a personal life companion app used by a family. Generate a single original uplifting quote based on the context provided. 2–3 sentences maximum. Return the quote text only — no title, no attribution, no explanation, no quotation marks. Never use the words 'NLP', 'Neuro-Linguistic Programming', 'Hypnotherapy', or 'Hypnosis' anywhere — not even indirectly. Express all themes through feeling, metaphor, and outcome only.
+
+VOICE & PERSPECTIVE: The quote must always be written in first-person collective or first-person singular voice — as if spoken from within the family, not directed at them from the outside. STRICTLY AVOID these second-person words and their variants: you, your, yours, yourself. ALWAYS PREFER these first-person words instead: I, me, my, mine, we, us, our, ours. The quote should feel like a personal affirmation or reflection spoken aloud by the family — not advice or observations delivered to them by an outsider. Warm, owned, and intimate in every word.`
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -90,7 +92,7 @@ Deno.serve(async (req: Request) => {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-sonnet-4-20250514',
+        model:      'claude-sonnet-4-6',
         max_tokens: 200,
         system:     SYSTEM_PROMPT,
         messages:   [{ role: 'user', content: prompt.trim() }],
