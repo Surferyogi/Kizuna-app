@@ -1129,11 +1129,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
               background: syncStatus==='synced' ? C.T+'18' : syncStatus==='error' ? '#C46A1415' : C.rose+'18',
               borderRadius:BR.pill, padding:'3px 10px', flexShrink:0,
               border:`1px solid ${syncStatus==='synced' ? C.T : syncStatus==='error' ? WARN : C.rose}40` }}>
-              {flightSyncCount > 0
-                ? `✈ Updating ${flightSyncCount} flight${flightSyncCount!==1?'s':''}…`
-                : syncStatus==='loading' ? 'Syncing…'
-                : syncStatus==='synced'  ? 'Synced'
-                : 'Sync Error'}
+              {syncStatus==='loading' ? 'Syncing…' : syncStatus==='synced' ? 'Synced' : 'Sync Error'}
             </span>
           </div>
           <p style={{ fontSize:15, color:C.dim, margin:'4px 0 0' }}>
@@ -1516,7 +1512,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0 }) {
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
@@ -1594,12 +1590,30 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
               : 'transparent',
             color: showFlights ? '#fff' : C.dim,
             fontSize:12, fontWeight:700, cursor:'pointer',
-            marginRight:8, flexShrink:0,
+            marginRight: showFlights ? 4 : 8, flexShrink:0,
             boxShadow: showFlights ? `0 2px 10px ${C.F}50` : 'none',
             transition:'all 0.2s', display:'flex', alignItems:'center', gap:4 }}>
           <span style={{ fontSize:13 }}>✈</span>
           <span>{monthFlights.length > 0 ? `${monthFlights.length}` : ''}</span>
         </button>
+        {/* Manual flight refresh button — only shown in flight mode */}
+        {showFlights && onSyncFlights && (
+          <button onClick={onSyncFlights}
+            disabled={flightSyncCount > 0}
+            style={{ padding:'5px 10px', borderRadius:BR.pill, marginRight:8,
+              border:`1.5px solid ${C.F}`,
+              background: flightSyncCount > 0 ? C.elevated : 'transparent',
+              color: flightSyncCount > 0 ? C.muted : C.F,
+              fontSize:12, fontWeight:700, cursor: flightSyncCount > 0 ? 'default' : 'pointer',
+              flexShrink:0, transition:'all 0.2s',
+              display:'flex', alignItems:'center', gap:4 }}>
+            <span style={{ display:'inline-block',
+              animation: flightSyncCount > 0 ? 'spin 1s linear infinite' : 'none' }}>
+              {flightSyncCount > 0 ? '⟳' : '↻'}
+            </span>
+            <span>{flightSyncCount > 0 ? `${flightSyncCount}` : ''}</span>
+          </button>
+        )}
         <button onClick={() => {
             const nvm = vm.m===11?{y:vm.y+1,m:0}:{y:vm.y,m:vm.m+1};
             setVm(nvm); setSelDate(`${nvm.y}-${p2(nvm.m+1)}-01`);
@@ -1903,7 +1917,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false }) {
+function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0 }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
   const now = new Date();
   const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -1922,7 +1936,8 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
         <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
           vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
           onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
-          currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin} />
+          currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin}
+          onSyncFlights={onSyncFlights} flightSyncCount={flightSyncCount} />
       </div>
     </div>
   );
@@ -3177,13 +3192,209 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function MorningSummarySection({ userId }) {
-  const [status,   setStatus]   = useState('checking');
-  const [subError, setSubError] = useState('');
+  const [status,      setStatus]     = useState('checking');
+  const [subError,    setSubError]   = useState('');
+  const [notifyHour,  setNotifyHour] = useState(8); // default 8am SGT
+  const [savingTime,  setSavingTime] = useState(false);
 
-  // Detect iOS — Web Push on iOS requires PWA standalone mode
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isIOS       = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;
+
+  useEffect(() => {
+    if (isIOS && !isStandalone) { setStatus('needs-install'); return; }
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) { setStatus('unsupported'); return; }
+    if (Notification.permission === 'denied') { setStatus('denied'); return; }
+    const timeout = setTimeout(() => setStatus('off'), 4000);
+    navigator.serviceWorker.ready.then(reg => {
+      clearTimeout(timeout);
+      reg.pushManager.getSubscription().then(async sub => {
+        if (sub) {
+          // Load saved notify_hour from DB
+          const { data } = await supabase.from('push_subscriptions')
+            .select('notify_hour').eq('user_id', userId)
+            .eq('endpoint', sub.endpoint).single();
+          if (data?.notify_hour != null) setNotifyHour(data.notify_hour);
+          setStatus('on');
+        } else {
+          setStatus('off');
+        }
+      }).catch(() => setStatus('off'));
+    }).catch(() => { clearTimeout(timeout); setStatus('off'); });
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const enable = async () => {
+    setStatus('loading'); setSubError('');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setStatus('denied'); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const j = sub.toJSON();
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id:      userId,
+        endpoint:     j.endpoint,
+        p256dh:       j.keys.p256dh,
+        auth:         j.keys.auth,
+        display_name: null,
+        notify_hour:  notifyHour,
+        updated_at:   new Date().toISOString(),
+      }, { onConflict: 'user_id,endpoint' });
+      if (error) throw error;
+      setStatus('on');
+    } catch (err) {
+      setSubError(err.message || 'Could not enable notifications');
+      setStatus('off');
+    }
+  };
+
+  const disable = async () => {
+    setStatus('loading');
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await supabase.from('push_subscriptions')
+          .delete().eq('user_id', userId).eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setStatus('off');
+    } catch { setStatus('on'); }
+  };
+
+  const saveTime = async (h) => {
+    setNotifyHour(h); setSavingTime(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await supabase.from('push_subscriptions')
+          .update({ notify_hour: h, updated_at: new Date().toISOString() })
+          .eq('user_id', userId).eq('endpoint', sub.endpoint);
+      }
+    } catch { /* silent */ }
+    setSavingTime(false);
+  };
+
+  // Time options: every hour from 6am to 10pm SGT
+  const TIME_OPTIONS = Array.from({ length: 17 }, (_, i) => {
+    const h = i + 6;
+    const ampm = h < 12 ? 'am' : 'pm';
+    const display = h <= 12 ? h : h - 12;
+    return { h, label: `${display}:00 ${ampm}` };
+  });
+
+  const badge = (label, color) => (
+    <span style={{ fontSize:13, fontWeight:700, color,
+      background: color+'18', borderRadius:BR.pill, padding:'2px 10px',
+      border:`1px solid ${color}30` }}>{label}</span>
+  );
+
+  const statusBadge = () => {
+    if (status === 'on')     return badge('✓ On',    SUCCESS);
+    if (status === 'off')    return badge('Off',     C.muted);
+    if (status === 'loading')return badge('…',       C.dim);
+    if (status === 'denied') return badge('Blocked', WARN);
+    return badge('N/A', C.muted);
+  };
+
+  return (
+    <SS title="Notifications">
+      <div style={{ padding:'16px 18px' }}>
+        <div style={{ display:'flex', alignItems:'center',
+          justifyContent:'space-between', marginBottom:6 }}>
+          <div>
+            <p style={{ margin:'0 0 2px', fontSize:16, fontWeight:500, color:C.text }}>
+              Morning Summary
+            </p>
+            <p style={{ margin:0, fontSize:13, color:C.muted }}>
+              Daily schedule notification · this device
+            </p>
+          </div>
+          {statusBadge()}
+        </div>
+
+        {/* iOS install prompt */}
+        {status === 'needs-install' && (
+          <div style={{ background:C.rose+'10', borderRadius:BR.btn,
+            borderLeft:`3px solid ${C.rose}`, padding:'10px 14px', marginTop:8 }}>
+            <p style={{ margin:'0 0 4px', fontSize:13, fontWeight:700, color:C.rose }}>
+              Install Kizuna first
+            </p>
+            <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
+              In Safari: tap <strong>Share</strong> → <strong>Add to Home Screen</strong> → open Kizuna from the home screen icon, then return here.
+            </p>
+          </div>
+        )}
+
+        {status === 'denied' && (
+          <p style={{ margin:'8px 0 0', fontSize:13, color:WARN, lineHeight:1.6 }}>
+            Blocked. Go to <strong>iPhone Settings → Safari → Kizuna → Notifications</strong> to allow.
+          </p>
+        )}
+        {status === 'unsupported' && (
+          <p style={{ margin:'8px 0 0', fontSize:13, color:C.muted, fontStyle:'italic' }}>
+            Not supported on this browser.
+          </p>
+        )}
+
+        {subError ? <p style={{ margin:'8px 0 0', fontSize:13, color:WARN }}>{subError}</p> : null}
+
+        {/* Time picker — shown when enabled */}
+        {status === 'on' && (
+          <div style={{ marginTop:14 }}>
+            <p style={{ margin:'0 0 8px', fontSize:13, fontWeight:700, color:C.dim,
+              textTransform:'uppercase', letterSpacing:'0.1em' }}>
+              Notification Time (SGT)
+              {savingTime && <span style={{ color:C.muted, fontWeight:400 }}> · saving…</span>}
+            </p>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {TIME_OPTIONS.map(({ h, label }) => (
+                <button key={h} onClick={() => saveTime(h)}
+                  style={{ padding:'6px 13px', borderRadius:BR.pill,
+                    background: notifyHour===h
+                      ? `linear-gradient(135deg,${C.rose},${C.roseL})`
+                      : C.elevated,
+                    border:`1.5px solid ${notifyHour===h ? C.rose : C.border}`,
+                    color: notifyHour===h ? '#fff' : C.dim,
+                    fontSize:13, fontWeight: notifyHour===h ? 700 : 400,
+                    cursor:'pointer', transition:'all 0.15s',
+                    boxShadow: notifyHour===h ? `0 2px 8px ${C.rose}35` : 'none' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Enable / Disable button */}
+        {(status === 'off' || status === 'on') && (
+          <button onClick={status === 'on' ? disable : enable}
+            style={{ marginTop:14, width:'100%', padding:'11px',
+              background: status === 'on'
+                ? 'transparent'
+                : `linear-gradient(135deg,${C.rose},${C.roseL})`,
+              border:`1.5px solid ${status==='on' ? C.border : C.rose}`,
+              borderRadius:BR.btn, fontSize:14, fontWeight:700,
+              color: status === 'on' ? C.dim : '#fff',
+              cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s',
+              boxShadow: status === 'on' ? 'none' : `0 4px 14px ${C.rose}35` }}>
+            {status === 'on' ? 'Turn Off Notifications' : 'Enable Morning Summary 🔔'}
+          </button>
+        )}
+
+        {status === 'loading' && (
+          <p style={{ marginTop:10, textAlign:'center', fontSize:13,
+            color:C.muted, fontStyle:'italic' }}>Setting up…</p>
+        )}
+      </div>
+    </SS>
+  );
+}
 
   useEffect(() => {
     // On iOS in browser (not PWA) — push won't work, show install prompt
@@ -3248,96 +3459,6 @@ function MorningSummarySection({ userId }) {
       setStatus('off');
     } catch { setStatus('on'); }
   };
-
-  const badge = (label, color) => (
-    <span style={{ fontSize:13, fontWeight:700, color,
-      background: color+'18', borderRadius:BR.pill, padding:'2px 10px',
-      border:`1px solid ${color}30` }}>{label}</span>
-  );
-
-  const statusBadge = () => {
-    if (status === 'on')            return badge('✓ On',    SUCCESS);
-    if (status === 'off')           return badge('Off',     C.muted);
-    if (status === 'loading')       return badge('…',       C.dim);
-    if (status === 'denied')        return badge('Blocked', WARN);
-    if (status === 'unsupported' || status === 'needs-install')
-                                    return badge('N/A',     C.muted);
-    return badge('…', C.dim);
-  };
-
-  return (
-    <SS title="Notifications">
-      <div style={{ padding:'16px 18px' }}>
-        <div style={{ display:'flex', alignItems:'center',
-          justifyContent:'space-between', marginBottom:6 }}>
-          <div>
-            <p style={{ margin:'0 0 2px', fontSize:16, fontWeight:500,
-              color:C.text }}>Morning Summary</p>
-            <p style={{ margin:0, fontSize:13, color:C.muted }}>
-              Daily schedule at 8:00 AM · this device
-            </p>
-          </div>
-          {statusBadge()}
-        </div>
-
-        {/* iOS — not installed as PWA */}
-        {status === 'needs-install' && (
-          <div style={{ background:C.rose+'10', borderRadius:BR.btn,
-            borderLeft:`3px solid ${C.rose}`, padding:'10px 14px', marginTop:8 }}>
-            <p style={{ margin:'0 0 4px', fontSize:13, fontWeight:700,
-              color:C.rose }}>Install Kizuna first</p>
-            <p style={{ margin:0, fontSize:13, color:C.dim, lineHeight:1.6 }}>
-              On iPhone, notifications only work when Kizuna is installed to your home screen.
-            </p>
-            <p style={{ margin:'6px 0 0', fontSize:13, color:C.dim, lineHeight:1.6 }}>
-              In Safari: tap the <strong>Share</strong> button → <strong>Add to Home Screen</strong> → open Kizuna from the home screen icon, then return here.
-            </p>
-          </div>
-        )}
-
-        {/* Fully unsupported */}
-        {status === 'unsupported' && (
-          <p style={{ margin:'8px 0 0', fontSize:13, color:C.muted,
-            fontStyle:'italic', background:C.elevated, borderRadius:BR.btn,
-            padding:'8px 12px' }}>
-            Your browser does not support push notifications.
-          </p>
-        )}
-
-        {/* Blocked */}
-        {status === 'denied' && (
-          <p style={{ margin:'8px 0 0', fontSize:13, color:WARN,
-            lineHeight:1.6 }}>
-            Notifications are blocked. Go to <strong>iPhone Settings → Safari → Kizuna → Notifications</strong> to allow.
-          </p>
-        )}
-
-        {subError ? <p style={{ margin:'8px 0 0', fontSize:13, color:WARN }}>{subError}</p> : null}
-
-        {/* Enable / Disable button */}
-        {(status === 'off' || status === 'on') && (
-          <button onClick={status === 'on' ? disable : enable}
-            style={{ marginTop:12, width:'100%', padding:'11px',
-              background: status === 'on'
-                ? 'transparent'
-                : `linear-gradient(135deg,${C.rose},${C.roseL})`,
-              border:`1.5px solid ${status==='on' ? C.border : C.rose}`,
-              borderRadius:BR.btn, fontSize:14, fontWeight:700,
-              color: status === 'on' ? C.dim : '#fff',
-              cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s',
-              boxShadow: status === 'on' ? 'none' : `0 4px 14px ${C.rose}35` }}>
-            {status === 'on' ? 'Turn Off Notifications' : 'Enable Morning Summary 🔔'}
-          </button>
-        )}
-
-        {status === 'loading' && (
-          <p style={{ marginTop:10, textAlign:'center', fontSize:13,
-            color:C.muted, fontStyle:'italic' }}>Setting up…</p>
-        )}
-      </div>
-    </SS>
-  );
-}
 
 // ─── NEW MEMBER GUIDE ────────────────────────────────────────────
 // Admin-only collapsible guide for registering new members.
@@ -4723,21 +4844,12 @@ export default function App() {
   }, [user, userName]);
 
   // ── Entry mutations ────────────────────────────────────────────
-  // ── Background flight sync on launch ──────────────────────────
-  // Fires once per session after entries are loaded.
-  // Finds all upcoming flights with a flight number and refreshes
-  // their gate, terminal, delay, and status from the API.
-  // Staggers calls by 1.5s to respect rate limits.
-  const flightSyncRef = useRef(false);
-  useEffect(() => {
-    if (!user || !workspaceLoaded || flightSyncRef.current) return;
+  // ── Manual flight sync — called only when user presses the refresh button ──
+  const syncAllFlights = useCallback(async () => {
     const upcoming = entries.filter(e =>
-      e.type === 'flight' &&
-      e.flightNum &&
-      e.date >= fd(new Date())
+      e.type === 'flight' && e.flightNum && e.date >= fd(new Date())
     );
     if (upcoming.length === 0) return;
-    flightSyncRef.current = true;
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -4748,41 +4860,33 @@ export default function App() {
       try {
         const res = await fetch(`${supabaseUrl}/functions/v1/flight-status`, {
           method: 'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${anonKey}`,
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
           body: JSON.stringify({ flightNumber: e.flightNum, date: e.date }),
         });
         if (!res.ok) return;
         const data = await res.json();
         if (data?.error || !data?.label) return;
-
-        // Build updated entry — only overwrite fields API actually returned
         const updated = { ...e };
-        if (data.terminal)   updated.terminal  = data.terminal;
-        if (data.gate)       updated.gate      = data.gate;
-        if (data.airline)    updated.airline   = data.airlineName || e.airline;
+        if (data.terminal)            updated.terminal    = data.terminal;
+        if (data.gate)                updated.gate        = data.gate;
+        if (data.airline)             updated.airline     = data.airlineName || e.airline;
         if (data.delayMins !== undefined) {
           updated.delayMins  = data.delayMins;
           updated.delayLabel = data.delayLabel;
         }
-        if (data.revisedDep) updated.revisedDep = data.revisedDep;
-        if (data.scheduledArr) updated.scheduledArr = data.scheduledArr;
-
-        // Update in state and persist to Supabase
+        if (data.revisedDep)          updated.revisedDep  = data.revisedDep;
+        if (data.scheduledArr)        updated.scheduledArr = data.scheduledArr;
         setEntries(prev => prev.map(x => x.id === e.id ? updated : x));
         const ownerUserId = e.userId || user?.id;
         if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
-      } catch { /* silent — flight sync is best-effort */ }
+      } catch { /* silent */ }
     };
 
-    // Stagger each flight call by 1.5 seconds
     setFlightSyncCount(upcoming.length);
     upcoming.forEach((e, i) => syncFlight(e, i * 1500).finally(() => {
       setFlightSyncCount(prev => Math.max(0, prev - 1));
     }));
-  }, [user, workspaceLoaded, entries.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entries, user]); // eslint-disable-line react-hooks/exhaustive-deps
   // Fires once per TIME SLOT (morning/afternoon/evening).
   // useRef stores the last slot shown — prevents re-firing within same slot.
   const quoteFiredRef = useRef('');
@@ -5071,7 +5175,7 @@ export default function App() {
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
         {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
