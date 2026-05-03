@@ -1661,10 +1661,9 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                     {dayFlights.slice(0,2).map((f,fi) => (
                       <div key={fi} style={{ fontSize:9, fontWeight:700,
                         color: isPast ? C.F+'70' : C.F,
-                        letterSpacing:'0.02em',
-                        whiteSpace:'nowrap', overflow:'hidden',
-                        textOverflow:'ellipsis', maxWidth:44, margin:'0 auto' }}>
-                        {f.depCity||'?'}→{f.arrCity||'?'}
+                        letterSpacing:'0.04em',
+                        whiteSpace:'nowrap', margin:'0 auto' }}>
+                        {(f.depCity||'???').slice(0,3).toUpperCase()}-{(f.arrCity||'???').slice(0,3).toUpperCase()}
                       </div>
                     ))}
                     {dayFlights.length > 2 && (
