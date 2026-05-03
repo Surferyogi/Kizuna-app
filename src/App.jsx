@@ -2166,6 +2166,10 @@ async function fetchDailyQuote(supabaseClient) {
 
 // ─── FULL-SCREEN SAKURA PETAL CSS ───────────────────────────────
 const SPLASH_PETAL_CSS = `
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 @keyframes splashPetal1 {
   0%   { transform: translate(0, -20px) rotate(0deg);    opacity:0; }
   8%   { opacity:0.8; }
