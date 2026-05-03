@@ -4,29 +4,21 @@ import { VitePWA }   from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/Kizuna-app/',
-
   plugins: [
     react(),
     VitePWA({
-      // injectManifest: use our custom sw.js so we can handle push events
       strategies:   'injectManifest',
       srcDir:       'src',
       filename:     'sw.js',
       registerType: 'autoUpdate',
       injectManifest: {
-        // Don't cache Supabase API calls
-        globIgnores: ['**/functions/**', '**supabase**'],
+        globPatterns: [],           // let vite-plugin-pwa handle caching
+        injectionPoint: undefined,  // no __WB_MANIFEST injection needed
       },
-      workbox: {
-        clientsClaim: true,
-        skipWaiting:  true,
-        navigateFallbackDenylist: [/^\/functions\//, /supabase/],
-      },
-      includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name:             'Kizuna 絆',
         short_name:       'Kizuna',
-        description:      'Bonding with trust, loyalty & love — an invisible thread that connects hearts.',
+        description:      'Bonding with trust, loyalty & love.',
         theme_color:      '#B8715C',
         background_color: '#F8F5F1',
         display:          'standalone',
