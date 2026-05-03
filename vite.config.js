@@ -7,14 +7,17 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      strategies:   'injectManifest',
-      srcDir:       'src',
-      filename:     'sw.js',
+      strategies:   'generateSW',
       registerType: 'autoUpdate',
-      injectManifest: {
-        globPatterns: [],           // let vite-plugin-pwa handle caching
-        injectionPoint: undefined,  // no __WB_MANIFEST injection needed
+      workbox: {
+        clientsClaim: true,
+        skipWaiting:  true,
+        // Import our push handler into the generated service worker
+        importScripts: ['/Kizuna-app/push-handler.js'],
+        navigateFallback: '/Kizuna-app/index.html',
+        navigateFallbackDenylist: [/^\/api\//],
       },
+      includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name:             'Kizuna 絆',
         short_name:       'Kizuna',
