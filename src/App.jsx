@@ -1856,6 +1856,18 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
 // Privacy: birth years & anniversary year stay local — only prompt text leaves device.
 
 const QUOTE_CACHE_KEY  = 'kizuna_daily_quote_v1';
+
+// Three time slots per day — quote refreshes at each slot boundary
+function getQuoteSlot(now = new Date()) {
+  const h = now.getHours();
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
+}
+
+function getSlotKey(now = new Date()) {
+  return `${now.toISOString().slice(0,10)}-${getQuoteSlot(now)}`;
+}
 const ANNA_BIRTH_MONTH = 4;  // April
 const ANNA_BIRTH_DAY   = 16;
 const ANNA_BIRTH_YEAR  = 2025;
@@ -2020,12 +2032,12 @@ function buildQuotePrompt(day, themeIndex) {
 }
 
 async function fetchDailyQuote(supabaseClient) {
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const slotKey = getSlotKey(); // e.g. '2026-05-03-morning'
 
-  // Serve cache if same day
+  // Serve cache if same slot
   try {
     const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
-    if (cached?.date === todayKey && cached?.quote) return cached;
+    if (cached?.slot === slotKey && cached?.quote) return cached;
   } catch { /* ignore */ }
 
   // Build prompt
@@ -2049,7 +2061,7 @@ async function fetchDailyQuote(supabaseClient) {
       return null;
     }
 
-    const result = { date: todayKey, quote: data.quote, label, isSpecial };
+    const result = { slot: slotKey, quote: data.quote, label, isSpecial };
     localStorage.setItem(QUOTE_CACHE_KEY, JSON.stringify(result));
     return result;
   } catch (err) {
@@ -2122,34 +2134,15 @@ const SPLASH_PETALS = [
 function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
   const [swiping,     setSwiping]     = useState(false);
   const [touchStartY, setTouchStartY] = useState(null);
-  const [canDismiss,  setCanDismiss]  = useState(false);
-  const [countdown,   setCountdown]   = useState(10);
-
-  // Countdown starts from MOUNT — not from loading state.
-  // This ensures 10 seconds even if quote is cached and loading=false immediately.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setCanDismiss(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []); // ← empty deps: runs once on mount, never resets
 
   const dismiss = () => {
-    if (!canDismiss) return;
     setSwiping(true);
     setTimeout(onDismiss, 350);
   };
 
   const handleTouchStart = e => setTouchStartY(e.touches[0].clientY);
   const handleTouchEnd   = e => {
-    if (canDismiss && touchStartY !== null &&
+    if (touchStartY !== null &&
         (e.changedTouches[0].clientY - touchStartY) > 60) dismiss();
     setTouchStartY(null);
   };
@@ -2167,7 +2160,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
         display:'flex', flexDirection:'column',
         alignItems:'center', justifyContent:'center',
         padding:'32px 24px',
-        cursor: canDismiss ? 'pointer' : 'default',
+        cursor:'pointer',
         animation: swiping ? 'quoteSwipeDown 0.35s ease-in forwards' : 'none',
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
@@ -2251,33 +2244,27 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
           </p>
         )}
 
-        {/* Dismiss / countdown */}
+        {/* Dismiss button */}
         {!loading && (
           <button
             onClick={e => { e.stopPropagation(); dismiss(); }}
-            disabled={!canDismiss}
             style={{
               marginTop:22, width:'100%',
-              background: canDismiss
-                ? `linear-gradient(135deg,${C.rose},${C.roseL})`
-                : C.elevated,
-              border:`1.5px solid ${canDismiss ? C.rose : C.border}`,
-              borderRadius:BR.btn,
-              padding:'12px',
+              background:`linear-gradient(135deg,${C.rose},${C.roseL})`,
+              border:`1.5px solid ${C.rose}`,
+              borderRadius:BR.btn, padding:'12px',
               fontSize:14, fontWeight:700,
-              color: canDismiss ? '#fff' : C.muted,
-              cursor: canDismiss ? 'pointer' : 'default',
-              fontFamily:'inherit',
-              transition:'all 0.3s',
-              boxShadow: canDismiss ? `0 4px 14px ${C.rose}40` : 'none',
+              color:'#fff', cursor:'pointer',
+              fontFamily:'inherit', transition:'all 0.3s',
+              boxShadow:`0 4px 14px ${C.rose}40`,
             }}>
-            {canDismiss ? 'Enter Kizuna 🌸' : `Enter Kizuna · ${countdown}s`}
+            Enter Kizuna 🌸
           </button>
         )}
       </div>
 
       {/* Tap hint */}
-      {!loading && canDismiss && (
+      {!loading && (
         <p style={{ marginTop:16, fontSize:12, color:C.muted,
           position:'relative', zIndex:1, fontStyle:'italic' }}>
           tap anywhere or swipe down to continue
@@ -4010,16 +3997,17 @@ export default function App() {
 
   // ── Entry mutations ────────────────────────────────────────────
   // ── Daily Quote fetch ─────────────────────────────────────────
-  // Fires ONCE per session when user is authenticated and name is ready.
-  // useRef guard prevents re-firing on subsequent renders.
-  const quoteFiredRef = useRef(false);
+  // Fires once per TIME SLOT (morning/afternoon/evening).
+  // useRef stores the last slot shown — prevents re-firing within same slot.
+  const quoteFiredRef = useRef('');
   useEffect(() => {
-    if (!user || !nameReady || quoteFiredRef.current) return;
-    quoteFiredRef.current = true; // fire exactly once per session
-    const todayKey = new Date().toISOString().slice(0, 10);
+    if (!user || !nameReady) return;
+    const currentSlot = getSlotKey();
+    if (quoteFiredRef.current === currentSlot) return; // already shown this slot
+    quoteFiredRef.current = currentSlot;
     try {
       const cached = JSON.parse(localStorage.getItem(QUOTE_CACHE_KEY) || 'null');
-      if (cached?.date === todayKey && cached?.quote) {
+      if (cached?.slot === currentSlot && cached?.quote) {
         setQuoteData(cached);
         setShowQuote(true);
         return;
@@ -4029,7 +4017,6 @@ export default function App() {
     setShowQuote(true);
     fetchDailyQuote(supabase).then(result => {
       if (result) setQuoteData(result);
-      // On failure: leave showQuote true, quoteData null — screen stays, no quote shown
       setQuoteLoading(false);
     });
   }, [user, nameReady]); // eslint-disable-line react-hooks/exhaustive-deps
