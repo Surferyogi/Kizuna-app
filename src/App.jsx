@@ -1746,6 +1746,26 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                       </span>
                       <div style={{ height:1, flex:1, background:C.border }} />
                     </div>
+                    {/* Holiday banners for this flight's departure date */}
+                    {(HOLIDAYS_BY_DATE[e.date]||[]).map((h,hi) => (
+                      <div key={hi} style={{ display:'flex', alignItems:'center', gap:10,
+                        background: HC_LIGHT[h.country]||'#FEE8EA',
+                        border:`1px solid ${HC[h.country]||'#EF3340'}20`,
+                        borderLeft:`3px solid ${HC[h.country]||'#EF3340'}`,
+                        borderRadius:BR.input, padding:'6px 12px', marginBottom:5,
+                        opacity: isPastFlight ? 0.7 : 1 }}>
+                        <span style={{ fontSize:16, flexShrink:0 }}>
+                          {h.country==='SG'?'🇸🇬':'🇯🇵'}
+                        </span>
+                        <div>
+                          <span style={{ fontSize:12, fontWeight:700,
+                            color:HC[h.country]||'#EF3340' }}>{h.name}</span>
+                          <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
+                            {h.country==='SG'?'Singapore':'Japan'} Public Holiday
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                     {/* Flight ECard */}
                     <div style={{ background:C.card, borderRadius:BR.card,
                       border:`1px solid ${isPastFlight ? C.border : '#5BB8E840'}`,
