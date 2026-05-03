@@ -1622,8 +1622,10 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             const dots    = showFlights
               ? [] // hide dots in flight mode — route labels replace them
               : [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
-            const dayFlights = flightsByDate[ds] || [];
-            const hasFlight  = dayFlights.length > 0;
+            const dayFlights  = flightsByDate[ds] || [];
+            const hasFlight   = dayFlights.length > 0;
+            const dayHolidays = HOLIDAYS_BY_DATE[ds] || [];
+            const hasHoliday  = dayHolidays.length > 0;
 
             return (
               <button key={ds}
@@ -1636,23 +1638,34 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                 {/* Day number circle */}
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                   background: isSel ? (showFlights && hasFlight ? C.F : C.rose)
-                    : isT ? (showFlights && hasFlight ? C.F+'20' : C.rose+'20') : 'transparent',
-                  border: isT && !isSel
-                    ? `1.5px solid ${showFlights && hasFlight ? '#5BB8E880' : '#B8715C60'}`
-                    : isSel ? 'none' : '1.5px solid transparent',
+                    : isT ? (showFlights && hasFlight ? C.F+'20' : C.rose+'20')
+                    : hasHoliday && !showFlights ? HC_LIGHT[dayHolidays[0].country]||'#FEE8EA' : 'transparent',
+                  border: isSel ? 'none'
+                    : hasHoliday && !showFlights
+                      ? `1.5px solid ${HC[dayHolidays[0].country]||'#EF3340'}40`
+                      : isT ? `1.5px solid ${showFlights && hasFlight ? '#5BB8E880' : '#B8715C60'}`
+                      : '1.5px solid transparent',
                   boxShadow: isSel ? `0 2px 12px ${showFlights&&hasFlight?C.F:C.rose}35` : 'none',
                   display:'flex', alignItems:'center', justifyContent:'center',
                   position:'relative' }}>
                   <span style={{ fontSize:15, fontWeight:isSel?700:400,
                     color: isSel ? '#fff'
                       : isT ? (showFlights&&hasFlight?C.F:C.rose)
-                      : showFlights&&hasFlight ? C.F : C.text }}>{day}</span>
-                  {/* Flight indicator dot on day circle */}
+                      : showFlights&&hasFlight ? C.F
+                      : hasHoliday ? HC[dayHolidays[0].country]||'#EF3340'
+                      : C.text }}>{day}</span>
+                  {/* Flight indicator dot */}
                   {showFlights && hasFlight && !isSel && (
                     <div style={{ position:'absolute', top:2, right:2,
                       width:6, height:6, borderRadius:3,
                       background: isPast ? C.F+'80' : C.F,
                       boxShadow:`0 0 4px ${C.F}60` }} />
+                  )}
+                  {/* Holiday indicator dot */}
+                  {hasHoliday && !showFlights && !isSel && (
+                    <div style={{ position:'absolute', bottom:2, right:2,
+                      width:5, height:5, borderRadius:3,
+                      background: HC[dayHolidays[0].country]||'#EF3340' }} />
                   )}
                 </div>
                 {/* Flight mode: show DEP→ARR route text */}
@@ -1793,6 +1806,23 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             {new Date(selDate+'T00:00:00').toLocaleDateString('en-US',
               {weekday:'long',month:'long',day:'numeric'})}
           </p>
+          {/* Holiday banner for selected day */}
+          {(HOLIDAYS_BY_DATE[selDate]||[]).map((h,i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
+              background: HC_LIGHT[h.country]||'#FEE8EA',
+              border:`1px solid ${HC[h.country]||'#EF3340'}30`,
+              borderLeft:`3px solid ${HC[h.country]||'#EF3340'}`,
+              borderRadius:BR.input, padding:'7px 12px', marginBottom:6 }}>
+              <span style={{ fontSize:14 }}>{h.country==='SG'?'🇸🇬':'🇯🇵'}</span>
+              <div>
+                <span style={{ fontSize:13, fontWeight:700,
+                  color: HC[h.country]||'#EF3340' }}>{h.name}</span>
+                <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
+                  Public Holiday · {h.country==='SG'?'Singapore':'Japan'}
+                </span>
+              </div>
+            </div>
+          ))}
           {selDayEs.length===0
             ? <div style={{ textAlign:'center', padding:'24px 18px',
                 background:C.card, borderRadius:BR.card,
@@ -2273,26 +2303,193 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
   );
 }
 
+// ─── PUBLIC HOLIDAYS ─────────────────────────────────────────────
+// Singapore (SG) and Japan (JP) national bank holidays 2026–2035.
+// Hardcoded from official sources — no external API needed.
+const PUBLIC_HOLIDAYS = [
+  // 2026
+  {date:'2026-01-01',name:"New Year's Day",country:'SG'},{date:'2026-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2026-01-12',name:'Coming of Age Day',country:'JP'},{date:'2026-02-11',name:'National Foundation Day',country:'JP'},
+  {date:'2026-02-17',name:'Chinese New Year',country:'SG'},{date:'2026-02-18',name:'Chinese New Year',country:'SG'},
+  {date:'2026-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2026-03-20',name:'Spring Equinox',country:'JP'},
+  {date:'2026-03-30',name:'Hari Raya Puasa',country:'SG'},{date:'2026-04-03',name:'Good Friday',country:'SG'},
+  {date:'2026-04-29',name:'Showa Day',country:'JP'},{date:'2026-05-01',name:'Labour Day',country:'SG'},
+  {date:'2026-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2026-05-04',name:'Greenery Day',country:'JP'},
+  {date:'2026-05-05',name:"Children's Day",country:'JP'},{date:'2026-05-12',name:'Vesak Day',country:'SG'},
+  {date:'2026-06-06',name:'Hari Raya Haji',country:'SG'},{date:'2026-07-20',name:'Marine Day',country:'JP'},
+  {date:'2026-08-09',name:'National Day',country:'SG'},{date:'2026-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2026-09-21',name:'Respect for the Aged Day',country:'JP'},{date:'2026-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2026-10-12',name:'Sports Day',country:'JP'},{date:'2026-10-20',name:'Deepavali',country:'SG'},
+  {date:'2026-11-03',name:'Culture Day',country:'JP'},{date:'2026-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2026-12-25',name:'Christmas Day',country:'SG'},
+  // 2027
+  {date:'2027-01-01',name:"New Year's Day",country:'SG'},{date:'2027-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2027-01-11',name:'Coming of Age Day',country:'JP'},{date:'2027-02-06',name:'Chinese New Year',country:'SG'},
+  {date:'2027-02-07',name:'Chinese New Year',country:'SG'},{date:'2027-02-11',name:'National Foundation Day',country:'JP'},
+  {date:'2027-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2027-03-20',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2027-03-21',name:'Spring Equinox',country:'JP'},{date:'2027-03-26',name:'Good Friday',country:'SG'},
+  {date:'2027-04-29',name:'Showa Day',country:'JP'},{date:'2027-05-01',name:'Labour Day',country:'SG'},
+  {date:'2027-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2027-05-04',name:'Greenery Day',country:'JP'},
+  {date:'2027-05-05',name:"Children's Day",country:'JP'},{date:'2027-05-27',name:'Hari Raya Haji',country:'SG'},
+  {date:'2027-05-31',name:'Vesak Day',country:'SG'},{date:'2027-07-19',name:'Marine Day',country:'JP'},
+  {date:'2027-08-09',name:'National Day',country:'SG'},{date:'2027-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2027-09-20',name:'Respect for the Aged Day',country:'JP'},{date:'2027-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2027-10-11',name:'Sports Day',country:'JP'},{date:'2027-11-03',name:'Culture Day',country:'JP'},
+  {date:'2027-11-08',name:'Deepavali',country:'SG'},{date:'2027-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2027-12-25',name:'Christmas Day',country:'SG'},
+  // 2028
+  {date:'2028-01-01',name:"New Year's Day",country:'SG'},{date:'2028-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2028-01-10',name:'Coming of Age Day',country:'JP'},{date:'2028-01-24',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2028-01-26',name:'Chinese New Year',country:'SG'},{date:'2028-01-27',name:'Chinese New Year',country:'SG'},
+  {date:'2028-02-11',name:'National Foundation Day',country:'JP'},{date:'2028-02-23',name:"Emperor's Birthday",country:'JP'},
+  {date:'2028-03-09',name:'Hari Raya Puasa',country:'SG'},{date:'2028-03-20',name:'Spring Equinox',country:'JP'},
+  {date:'2028-04-14',name:'Good Friday',country:'SG'},{date:'2028-04-29',name:'Showa Day',country:'JP'},
+  {date:'2028-05-01',name:'Labour Day',country:'SG'},{date:'2028-05-03',name:'Constitution Memorial Day',country:'JP'},
+  {date:'2028-05-04',name:'Greenery Day',country:'JP'},{date:'2028-05-05',name:"Children's Day",country:'JP'},
+  {date:'2028-05-16',name:'Hari Raya Haji',country:'SG'},{date:'2028-05-20',name:'Vesak Day',country:'SG'},
+  {date:'2028-07-17',name:'Marine Day',country:'JP'},{date:'2028-08-09',name:'National Day',country:'SG'},
+  {date:'2028-08-11',name:'Mountain Day',country:'JP'},{date:'2028-09-18',name:'Respect for the Aged Day',country:'JP'},
+  {date:'2028-09-22',name:'Autumnal Equinox',country:'JP'},{date:'2028-10-09',name:'Sports Day',country:'JP'},
+  {date:'2028-10-26',name:'Deepavali',country:'SG'},{date:'2028-11-03',name:'Culture Day',country:'JP'},
+  {date:'2028-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2028-12-25',name:'Christmas Day',country:'SG'},
+  // 2029
+  {date:'2029-01-01',name:"New Year's Day",country:'SG'},{date:'2029-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2029-01-08',name:'Coming of Age Day',country:'JP'},{date:'2029-02-11',name:'National Foundation Day',country:'JP'},
+  {date:'2029-02-13',name:'Chinese New Year',country:'SG'},{date:'2029-02-14',name:'Chinese New Year',country:'SG'},
+  {date:'2029-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2029-02-26',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2029-03-20',name:'Spring Equinox',country:'JP'},{date:'2029-03-30',name:'Good Friday',country:'SG'},
+  {date:'2029-04-29',name:'Showa Day',country:'JP'},{date:'2029-05-01',name:'Labour Day',country:'SG'},
+  {date:'2029-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2029-05-04',name:'Greenery Day',country:'JP'},
+  {date:'2029-05-05',name:'Hari Raya Haji',country:'SG'},{date:'2029-05-05',name:"Children's Day",country:'JP'},
+  {date:'2029-05-08',name:'Vesak Day',country:'SG'},{date:'2029-07-16',name:'Marine Day',country:'JP'},
+  {date:'2029-08-09',name:'National Day',country:'SG'},{date:'2029-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2029-09-17',name:'Respect for the Aged Day',country:'JP'},{date:'2029-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2029-10-08',name:'Sports Day',country:'JP'},{date:'2029-11-03',name:'Culture Day',country:'JP'},
+  {date:'2029-11-14',name:'Deepavali',country:'SG'},{date:'2029-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2029-12-25',name:'Christmas Day',country:'SG'},
+  // 2030
+  {date:'2030-01-01',name:"New Year's Day",country:'SG'},{date:'2030-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2030-01-14',name:'Coming of Age Day',country:'JP'},{date:'2030-02-03',name:'Chinese New Year',country:'SG'},
+  {date:'2030-02-04',name:'Chinese New Year',country:'SG'},{date:'2030-02-11',name:'National Foundation Day',country:'JP'},
+  {date:'2030-02-15',name:'Hari Raya Puasa',country:'SG'},{date:'2030-02-23',name:"Emperor's Birthday",country:'JP'},
+  {date:'2030-03-20',name:'Spring Equinox',country:'JP'},{date:'2030-04-19',name:'Good Friday',country:'SG'},
+  {date:'2030-04-24',name:'Hari Raya Haji',country:'SG'},{date:'2030-04-29',name:'Showa Day',country:'JP'},
+  {date:'2030-05-01',name:'Labour Day',country:'SG'},{date:'2030-05-03',name:'Constitution Memorial Day',country:'JP'},
+  {date:'2030-05-04',name:'Greenery Day',country:'JP'},{date:'2030-05-05',name:"Children's Day",country:'JP'},
+  {date:'2030-05-15',name:'Marine Day',country:'JP'},{date:'2030-05-26',name:'Vesak Day',country:'SG'},
+  {date:'2030-08-09',name:'National Day',country:'SG'},{date:'2030-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2030-09-16',name:'Respect for the Aged Day',country:'JP'},{date:'2030-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2030-10-14',name:'Sports Day',country:'JP'},{date:'2030-11-03',name:'Culture Day',country:'JP'},
+  {date:'2030-11-03',name:'Deepavali',country:'SG'},{date:'2030-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2030-12-25',name:'Christmas Day',country:'SG'},
+  // 2031
+  {date:'2031-01-01',name:"New Year's Day",country:'SG'},{date:'2031-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2031-01-13',name:'Coming of Age Day',country:'JP'},{date:'2031-01-23',name:'Chinese New Year',country:'SG'},
+  {date:'2031-01-24',name:'Chinese New Year',country:'SG'},{date:'2031-02-04',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2031-02-11',name:'National Foundation Day',country:'JP'},{date:'2031-02-23',name:"Emperor's Birthday",country:'JP'},
+  {date:'2031-03-21',name:'Spring Equinox',country:'JP'},{date:'2031-04-11',name:'Good Friday',country:'SG'},
+  {date:'2031-04-13',name:'Hari Raya Haji',country:'SG'},{date:'2031-04-29',name:'Showa Day',country:'JP'},
+  {date:'2031-05-01',name:'Labour Day',country:'SG'},{date:'2031-05-03',name:'Constitution Memorial Day',country:'JP'},
+  {date:'2031-05-04',name:'Greenery Day',country:'JP'},{date:'2031-05-05',name:"Children's Day",country:'JP'},
+  {date:'2031-05-15',name:'Vesak Day',country:'SG'},{date:'2031-07-21',name:'Marine Day',country:'JP'},
+  {date:'2031-08-09',name:'National Day',country:'SG'},{date:'2031-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2031-09-15',name:'Respect for the Aged Day',country:'JP'},{date:'2031-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2031-10-13',name:'Sports Day',country:'JP'},{date:'2031-10-23',name:'Deepavali',country:'SG'},
+  {date:'2031-11-03',name:'Culture Day',country:'JP'},{date:'2031-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2031-12-25',name:'Christmas Day',country:'SG'},
+  // 2032
+  {date:'2032-01-01',name:"New Year's Day",country:'SG'},{date:'2032-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2032-01-12',name:'Coming of Age Day',country:'JP'},{date:'2032-01-24',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2032-02-11',name:'Chinese New Year',country:'SG'},{date:'2032-02-11',name:'National Foundation Day',country:'JP'},
+  {date:'2032-02-12',name:'Chinese New Year',country:'SG'},{date:'2032-02-23',name:"Emperor's Birthday",country:'JP'},
+  {date:'2032-03-20',name:'Spring Equinox',country:'JP'},{date:'2032-03-26',name:'Good Friday',country:'SG'},
+  {date:'2032-04-01',name:'Hari Raya Haji',country:'SG'},{date:'2032-04-29',name:'Showa Day',country:'JP'},
+  {date:'2032-05-01',name:'Labour Day',country:'SG'},{date:'2032-05-03',name:'Constitution Memorial Day',country:'JP'},
+  {date:'2032-05-03',name:'Vesak Day',country:'SG'},{date:'2032-05-04',name:'Greenery Day',country:'JP'},
+  {date:'2032-05-05',name:"Children's Day",country:'JP'},{date:'2032-07-19',name:'Marine Day',country:'JP'},
+  {date:'2032-08-09',name:'National Day',country:'SG'},{date:'2032-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2032-09-20',name:'Respect for the Aged Day',country:'JP'},{date:'2032-09-22',name:'Autumnal Equinox',country:'JP'},
+  {date:'2032-10-11',name:'Sports Day',country:'JP'},{date:'2032-11-03',name:'Culture Day',country:'JP'},
+  {date:'2032-11-10',name:'Deepavali',country:'SG'},{date:'2032-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2032-12-25',name:'Christmas Day',country:'SG'},
+  // 2033
+  {date:'2033-01-01',name:"New Year's Day",country:'SG'},{date:'2033-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2033-01-10',name:'Coming of Age Day',country:'JP'},{date:'2033-01-12',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2033-01-31',name:'Chinese New Year',country:'SG'},{date:'2033-02-01',name:'Chinese New Year',country:'SG'},
+  {date:'2033-02-11',name:'National Foundation Day',country:'JP'},{date:'2033-02-23',name:"Emperor's Birthday",country:'JP'},
+  {date:'2033-03-20',name:'Spring Equinox',country:'JP'},{date:'2033-03-21',name:'Hari Raya Haji',country:'SG'},
+  {date:'2033-04-15',name:'Good Friday',country:'SG'},{date:'2033-04-29',name:'Showa Day',country:'JP'},
+  {date:'2033-05-01',name:'Labour Day',country:'SG'},{date:'2033-05-03',name:'Constitution Memorial Day',country:'JP'},
+  {date:'2033-05-04',name:'Greenery Day',country:'JP'},{date:'2033-05-05',name:"Children's Day",country:'JP'},
+  {date:'2033-05-22',name:'Vesak Day',country:'SG'},{date:'2033-07-18',name:'Marine Day',country:'JP'},
+  {date:'2033-08-09',name:'National Day',country:'SG'},{date:'2033-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2033-09-19',name:'Respect for the Aged Day',country:'JP'},{date:'2033-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2033-10-10',name:'Sports Day',country:'JP'},{date:'2033-10-30',name:'Deepavali',country:'SG'},
+  {date:'2033-11-03',name:'Culture Day',country:'JP'},{date:'2033-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2033-12-25',name:'Christmas Day',country:'SG'},
+  // 2034
+  {date:'2034-01-01',name:"New Year's Day",country:'SG'},{date:'2034-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2034-01-01',name:'Hari Raya Puasa',country:'SG'},{date:'2034-01-09',name:'Coming of Age Day',country:'JP'},
+  {date:'2034-02-11',name:'National Foundation Day',country:'JP'},{date:'2034-02-19',name:'Chinese New Year',country:'SG'},
+  {date:'2034-02-20',name:'Chinese New Year',country:'SG'},{date:'2034-02-23',name:"Emperor's Birthday",country:'JP'},
+  {date:'2034-03-10',name:'Hari Raya Haji',country:'SG'},{date:'2034-03-21',name:'Spring Equinox',country:'JP'},
+  {date:'2034-03-31',name:'Good Friday',country:'SG'},{date:'2034-04-29',name:'Showa Day',country:'JP'},
+  {date:'2034-05-01',name:'Labour Day',country:'SG'},{date:'2034-05-03',name:'Constitution Memorial Day',country:'JP'},
+  {date:'2034-05-04',name:'Greenery Day',country:'JP'},{date:'2034-05-05',name:"Children's Day",country:'JP'},
+  {date:'2034-05-11',name:'Vesak Day',country:'SG'},{date:'2034-07-17',name:'Marine Day',country:'JP'},
+  {date:'2034-08-09',name:'National Day',country:'SG'},{date:'2034-08-11',name:'Mountain Day',country:'JP'},
+  {date:'2034-09-18',name:'Respect for the Aged Day',country:'JP'},{date:'2034-09-23',name:'Autumnal Equinox',country:'JP'},
+  {date:'2034-10-09',name:'Sports Day',country:'JP'},{date:'2034-11-03',name:'Culture Day',country:'JP'},
+  {date:'2034-11-18',name:'Deepavali',country:'SG'},{date:'2034-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2034-12-25',name:'Christmas Day',country:'SG'},
+  // 2035
+  {date:'2035-01-01',name:"New Year's Day",country:'SG'},{date:'2035-01-01',name:"New Year's Day",country:'JP'},
+  {date:'2035-01-08',name:'Coming of Age Day',country:'JP'},{date:'2035-02-08',name:'Chinese New Year',country:'SG'},
+  {date:'2035-02-09',name:'Chinese New Year',country:'SG'},{date:'2035-02-11',name:'National Foundation Day',country:'JP'},
+  {date:'2035-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2035-02-28',name:'Hari Raya Haji',country:'SG'},
+  {date:'2035-03-20',name:'Spring Equinox',country:'JP'},{date:'2035-04-20',name:'Good Friday',country:'SG'},
+  {date:'2035-04-29',name:'Showa Day',country:'JP'},{date:'2035-05-01',name:'Labour Day',country:'SG'},
+  {date:'2035-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2035-05-04',name:'Greenery Day',country:'JP'},
+  {date:'2035-05-05',name:"Children's Day",country:'JP'},{date:'2035-05-30',name:'Vesak Day',country:'SG'},
+  {date:'2035-07-16',name:'Marine Day',country:'JP'},{date:'2035-08-09',name:'National Day',country:'SG'},
+  {date:'2035-08-11',name:'Mountain Day',country:'JP'},{date:'2035-09-17',name:'Respect for the Aged Day',country:'JP'},
+  {date:'2035-09-23',name:'Autumnal Equinox',country:'JP'},{date:'2035-10-08',name:'Sports Day',country:'JP'},
+  {date:'2035-11-03',name:'Culture Day',country:'JP'},{date:'2035-11-07',name:'Deepavali',country:'SG'},
+  {date:'2035-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2035-12-21',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2035-12-25',name:'Christmas Day',country:'SG'},
+];
+
+// Fast lookup by date
+const HOLIDAYS_BY_DATE = PUBLIC_HOLIDAYS.reduce((acc, h) => {
+  if (!acc[h.date]) acc[h.date] = [];
+  acc[h.date].push(h);
+  return acc;
+}, {});
+
+// Country colours for holiday badges
+const HC = { SG:'#EF3340', JP:'#BC002D' }; // SG red, JP red (distinct shades)
+const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8' };
+
 // ─── SEARCH TAB ──────────────────────────────────────────────────
 // Filter metadata — each preset has:
 //   impliedType — locks Row 2 to this type when active (null = free)
 //   isStatus    — layers on top of typeF (doesn't override it)
 //   icon        — emoji shown in chip
 const QUICK_FILTERS = [
-  { k:'today',      l:'Today',                   icon:'📅', impliedType:null,      isStatus:false,
+  { k:'today',    l:'Today',              icon:'📅', impliedType:null,      isStatus:false,
     f: e => e.date===fd(new Date()) },
-  { k:'week',       l:'This Week',               icon:'🗓', impliedType:null,      isStatus:false,
+  { k:'week',     l:'This Week',          icon:'🗓', impliedType:null,      isStatus:false,
     f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date(),w=ad(n,7); return d>=n&&d<=w; } },
-  { k:'month',      l:'This Month',              icon:'📆', impliedType:null,      isStatus:false,
+  { k:'month',    l:'This Month',         icon:'📆', impliedType:null,      isStatus:false,
     f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date();
       return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d>=n; } },
-  { k:'flights',    l:'Upcoming Flights',        icon:'✈️', impliedType:'flight',  isStatus:false,
+  { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
     f: e => e.type==='flight' && e.date>=fd(new Date()) },
-  { k:'reminders',  l:'Upcoming Reminders',      icon:'⏰', impliedType:'reminder',isStatus:false,
+  { k:'reminders',l:'Upcoming Reminders', icon:'⏰', impliedType:'reminder',isStatus:false,
     f: e => e.type==='reminder' && e.date>=fd(new Date()) && !e.done },
-  { k:'birthdays',  l:'Upcoming Birthdays',      icon:'🎂', impliedType:'birthday',isStatus:false,
+  { k:'birthdays',l:'Upcoming Birthdays', icon:'🎂', impliedType:'birthday',isStatus:false,
     f: e => e.type==='birthday' && e.date>=fd(new Date()) },
-  { k:'pending',    l:'Pending Tasks',           icon:'✓',  impliedType:'task',    isStatus:false,
+  { k:'pending',  l:'Pending Tasks',      icon:'✓',  impliedType:'task',    isStatus:false,
     f: e => e.type==='task' && !e.done },
 ];
 
@@ -2316,6 +2513,16 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
   const [quickF,     setQuickF]    = useState('week');
   const [savedTypeF, setSavedTypeF]= useState('all');
   const [showFilters,setShowFilters]= useState(true);
+  const [activeTab,  setActiveTab] = useState('search'); // 'search' | 'holidays'
+
+  // Upcoming holidays — next 90 days, both countries
+  const upcomingHolidays = useMemo(() => {
+    const today = fd(new Date());
+    const limit = fd(new Date(Date.now() + 90*86400000));
+    return PUBLIC_HOLIDAYS
+      .filter(h => h.date >= today && h.date <= limit)
+      .sort((a,b) => a.date.localeCompare(b.date));
+  }, []);
 
   // ── Row 1 handler ─────────────────────────────────────────────
   const handleQuickF = (key) => {
@@ -2388,7 +2595,100 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:C.bg }}>
 
-      {/* ── HEADER PANEL ──────────────────────────────────────── */}
+      {/* ── TAB BAR ───────────────────────────────────────────── */}
+      <div style={{ display:'flex', background:C.card, flexShrink:0,
+        borderBottom:`1px solid ${C.border}` }}>
+        {[
+          { k:'search',   l:'Search',            icon:'🔍' },
+          { k:'holidays', l:'Upcoming Holidays',  icon:'🏖' },
+        ].map(t => (
+          <button key={t.k} onClick={() => setActiveTab(t.k)}
+            style={{ flex:1, padding:'12px 8px', display:'flex', alignItems:'center',
+              justifyContent:'center', gap:6, background:'transparent', border:'none',
+              cursor:'pointer', fontFamily:'inherit',
+              borderBottom: activeTab===t.k ? `2px solid ${C.rose}` : '2px solid transparent',
+              color: activeTab===t.k ? C.rose : C.muted,
+              fontWeight: activeTab===t.k ? 700 : 400, fontSize:13,
+              transition:'all 0.15s' }}>
+            <span>{t.icon}</span><span>{t.l}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── HOLIDAYS TAB ──────────────────────────────────────── */}
+      {activeTab === 'holidays' && (
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 16px 90px' }}>
+          <p style={{ margin:'0 0 14px', fontSize:12, color:C.muted,
+            fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em' }}>
+            Next 90 days · Singapore & Japan
+          </p>
+          {upcomingHolidays.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'40px 20px',
+              background:C.card, borderRadius:BR.card, border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:36, marginBottom:10, opacity:0.3 }}>🏖</div>
+              <p style={{ margin:0, fontSize:15, color:C.muted, fontStyle:'italic' }}>
+                No upcoming holidays in the next 90 days
+              </p>
+            </div>
+          ) : (() => {
+            // Group holidays by date
+            const grouped = upcomingHolidays.reduce((acc, h) => {
+              if (!acc[h.date]) acc[h.date] = [];
+              acc[h.date].push(h);
+              return acc;
+            }, {});
+            return Object.entries(grouped).map(([date, hs]) => {
+              const dt = new Date(date+'T00:00:00');
+              const isToday = date === fd(new Date());
+              const daysAway = Math.ceil((dt - new Date().setHours(0,0,0,0)) / 86400000);
+              return (
+                <div key={date} style={{ marginBottom:10 }}>
+                  {/* Date header */}
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
+                    <div style={{ background: isToday ? C.rose : C.elevated,
+                      borderRadius:BR.btn, padding:'4px 10px',
+                      border:`1px solid ${isToday ? C.rose : C.border}` }}>
+                      <span style={{ fontSize:12, fontWeight:700,
+                        color: isToday ? '#fff' : C.text }}>
+                        {isToday ? 'Today' : dt.toLocaleDateString('en-US',
+                          { weekday:'short', day:'numeric', month:'short', year:'numeric' })}
+                      </span>
+                    </div>
+                    {!isToday && (
+                      <span style={{ fontSize:11, color:C.muted, fontStyle:'italic' }}>
+                        in {daysAway} day{daysAway!==1?'s':''}
+                      </span>
+                    )}
+                  </div>
+                  {/* Holiday cards */}
+                  {hs.map((h,i) => (
+                    <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
+                      background:C.card,
+                      border:`1px solid ${HC[h.country]||'#EF3340'}25`,
+                      borderLeft:`4px solid ${HC[h.country]||'#EF3340'}`,
+                      borderRadius:BR.card, padding:'12px 16px', marginBottom:6,
+                      boxShadow:SH.subtle }}>
+                      <span style={{ fontSize:26, flexShrink:0 }}>
+                        {h.country==='SG'?'🇸🇬':'🇯🇵'}
+                      </span>
+                      <div style={{ flex:1 }}>
+                        <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
+                          color: HC[h.country]||'#EF3340' }}>{h.name}</p>
+                        <p style={{ margin:0, fontSize:12, color:C.muted }}>
+                          {h.country==='SG' ? 'Singapore' : 'Japan'} · Public Holiday
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+
+      {/* ── SEARCH TAB ────────────────────────────────────────── */}
+      {activeTab === 'search' && (<>
       <div style={{ background:C.card, flexShrink:0,
         borderBottom:`1px solid ${C.border}`,
         boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -2611,6 +2911,7 @@ function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin
             </div>
         }
       </div>
+      </>)}
     </div>
   );
 }
