@@ -737,7 +737,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
                 color: e.done ? C.T : WARN, fontSize:15, padding:0,
                 transition:'background 0.15s, border-color 0.15s',
                 opacity: isOwn ? 1 : 0.5 }}>
-              {e.done ? '✅' : isPastDue ? '!' : ''}
+              {e.done ? '✅' : isPastDue ? '☑️' : ''}
             </button>
           )}
           {/* Activity icon — auto-matched from title keywords */}
