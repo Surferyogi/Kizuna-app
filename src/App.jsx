@@ -4782,6 +4782,16 @@ export default function App() {
   const TC = getTC(C);
   const AC = getAC(C);
   const [tab,          setTab]          = useState('home');
+
+  // ── Listen for NAVIGATE_HOME message from service worker ─────
+  // Fired when user taps the morning summary notification
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.data?.type === 'NAVIGATE_HOME') setTab('home');
+    };
+    navigator.serviceWorker?.addEventListener('message', handler);
+    return () => navigator.serviceWorker?.removeEventListener('message', handler);
+  }, []);
   const [entries,      setEntries]      = useState([]);
   const [auditLog,     setAuditLog]     = useState([]);
   const [showAdd,      setShowAdd]      = useState(false);
