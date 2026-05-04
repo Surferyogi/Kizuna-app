@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  Kizuna 絆 — Morning Summary Push Notification v3
+//  Kizuna 絆 — Daily Summary Push Notification v3
 //  Fully self-contained: Web Crypto API only, zero npm deps.
 //  Implements RFC 8291 (WebPush encryption) + RFC 8188 (aes128gcm)
 //  + VAPID JWT signing (ES256). Works on Supabase Edge Runtime.
@@ -169,7 +169,9 @@ async function sendPush(
 
 // ── Morning summary text ──────────────────────────────────────
 function buildSummary(name: string, entries: any[]): { title: string; body: string } {
-  const today = new Date().toISOString().slice(0, 10)
+  // Use SGT date (UTC+8) not UTC to match user's local day
+  const nowSGT = new Date(new Date().getTime() + 8 * 3600 * 1000)
+  const today = nowSGT.toISOString().slice(0, 10)
   const items = entries
     .filter((e: any) => e.date === today && !e.done)
     .sort((a: any, b: any) => (a.time || '99:99').localeCompare(b.time || '99:99'))
@@ -184,14 +186,13 @@ function buildSummary(name: string, entries: any[]): { title: string; body: stri
   const emoji: Record<string, string> = {
     meeting:'🗓', task:'✓', flight:'✈️', reminder:'⏰', event:'🎉', birthday:'🎂',
   }
-  const lines = items.slice(0, 4).map((e: any) =>
+  const lines = items.map((e: any) =>
     `${emoji[e.type] || '·'}${e.time ? ' ' + e.time.slice(0, 5) : ''} ${e.title}`
   )
-  const more = items.length > 4 ? `\n+${items.length - 4} more` : ''
 
   return {
     title: `Kizuna 絆 · Good morning, ${name} ☀️`,
-    body:  `${items.length} item${items.length !== 1 ? 's' : ''} today\n${lines.join('\n')}${more}`,
+    body:  `${items.length} item${items.length !== 1 ? 's' : ''} today\n${lines.join('\n')}`,
   }
 }
 
