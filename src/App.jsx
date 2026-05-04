@@ -682,7 +682,8 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
       [['massage','spa','facial','manicure','pedicure'],'💆'],
       [['medicine','pharmacy','prescription'],'💊'],
       // Work & business
-      [['meeting','call','conference','zoom','teams'],'💼'],
+      [['call','phone','ring'],'📞'],
+      [['meeting','conference','zoom','teams'],'💼'],
       [['interview','presentation','pitch'],'🎯'],
       [['deadline','submit','review'],'📋'],
       [['workshop','training','seminar','webinar'],'🎓'],
@@ -697,9 +698,10 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
       [['prayer','church','mosque','temple','worship'],'🙏'],
       [['volunteer','charity','community'],'🤝'],
       // Tasks & reminders
-      [['call','phone','ring'],'📞'],
       [['email','send','reply'],'📧'],
       [['pay','payment','bill','invoice','transfer'],'💳'],
+      [['carousel'],'💰'],
+      [['vacuum','roomba','robot clean'],'🤖'],
       [['clean','laundry','wash','tidy'],'🧹'],
       [['cook','cooking','bake','baking'],'🍳'],
       [['pick up','collect','fetch','drop'],'🚗'],
@@ -735,7 +737,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
                 color: e.done ? C.T : WARN, fontSize:15, padding:0,
                 transition:'background 0.15s, border-color 0.15s',
                 opacity: isOwn ? 1 : 0.5 }}>
-              {e.done ? '✓' : isPastDue ? '!' : ''}
+              {e.done ? '✅' : isPastDue ? '!' : ''}
             </button>
           )}
           {/* Activity icon — auto-matched from title keywords */}
