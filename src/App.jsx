@@ -1189,8 +1189,8 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
           {/* Sakura icon — static flowers + animated falling petals */}
           <div style={{ flexShrink:0, marginTop:2, transform:'scale(1.3)',
             transformOrigin:'top right', position:'relative' }}>
-            <KizunaIcon />
-            <SakuraPetals />
+            <SeasonIcon />
+            <SeasonParticles />
           </div>
         </div>
       </div>
@@ -2261,7 +2261,25 @@ function buildQuoteLabel(day) {
   return (parts.length > 0 ? parts.join(' & ') : null) + suffix;
 }
 
-function buildQuotePrompt(day, themeIndex) {
+// Famous people whose quotes fit each special day type
+const FAMOUS_BY_OCCASION = {
+  festive:     ['Rumi','Maya Angelou','Thich Nhat Hanh','Pablo Neruda','Rabindranath Tagore','Khalil Gibran'],
+  golden_week: ['Matsuo Bashō','Yoko Ono','Haruki Murakami','Daisetz Suzuki','Confucius','Laozi'],
+  cny:         ['Confucius','Laozi','Sun Tzu','Zhuangzi','Mencius','Rumi'],
+  mid_autumn:  ['Matsuo Bashō','Du Fu','Li Bai','Khalil Gibran','Rumi','Pablo Neruda'],
+  obon:        ['Matsuo Bashō','Daisetz Suzuki','Thich Nhat Hanh','Ryōkan','Zhuangzi'],
+  mothers_day: ['Maya Angelou','Toni Morrison','Virginia Woolf','Anne Lamott','Simone de Beauvoir','Rumi'],
+  fathers_day: ['Nelson Mandela','Barack Obama','Mark Twain','Fyodor Dostoevsky','Khalil Gibran','Confucius'],
+  birthday:    ['Dr Seuss','Ralph Waldo Emerson','Maya Angelou','Rumi','Albert Einstein','Audrey Hepburn'],
+  anniversary: ['Rumi','Pablo Neruda','Khalil Gibran','Viktor Frankl','Antoine de Saint-Exupéry','CS Lewis'],
+};
+
+function pickFamousPerson(occasionKey, slotHour) {
+  const list = FAMOUS_BY_OCCASION[occasionKey] || FAMOUS_BY_OCCASION.festive;
+  return list[slotHour % list.length];
+}
+
+function buildQuotePrompt(day, themeIndex, slotHour = 0) {
   const { isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
           isAnniversary, anniversaryYears, festiveName, annaAge } = day;
   const milestone = annaMilestone(annaAge);
@@ -2270,6 +2288,11 @@ function buildQuotePrompt(day, themeIndex) {
   // Combined scenarios (priority: birthday > anniversary > festive)
   const hasBirthday = isAnnaBirthday || isSophiaBirthday || isKoksumBirthday;
   const bdName = isAnnaBirthday ? 'Anna' : isSophiaBirthday ? 'Sophia' : 'Koksum';
+
+  // Alternation: odd slot hours → original-style special day quote
+  //              even slot hours → quote in style of a famous person for that occasion
+  // (Birthdays always stay personal — no alternation for intimacy)
+  const isAlt = (slotHour % 2 === 0);
 
   if (hasBirthday && isAnniversary && festiveName) {
     const bdExtra = isAnnaBirthday ? ` She is at the developmental stage of: ${milestone}.` : '';
@@ -2286,6 +2309,10 @@ function buildQuotePrompt(day, themeIndex) {
     return `Write a quote for a family where today is both ${bdName}'s ${age}birthday and the couple's ${anniversaryYears}th wedding anniversary.${bdExtra} Lead with the birthday, and weave in the anniversary as a beautiful shared milestone.`;
   }
   if (isAnniversary && festiveName) {
+    if (isAlt) {
+      const person = pickFamousPerson('anniversary', slotHour);
+      return `Write a quote about enduring love and marriage in the voice and style of ${person}, inspired by their known works and philosophy. Set against the atmosphere of ${festiveName}. End with — ${person}.`;
+    }
     return `Write a quote for a couple celebrating their ${anniversaryYears}th wedding anniversary on ${festiveName}. Let the festive spirit enrich the anniversary message — intimate, warm, and celebratory.`;
   }
 
@@ -2300,9 +2327,25 @@ function buildQuotePrompt(day, themeIndex) {
     return `Write a warm birthday quote celebrating a husband and father named Koksum. The tone should feel like a loving tribute from his wife and daughter — proud, warm, and celebratory.`;
   }
   if (isAnniversary) {
-    return `Write an anniversary quote for a couple celebrating ${anniversaryYears} years of marriage today, July 24. The tone should feel intimate and reflective — honouring the depth of a relationship built over ${anniversaryYears} years.`;
+    if (isAlt) {
+      const person = pickFamousPerson('anniversary', slotHour);
+      return `Write a quote about enduring love and long marriage in the voice and style of ${person}, drawing from their philosophy and known works. End with — ${person}.`;
+    }
+    return `Write an anniversary quote for a couple celebrating ${anniversaryYears} years of marriage today. The tone should feel intimate and reflective — honouring the depth of a relationship built over ${anniversaryYears} years.`;
   }
   if (festiveName) {
+    // Pick occasion key for famous person pool
+    const occasionKey = festiveName === 'Golden Week' ? 'golden_week'
+      : festiveName === 'Chinese New Year' ? 'cny'
+      : festiveName === 'Mid-Autumn Festival' ? 'mid_autumn'
+      : festiveName === 'Obon' ? 'obon'
+      : festiveName === "Mother's Day" ? 'mothers_day'
+      : festiveName === "Father's Day" ? 'fathers_day'
+      : 'festive';
+    if (isAlt) {
+      const person = pickFamousPerson(occasionKey, slotHour);
+      return `Write a quote about the spirit and meaning of ${festiveName} in the voice and style of ${person}, inspired by their known philosophy, poetry, or writings. Keep it warm and universal. End with — ${person}.`;
+    }
     return `Write a warm family quote for ${festiveName}. The tone should be joyful, grounding, and focused on the meaning of the day for a close-knit family.`;
   }
 
@@ -2329,7 +2372,7 @@ async function fetchDailyQuote(supabaseClient) {
   const dayOfYear     = Math.floor((localMidnight - yearStart) / 86400000);
   const slotHour  = getQuoteSlot(now);
   const themeIndex = (dayOfYear * 7 + slotHour * 3) % STANDARD_THEMES.length;
-  const prompt   = buildQuotePrompt(day, themeIndex);
+  const prompt   = buildQuotePrompt(day, themeIndex, slotHour);
   const label    = buildQuoteLabel(day) ||
     (STANDARD_THEMES[themeIndex % STANDARD_THEMES.length].label + ' · Today\'s Reflection');
   const isSpecial = day.isAnnaBirthday || day.isSophiaBirthday || day.isKoksumBirthday ||
@@ -2473,7 +2516,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
         marginBottom:36, position:'relative', zIndex:1 }}>
         <div style={{ transform:'scale(1.6)', marginBottom:14 }}>
-          <KizunaIcon />
+          <SeasonIcon />
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
@@ -4174,7 +4217,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
       <SS title="About">
         <div style={{ padding:'16px 18px', borderBottom:`1px solid ${C.border}` }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-            <KizunaIcon />
+            <SeasonIcon />
             <span style={{ fontSize:22, fontWeight:600, color:C.text,
               fontFamily:'Cormorant Garamond,serif' }}>Kizuna 絆</span>
           </div>
@@ -4602,86 +4645,164 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
 // Flower 2: smaller, upper-right — the accent bloom, rendered behind.
 // Three drifting petals add gracefulness between the two flowers.
 // Petal path: authentic notched tip (bilobed split) of Prunus serrulata.
+// ─── SEASON DETECTION ─────────────────────────────────────────────
+function getSeason(now = new Date()) {
+  const m = now.getMonth() + 1; // 1-12
+  if (m >= 3 && m <= 5)  return 'spring';
+  if (m >= 6 && m <= 8)  return 'summer';
+  if (m >= 9 && m <= 11) return 'autumn';
+  return 'winter';
+}
+
+// ─── SPRING: Sakura (original) ────────────────────────────────────
 const KizunaIcon = () => {
-  // One petal pointing upward from (0,0), length ~14 units.
-  // The forked tip (L 0,-13.8 midpoint) is the sakura's signature.
   const P = "M 0,0 C -3.5,-3.5 -6,-8 -5,-12 C -4.5,-14.5 -2.5,-15 -0.8,-13 L 0,-13.8 L 0.8,-13 C 2.5,-15 4.5,-14.5 5,-12 C 6,-8 3.5,-3.5 0,0 Z";
   const ROTS = [0, 72, 144, 216, 288];
   const r = d => d * Math.PI / 180;
-
   return (
     <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
       style={{ display:'block', flexShrink:0 }}>
-
-      {/* ── Drifting petals — rendered first so flowers sit above ── */}
-
-      {/* Petal drifting to the far right */}
       <g transform="translate(46,30) rotate(-22) scale(0.36)" opacity="0.42">
         <path d={P} fill="#EAA898" />
       </g>
-      {/* Petal drifting below, between the two blooms */}
       <g transform="translate(29,36) rotate(50) scale(0.30)" opacity="0.35">
         <path d={P} fill="#F0C0B4" />
       </g>
-      {/* Petal drifting to upper-left */}
       <g transform="translate(4,7) rotate(-58) scale(0.26)" opacity="0.28">
         <path d={P} fill="#EAB8A8" />
       </g>
-
-      {/* ── FLOWER 2 — smaller accent bloom, upper-right ── */}
-      {/* Offset rotation by 36° so its petals interleave with Flower 1 visually */}
       {ROTS.map(rot => (
-        <g key={`f2p${rot}`}
-          transform={`translate(37,13) rotate(${rot + 36}) scale(0.65)`}>
-          <path d={P}
-            fill="#F0C0B4"
-            stroke="#E0A898"
-            strokeWidth="0.45"
-            opacity="0.86"
-          />
+        <g key={`f2p${rot}`} transform={`translate(37,13) rotate(${rot + 36}) scale(0.65)`}>
+          <path d={P} fill="#F0C0B4" stroke="#E0A898" strokeWidth="0.45" opacity="0.86" />
         </g>
       ))}
-      {/* Flower 2 — center disc */}
       <circle cx="37" cy="13" r="1.9" fill="#D09080" opacity="0.75" />
-      {/* Flower 2 — stamen dots at r=3.3 */}
       {ROTS.map((rot, i) => (
         <circle key={`f2s${i}`}
           cx={(37 + Math.sin(r(rot)) * 3.3).toFixed(2)}
           cy={(13 - Math.cos(r(rot)) * 3.3).toFixed(2)}
-          r="0.65" fill="#C89078" opacity="0.50"
-        />
+          r="0.65" fill="#C89078" opacity="0.50" />
       ))}
-
-      {/* ── FLOWER 1 — larger dominant bloom, lower-left ── */}
       {ROTS.map(rot => (
-        <g key={`f1p${rot}`}
-          transform={`translate(15,27) rotate(${rot})`}>
-          <path d={P}
-            fill="#EAA898"
-            stroke="#D48880"
-            strokeWidth="0.35"
-            opacity="0.93"
-          />
+        <g key={`f1p${rot}`} transform={`translate(15,27) rotate(${rot})`}>
+          <path d={P} fill="#EAA898" stroke="#D48880" strokeWidth="0.35" opacity="0.93" />
         </g>
       ))}
-      {/* Flower 1 — center disc */}
       <circle cx="15" cy="27" r="2.8" fill="#C4826E" opacity="0.84" />
-      {/* Flower 1 — stamen dots at r=5 */}
       {ROTS.map((rot, i) => (
         <circle key={`f1s${i}`}
           cx={(15 + Math.sin(r(rot)) * 5).toFixed(2)}
           cy={(27 - Math.cos(r(rot)) * 5).toFixed(2)}
-          r="0.9" fill="#C4826E" opacity="0.52"
-        />
+          r="0.9" fill="#C4826E" opacity="0.52" />
       ))}
     </svg>
   );
 };
 
-// ─── SAKURA PETALS ANIMATION ─────────────────────────────────────
-// 4 tiny petals drift and spin downward using pure CSS keyframes.
-// The main KizunaIcon flowers are completely static.
-// Each petal has unique: start position, fall duration, lateral drift, spin speed.
+// ─── SUMMER: Firework burst ───────────────────────────────────────
+const FireworkIcon = () => (
+  <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
+    style={{ display:'block', flexShrink:0 }}>
+    {/* Small burst — upper right */}
+    {[0,45,90,135,180,225,270,315].map((a,i) => {
+      const rad = a * Math.PI / 180;
+      const x1 = 37, y1 = 12, len = 5.5;
+      return <line key={i}
+        x1={x1} y1={y1}
+        x2={(x1 + Math.cos(rad)*len).toFixed(1)}
+        y2={(y1 + Math.sin(rad)*len).toFixed(1)}
+        stroke={['#FFD700','#FF6B6B','#4ECDC4','#FF8C42','#C77DFF','#FFD700','#FF6B6B','#4ECDC4'][i]}
+        strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />;
+    })}
+    <circle cx="37" cy="12" r="1.8" fill="#FFD700" opacity="0.95" />
+    {/* Large burst — lower left */}
+    {[0,36,72,108,144,180,216,252,288,324].map((a,i) => {
+      const rad = a * Math.PI / 180;
+      const x1 = 15, y1 = 27, len = 8;
+      return <line key={i}
+        x1={x1} y1={y1}
+        x2={(x1 + Math.cos(rad)*len).toFixed(1)}
+        y2={(y1 + Math.sin(rad)*len).toFixed(1)}
+        stroke={['#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4','#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4'][i]}
+        strokeWidth="2" strokeLinecap="round" opacity="0.95" />;
+    })}
+    <circle cx="15" cy="27" r="2.5" fill="#FF6B6B" opacity="0.95" />
+    {/* Tiny sparks */}
+    {[[46,7,'#FFD700'],[6,35,'#4ECDC4'],[30,38,'#C77DFF'],[2,12,'#FF8C42']].map(([x,y,c],i) => (
+      <circle key={i} cx={x} cy={y} r="1" fill={c} opacity="0.7" />
+    ))}
+  </svg>
+);
+
+// ─── AUTUMN: Momiji (maple) leaf ──────────────────────────────────
+const MomijiIcon = () => {
+  // Stylised 5-lobe maple leaf path centred at origin, ~14 unit radius
+  const leaf = "M0,0 C1,-2 3,-2 4,-4 C5,-6 4,-8 3,-9 C5,-8 7,-7 8,-9 C7,-6 8,-4 7,-2 C9,-3 11,-2 12,0 C10,0 9,1 9,3 C8,2 7,1 6,1 L5,8 L-5,8 L-6,1 C-7,1 -8,2 -9,3 C-9,1 -10,0 -12,0 C-11,-2 -9,-3 -7,-2 C-8,-4 -7,-6 -8,-9 C-5,-7 -5,-8 -3,-9 C-4,-8 -5,-6 -4,-4 C-3,-2 -1,-2 0,0 Z";
+  return (
+    <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
+      style={{ display:'block', flexShrink:0 }}>
+      {/* Small leaf — upper right */}
+      <g transform="translate(37,14) scale(0.55) rotate(20)">
+        <path d={leaf} fill="#E8622A" opacity="0.88" />
+        <line x1="0" y1="0" x2="0" y2="8" stroke="#C04A18" strokeWidth="1" opacity="0.6" />
+      </g>
+      {/* Large leaf — lower left */}
+      <g transform="translate(15,24) scale(0.85) rotate(-10)">
+        <path d={leaf} fill="#D4521A" opacity="0.93" />
+        <line x1="0" y1="0" x2="0" y2="8" stroke="#A03810" strokeWidth="1.2" opacity="0.65" />
+      </g>
+      {/* Tiny drifting leaves */}
+      <g transform="translate(47,28) scale(0.32) rotate(45)">
+        <path d={leaf} fill="#F07840" opacity="0.55" />
+      </g>
+      <g transform="translate(28,37) scale(0.28) rotate(-30)">
+        <path d={leaf} fill="#E86030" opacity="0.45" />
+      </g>
+      <g transform="translate(4,8) scale(0.25) rotate(60)">
+        <path d={leaf} fill="#D45020" opacity="0.38" />
+      </g>
+    </svg>
+  );
+};
+
+// ─── WINTER: Snowflake ────────────────────────────────────────────
+const SnowflakeIcon = () => {
+  const arms = [0, 60, 120, 180, 240, 300];
+  const Arm = ({ cx, cy, rot, scale=1 }) => (
+    <g transform={`translate(${cx},${cy}) rotate(${rot}) scale(${scale})`}>
+      <line x1="0" y1="0" x2="0" y2="-8" stroke="#A8D8EA" strokeWidth="1.6" strokeLinecap="round" />
+      <line x1="-2.5" y1="-4" x2="2.5" y2="-4" stroke="#A8D8EA" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="-1.8" y1="-6.2" x2="1.8" y2="-6.2" stroke="#A8D8EA" strokeWidth="1" strokeLinecap="round" />
+      <circle cx="0" cy="-8" r="0.8" fill="#C8EEFF" opacity="0.9" />
+    </g>
+  );
+  return (
+    <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
+      style={{ display:'block', flexShrink:0 }}>
+      {/* Small snowflake — upper right */}
+      {arms.map(a => <Arm key={a} cx={37} cy={13} rot={a} scale={0.62} />)}
+      <circle cx="37" cy="13" r="1.4" fill="#C8EEFF" opacity="0.9" />
+      {/* Large snowflake — lower left */}
+      {arms.map(a => <Arm key={a} cx={15} cy={27} rot={a} scale={1} />)}
+      <circle cx="15" cy="27" r="2" fill="#C8EEFF" opacity="0.95" />
+      {/* Tiny snow dots */}
+      {[[47,7],[6,34],[30,37],[3,14],[42,32]].map(([x,y],i) => (
+        <circle key={i} cx={x} cy={y} r="1.2" fill="#C8EEFF" opacity="0.55" />
+      ))}
+    </svg>
+  );
+};
+
+// ─── SEASONAL ICON WRAPPER ────────────────────────────────────────
+const SeasonIcon = () => {
+  const season = getSeason();
+  if (season === 'summer') return <FireworkIcon />;
+  if (season === 'autumn') return <MomijiIcon />;
+  if (season === 'winter') return <SnowflakeIcon />;
+  return <KizunaIcon />; // spring default
+};
+
+// ─── SAKURA PETALS (Spring) ───────────────────────────────────────
 const PETAL_CSS = `
 @keyframes petalFall1 {
   0%   { transform: translate(0px, -8px) rotate(0deg);   opacity:0; }
@@ -4703,13 +4824,67 @@ const PETAL_CSS = `
   20%  { opacity: 0.4; }
   100% { transform: translate(-20px, 44px) rotate(-320deg); opacity:0; }
 }
+@keyframes fireworkBurst {
+  0%   { transform: scale(0.2) rotate(0deg);   opacity:0; }
+  15%  { opacity: 1; }
+  60%  { opacity: 0.9; }
+  100% { transform: scale(1.4) rotate(20deg); opacity:0; }
+}
+@keyframes fireworkRise {
+  0%   { transform: translate(0px, 60px) scale(0.1); opacity:0; }
+  30%  { opacity: 0.9; }
+  70%  { opacity: 0.8; }
+  100% { transform: translate(var(--fx), -10px) scale(1.2); opacity:0; }
+}
+@keyframes momijiDrift1 {
+  0%   { transform: translate(0px,-5px) rotate(0deg);   opacity:0; }
+  10%  { opacity:0.75; }
+  100% { transform: translate(15px,55px) rotate(200deg); opacity:0; }
+}
+@keyframes momijiDrift2 {
+  0%   { transform: translate(0px,-3px) rotate(-15deg); opacity:0; }
+  15%  { opacity:0.6; }
+  100% { transform: translate(-18px,50px) rotate(-240deg); opacity:0; }
+}
+@keyframes momijiDrift3 {
+  0%   { transform: translate(0px,-6px) rotate(10deg);  opacity:0; }
+  12%  { opacity:0.65; }
+  100% { transform: translate(10px,58px) rotate(280deg);  opacity:0; }
+}
+@keyframes momijiDrift4 {
+  0%   { transform: translate(0px,-4px) rotate(25deg);  opacity:0; }
+  18%  { opacity:0.5; }
+  100% { transform: translate(-12px,46px) rotate(-200deg); opacity:0; }
+}
+@keyframes snowFall1 {
+  0%   { transform: translate(0px,-5px) rotate(0deg);   opacity:0; }
+  10%  { opacity:0.8; }
+  100% { transform: translate(10px,55px) rotate(180deg);  opacity:0; }
+}
+@keyframes snowFall2 {
+  0%   { transform: translate(0px,-3px) rotate(30deg);  opacity:0; }
+  15%  { opacity:0.6; }
+  100% { transform: translate(-8px,50px) rotate(-90deg); opacity:0; }
+}
+@keyframes snowFall3 {
+  0%   { transform: translate(0px,-6px) rotate(-20deg); opacity:0; }
+  12%  { opacity:0.7; }
+  100% { transform: translate(14px,52px) rotate(120deg);  opacity:0; }
+}
+@keyframes snowFall4 {
+  0%   { transform: translate(0px,-4px) rotate(15deg);  opacity:0; }
+  20%  { opacity:0.5; }
+  100% { transform: translate(-12px,48px) rotate(-150deg); opacity:0; }
+}
 `;
+
 const PETALS = [
   { left:'38%', animationName:'petalFall1', animationDuration:'3.2s', animationDelay:'0s',    width:6, height:7, color:'#EAA898' },
   { left:'58%', animationName:'petalFall2', animationDuration:'4.1s', animationDelay:'1.3s',  width:5, height:6, color:'#F0C0B4' },
   { left:'28%', animationName:'petalFall3', animationDuration:'3.7s', animationDelay:'2.4s',  width:5, height:6, color:'#EAB8A8' },
   { left:'50%', animationName:'petalFall4', animationDuration:'4.8s', animationDelay:'0.7s',  width:4, height:5, color:'#E8A090' },
 ];
+
 const SakuraPetals = () => (
   <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
     pointerEvents:'none', overflow:'visible', zIndex:10 }}>
@@ -4729,6 +4904,109 @@ const SakuraPetals = () => (
     ))}
   </div>
 );
+
+// ─── SUMMER: Firework particles ───────────────────────────────────
+const FIREWORK_PARTICLES = [
+  { left:'35%', delay:'0s',    dur:'2.2s', color:'#FFD700', size:7 },
+  { left:'55%', delay:'0.8s',  dur:'2.8s', color:'#FF6B6B', size:6 },
+  { left:'25%', delay:'1.6s',  dur:'2.4s', color:'#4ECDC4', size:5 },
+  { left:'48%', delay:'0.4s',  dur:'3.0s', color:'#C77DFF', size:6 },
+  { left:'62%', delay:'1.2s',  dur:'2.6s', color:'#FF8C42', size:5 },
+];
+const FireworkParticles = () => (
+  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
+    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
+    {FIREWORK_PARTICLES.map((p, i) => (
+      <div key={i} style={{
+        position:'absolute', top:8, left:p.left,
+        width:p.size, height:p.size, borderRadius:'50%',
+        background:p.color, opacity:0,
+        animationName:'fireworkBurst',
+        animationDuration:p.dur,
+        animationDelay:p.delay,
+        animationTimingFunction:'ease-out',
+        animationIterationCount:'infinite',
+        animationFillMode:'both',
+        boxShadow:`0 0 4px ${p.color}`,
+      }} />
+    ))}
+  </div>
+);
+
+// ─── AUTUMN: Falling momiji leaves ───────────────────────────────
+const MOMIJI_LEAF_SVG = "M0,0 C1,-1.5 2.5,-1.5 3,-3 C3.8,-4.5 3,-6 2.2,-6.8 C3.8,-6 5.2,-5.2 6,-6.8 C5.2,-4.5 6,-3 5.2,-1.5 C6.8,-2.2 8.2,-1.5 9,0 C7.5,0 6.8,0.8 6.8,2.2 C6,1.5 5.2,0.8 4.5,0.8 L3.8,6 L-3.8,6 L-4.5,0.8 C-5.2,0.8 -6,1.5 -6.8,2.2 C-6.8,0.8 -7.5,0 -9,0 C-8.2,-1.5 -6.8,-2.2 -5.2,-1.5 C-6,-3 -5.2,-4.5 -6,-6.8 C-3.8,-5.2 -3.8,-6 -2.2,-6.8 C-3,-6 -3.8,-4.5 -3,-3 C-2.5,-1.5 -1,-1.5 0,0 Z";
+const MOMIJI_PARTICLES = [
+  { left:'40%', delay:'0s',    dur:'3.4s', anim:'momijiDrift1', color:'#E8622A', size:10 },
+  { left:'60%', delay:'1.1s',  dur:'4.2s', anim:'momijiDrift2', color:'#D4521A', size:8  },
+  { left:'28%', delay:'2.2s',  dur:'3.8s', anim:'momijiDrift3', color:'#F07840', size:9  },
+  { left:'52%', delay:'0.6s',  dur:'4.6s', anim:'momijiDrift4', color:'#C04A18', size:7  },
+];
+const MomijiParticles = () => (
+  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
+    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
+    {MOMIJI_PARTICLES.map((p, i) => (
+      <div key={i} style={{
+        position:'absolute', top:4, left:p.left, opacity:0,
+        animationName:p.anim,
+        animationDuration:p.dur,
+        animationDelay:p.delay,
+        animationTimingFunction:'ease-in',
+        animationIterationCount:'infinite',
+        animationFillMode:'both',
+      }}>
+        <svg width={p.size} height={p.size} viewBox="-10 -8 20 16">
+          <path d={MOMIJI_LEAF_SVG} fill={p.color} opacity="0.85" />
+        </svg>
+      </div>
+    ))}
+  </div>
+);
+
+// ─── WINTER: Falling snowflakes ───────────────────────────────────
+const SNOW_PARTICLES = [
+  { left:'42%', delay:'0s',    dur:'3.0s', anim:'snowFall1', size:6 },
+  { left:'60%', delay:'1.0s',  dur:'3.8s', anim:'snowFall2', size:5 },
+  { left:'30%', delay:'2.0s',  dur:'3.4s', anim:'snowFall3', size:5 },
+  { left:'52%', delay:'0.5s',  dur:'4.2s', anim:'snowFall4', size:4 },
+];
+const SnowParticles = () => (
+  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
+    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
+    {SNOW_PARTICLES.map((p, i) => (
+      <div key={i} style={{
+        position:'absolute', top:4, left:p.left,
+        width:p.size, height:p.size, opacity:0,
+        animationName:p.anim,
+        animationDuration:p.dur,
+        animationDelay:p.delay,
+        animationTimingFunction:'linear',
+        animationIterationCount:'infinite',
+        animationFillMode:'both',
+      }}>
+        <svg width={p.size} height={p.size} viewBox="-8 -8 16 16">
+          {[0,60,120].map(a => {
+            const r = a * Math.PI / 180;
+            return <g key={a}>
+              <line x1={(-Math.cos(r)*6).toFixed(1)} y1={(-Math.sin(r)*6).toFixed(1)}
+                    x2={(Math.cos(r)*6).toFixed(1)}  y2={(Math.sin(r)*6).toFixed(1)}
+                    stroke="#A8D8EA" strokeWidth="1.5" strokeLinecap="round" />
+            </g>;
+          })}
+          <circle cx="0" cy="0" r="1.5" fill="#C8EEFF" />
+        </svg>
+      </div>
+    ))}
+  </div>
+);
+
+// ─── SEASONAL PARTICLES WRAPPER ───────────────────────────────────
+const SeasonParticles = () => {
+  const season = getSeason();
+  if (season === 'summer') return <FireworkParticles />;
+  if (season === 'autumn') return <MomijiParticles />;
+  if (season === 'winter') return <SnowParticles />;
+  return <SakuraPetals />; // spring
+};
 // Dynamic date badge for calendar nav icon
 const CalIcon = () => {
   const now = new Date();
@@ -5330,7 +5608,7 @@ export default function App() {
     return (
       <div style={sharedStyle.wrapper}>
         <style>{sharedStyle.googleFont}</style>
-        <KizunaIcon />
+        <SeasonIcon />
         <p style={{ marginTop:16, fontSize:15, color:C.dim, fontStyle:'italic',
           fontFamily:'Cormorant Garamond,serif' }}>Loading…</p>
       </div>
@@ -5341,7 +5619,7 @@ export default function App() {
     return (
       <div style={sharedStyle.wrapper}>
         <style>{sharedStyle.googleFont}</style>
-        <div style={{ marginBottom:20 }}><KizunaIcon /></div>
+        <div style={{ marginBottom:20 }}><SeasonIcon /></div>
         <h1 style={{ margin:'0 0 6px', fontSize:34, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
           Kizuna&thinsp;絆
@@ -5413,7 +5691,7 @@ export default function App() {
     return (
       <div style={sharedStyle.wrapper}>
         <style>{sharedStyle.googleFont}</style>
-        <div style={{ marginBottom:20 }}><KizunaIcon /></div>
+        <div style={{ marginBottom:20 }}><SeasonIcon /></div>
         <h1 style={{ margin:'0 0 6px', fontSize:34, fontWeight:600, color:C.text,
           fontFamily:'Cormorant Garamond,serif', textAlign:'center' }}>
           Kizuna&thinsp;絆
