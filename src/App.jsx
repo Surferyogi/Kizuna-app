@@ -3906,7 +3906,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId, isDark=false }) {
+function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId, isDark=false, themeMode='auto', setTheme }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const AC = getAC(C);
@@ -4041,9 +4041,49 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
 
       {/* Appearance */}
       <SS title="Appearance">
-        <SR label={isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          sub={isDark ? 'Active 9:00 PM – 7:00 AM · switches automatically' : 'Active 7:00 AM – 9:00 PM · switches automatically'}
-          noBorder />
+        <div style={{ padding:'16px 18px' }}>
+          <p style={{ margin:'0 0 10px', fontSize:16, fontWeight:500, color:C.text }}>
+            Theme
+          </p>
+          <div style={{ display:'flex', gap:8 }}>
+            {[
+              { k:'light', icon:'☀️', label:'Light' },
+              { k:'auto',  icon:'🔄', label:'Auto'  },
+              { k:'dark',  icon:'🌙', label:'Dark'  },
+            ].map(opt => (
+              <button key={opt.k} onClick={() => setTheme(opt.k)}
+                style={{ flex:1, display:'flex', flexDirection:'column',
+                  alignItems:'center', gap:5, padding:'12px 8px',
+                  borderRadius:BR.input, cursor:'pointer', fontFamily:'inherit',
+                  transition:'all 0.2s',
+                  background: themeMode === opt.k
+                    ? (isDark
+                        ? `linear-gradient(135deg,#3A2E5A,#2A2248)`
+                        : `linear-gradient(135deg,${C.rose},${C.roseL})`)
+                    : C.elevated,
+                  border: `1.5px solid ${themeMode === opt.k
+                    ? (isDark ? '#7A5AB8' : C.rose)
+                    : C.border}`,
+                  boxShadow: themeMode === opt.k
+                    ? (isDark ? '0 2px 10px rgba(80,50,140,0.35)' : `0 2px 10px ${C.rose}35`)
+                    : 'none' }}>
+                <span style={{ fontSize:22 }}>{opt.icon}</span>
+                <span style={{ fontSize:13, fontWeight: themeMode===opt.k ? 700 : 500,
+                  color: themeMode===opt.k ? '#fff' : C.dim }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted,
+            fontStyle:'italic', textAlign:'center' }}>
+            {themeMode === 'auto'
+              ? 'Auto · Dark 9:00 PM – 7:00 AM · Light otherwise'
+              : themeMode === 'dark'
+              ? 'Dark mode always on'
+              : 'Light mode always on'}
+          </p>
+        </div>
       </SS>
 
       {/* Data & Privacy */}
@@ -4656,12 +4696,23 @@ const DEV_BYPASS_NAME = 'Koksum';
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
   // ── Dark mode — active 9pm to 7am, checked every minute ──────
-  const [isDark, setIsDark] = useState(() => isDarkHour());
+  // ── Theme mode: 'auto' | 'light' | 'dark' ────────────────────
+  // auto = follows time (9pm–7am dark), light/dark = manual override
+  // Persisted in localStorage so it survives page reloads
+  const [themeMode, setThemeMode] = useState(() =>
+    localStorage.getItem('kizuna_theme_mode') || 'auto'
+  );
+  const [autoDark, setAutoDark] = useState(() => isDarkHour());
   useEffect(() => {
-    const tick = () => setIsDark(isDarkHour());
+    const tick = () => setAutoDark(isDarkHour());
     const id = setInterval(tick, 60000);
     return () => clearInterval(id);
   }, []);
+  const setTheme = (mode) => {
+    setThemeMode(mode);
+    localStorage.setItem('kizuna_theme_mode', mode);
+  };
+  const isDark = themeMode === 'dark' || (themeMode === 'auto' && autoDark);
   const C  = isDark ? C_DARK  : C_LIGHT;
   const SH = getSH(isDark);
   const TC = getTC(C);
@@ -5350,7 +5401,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} />}
         {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
-        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} />}
+        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
