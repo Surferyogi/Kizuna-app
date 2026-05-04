@@ -1049,7 +1049,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false }) {
+function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false, isDark=false }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1118,11 +1118,15 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
     <div style={{ overflowY:'auto', height:'100%', boxSizing:'border-box' }}>
 
       {/* ── Kizuna Brand Header ─────────────────────────────────── */}
-      <div style={{ background:`linear-gradient(160deg, #FFFEFB 0%, #FDF5EE 60%, #F8EDE4 100%)`,
+      <div style={{ background: isDark
+          ? `linear-gradient(160deg, ${C.card} 0%, ${C.elevated} 60%, ${C.bg} 100%)`
+          : `linear-gradient(160deg, #FFFEFB 0%, #FDF5EE 60%, #F8EDE4 100%)`,
         padding:'18px 20px 16px',
         borderBottom:`1px solid ${C.border}`,
         position:'relative', overflow:'hidden',
-        boxShadow:`0 3px 12px rgba(184,113,92,0.08)` }}>
+        boxShadow: isDark
+          ? `0 3px 12px rgba(0,0,0,0.25)`
+          : `0 3px 12px rgba(184,113,92,0.08)` }}>
 
         {/* Decorative rose glow — top right */}
         <div style={{ position:'absolute', top:-30, right:-20, width:160, height:160,
@@ -1571,7 +1575,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0 }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1721,10 +1725,14 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                 <div style={{ width:32, height:32, borderRadius:BR.panel, margin:'0 auto',
                   background: isSel ? (showFlights && hasFlight ? C.F : C.rose)
                     : isT ? (showFlights && hasFlight ? C.F+'20' : C.rose+'20')
-                    : hasHoliday && !showFlights ? HC_LIGHT[dayHolidays[0].country]||'#FEE8EA' : 'transparent',
+                    : hasHoliday && !showFlights
+                      ? (isDark
+                          ? `${HC[dayHolidays[0].country]||'#EF3340'}22`
+                          : HC_LIGHT[dayHolidays[0].country]||'#FEE8EA')
+                      : 'transparent',
                   border: isSel ? 'none'
                     : hasHoliday && !showFlights
-                      ? `1.5px solid ${HC[dayHolidays[0].country]||'#EF3340'}40`
+                      ? `1.5px solid ${HC[dayHolidays[0].country]||'#EF3340'}${isDark?'50':'40'}`
                       : isT ? `1.5px solid ${showFlights && hasFlight ? '#5BB8E880' : '#B8715C60'}`
                       : '1.5px solid transparent',
                   boxShadow: isSel ? `0 2px 12px ${showFlights&&hasFlight?C.F:C.rose}35` : 'none',
@@ -2010,7 +2018,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0 }) {
+function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
   const now = new Date();
   const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -2030,7 +2038,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
           vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
           onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
           currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin}
-          onSyncFlights={onSyncFlights} flightSyncCount={flightSyncCount} />
+          onSyncFlights={onSyncFlights} flightSyncCount={flightSyncCount} isDark={isDark} />
       </div>
     </div>
   );
@@ -2118,14 +2126,38 @@ const VARIABLE_FESTIVE = {
 
 // 4 standard themes — rotate by day-of-year
 const STANDARD_THEMES = [
-  { key:'couple',  label:'Husband & Wife',
+  { key:'couple',    label:'Husband & Wife',
     prompt:'the deep, quiet bond between a husband and wife — the small moments that hold a marriage together' },
-  { key:'family',  label:'Family',
+  { key:'family',    label:'Family',
     prompt:'the warmth of a family — a husband, wife, and daughter growing together through everyday life' },
-  { key:'mindset', label:'Mindset',
-    prompt:'the power of mindset and the language we use to shape our inner world' },
-  { key:'calm',    label:'Inner Calm',
-    prompt:'inner calm, deep rest, and the stillness that heals from within' },
+  { key:'mindset',   label:'Mindset',
+    prompt:'the power of a positive mindset — how we frame our thoughts shapes our entire experience of life' },
+  { key:'calm',      label:'Inner Calm',
+    prompt:'inner calm, deep rest, and the stillness that heals and restores from within' },
+  { key:'gratitude', label:'Gratitude',
+    prompt:'gratitude — the quiet art of noticing beauty in ordinary moments and finding abundance in what we already have' },
+  { key:'growth',    label:'Growth',
+    prompt:'personal growth — the courage to keep becoming, to learn from setbacks, and to trust the process of change' },
+  { key:'presence',  label:'Being Present',
+    prompt:'the gift of being fully present — how attention and awareness deepen every moment of life' },
+  { key:'love',      label:'Love',
+    prompt:'love in its everyday form — not grand gestures, but quiet devotion, patience, and choosing each other daily' },
+  { key:'morning',   label:'New Day',
+    prompt:'the freshness of a new day — each morning as an invitation to begin again with hope and intention' },
+  { key:'strength',  label:'Inner Strength',
+    prompt:'resilience and inner strength — the quiet power that carries us through difficulty and uncertainty' },
+  { key:'wonder',    label:'Wonder',
+    prompt:'curiosity and wonder — seeing the world through fresh eyes and finding magic in the everyday' },
+  { key:'together',  label:'Connection',
+    prompt:'the beauty of human connection — how sharing life with those we love makes everything richer' },
+  { key:'trust',     label:'Trust',
+    prompt:'trust — in ourselves, in each other, and in the unfolding of life even when we cannot see the path ahead' },
+  { key:'joy',       label:'Simple Joy',
+    prompt:'simple joys — laughter, warmth, small pleasures, and the happiness that needs no reason' },
+  { key:'roots',     label:'Home & Belonging',
+    prompt:'the feeling of home and belonging — where we are known, accepted, and loved exactly as we are' },
+  { key:'dreams',    label:'Dreams & Hope',
+    prompt:'holding onto dreams and the quiet courage of hope — believing in what is possible even before it arrives' },
 ];
 
 // Mother's Day (2nd Sunday May) and Father's Day (3rd Sunday June) — 2026–2035
@@ -2199,7 +2231,7 @@ function buildQuotePrompt(day, themeIndex) {
   const { isAnnaBirthday, isSophiaBirthday, isKoksumBirthday,
           isAnniversary, anniversaryYears, festiveName, annaAge } = day;
   const milestone = annaMilestone(annaAge);
-  const theme = STANDARD_THEMES[themeIndex % 4];
+  const theme = STANDARD_THEMES[themeIndex % STANDARD_THEMES.length];
 
   // Combined scenarios (priority: birthday > anniversary > festive)
   const hasBirthday = isAnnaBirthday || isSophiaBirthday || isKoksumBirthday;
@@ -2253,13 +2285,16 @@ async function fetchDailyQuote(supabaseClient) {
     if (cached?.slot === slotKey && cached?.quote) return cached;
   } catch { /* ignore */ }
 
-  // Build prompt
+  // Pick theme: combine day-of-year × slot hour so each slot gets a unique theme
+  // and the same slot never repeats the same theme on consecutive days
   const now = new Date();
   const day = detectSpecialDay(now);
-  const themeIndex = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000) % 4;
+  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const slotHour  = getQuoteSlot(now);
+  const themeIndex = (dayOfYear * 7 + slotHour * 3) % STANDARD_THEMES.length;
   const prompt   = buildQuotePrompt(day, themeIndex);
   const label    = buildQuoteLabel(day) ||
-    (STANDARD_THEMES[themeIndex % 4].label + ' · Today\'s Reflection');
+    (STANDARD_THEMES[themeIndex % STANDARD_THEMES.length].label + ' · Today\'s Reflection');
   const isSpecial = day.isAnnaBirthday || day.isSophiaBirthday || day.isKoksumBirthday ||
                     day.isAnniversary  || !!day.festiveName;
 
@@ -5398,8 +5433,8 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
