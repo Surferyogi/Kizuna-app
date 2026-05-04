@@ -1,6 +1,7 @@
 // Kizuna 絆 — v2.0.0 — Supabase sync across all devices
 import { useState, useMemo, useCallback, useEffect, useRef, useContext, createContext } from "react";
 import { supabase, supabaseConfigured } from './supabase.js';
+import FestiveFireworks, { detectFestiveTheme } from './components/FestiveFireworks.jsx';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
@@ -5067,6 +5068,19 @@ export default function App() {
   const SH = getSH(isDark);
   const TC = getTC(C);
   const AC = getAC(C);
+
+  // ── Festive fireworks ─────────────────────────────────────────
+  const [festiveTheme,    setFestiveTheme]    = useState(() => detectFestiveTheme());
+  const [festiveVisible,  setFestiveVisible]  = useState(() => !!detectFestiveTheme());
+  // Re-check at midnight in case app is left open across days
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = detectFestiveTheme();
+      setFestiveTheme(t);
+      setFestiveVisible(!!t);
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
   const [tab,          setTab]          = useState('home');
 
   // ── Listen for NAVIGATE_HOME message from service worker ─────
@@ -5734,6 +5748,18 @@ export default function App() {
 
   return (
     <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
+
+    {/* ── Festive fireworks overlay — renders above everything ── */}
+    {festiveTheme && (
+      <FestiveFireworks
+        theme={festiveTheme}
+        colorScheme={themeMode}
+        isVisible={festiveVisible}
+        durationMs={8000}
+        onComplete={() => setFestiveVisible(false)}
+      />
+    )}
+
     <div style={{ width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
       background:C.bg, color:C.text,
       fontFamily:`'Nunito','DM Sans',system-ui,sans-serif`,
