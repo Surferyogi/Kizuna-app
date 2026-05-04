@@ -592,7 +592,7 @@ function SR({ label, sub, right, noBorder }) {
 }
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
-function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, isAdmin=false }) {
+function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnly=false, isAdmin=false }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -622,11 +622,13 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
   })();
 
   const isPastDue = (() => {
-    if (e.done || e.type === 'flight') return false;
+    if (e.done || e.cancelled || e.type === 'flight') return false;
     if (!e.date) return false;
     const dt = e.time ? new Date(`${e.date}T${e.time}`) : new Date(`${e.date}T23:59`);
     return dt < new Date();
   })();
+
+  const isCancelled = !!e.cancelled;
 
   const openMenu    = ev => { ev.stopPropagation(); setOpen(true);  setConfirmDel(false); };
   const closeMenu   = ev => { ev.stopPropagation(); setOpen(false); setConfirmDel(false); };
@@ -747,10 +749,11 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
             </span>
           )}
           <span style={{ fontSize:16, fontWeight:600,
-            color: (e.done || isFlightLanded) ? C.muted : isPastDue ? C.dim : C.text,
-            textDecoration: (e.done || isPastDue || isFlightLanded) ? 'line-through' : 'none',
+            color: isCancelled ? WARN : (e.done || isFlightLanded) ? C.muted : isPastDue ? C.dim : C.text,
+            textDecoration: (e.done || isCancelled || isPastDue || isFlightLanded) ? 'line-through' : 'none',
             lineHeight:'1.4', flex:1, minWidth:0,
-            opacity: (isPastDue && !e.done) || isFlightLanded ? 0.6 : 1 }}>
+            opacity: isCancelled ? 0.7 : (isPastDue && !e.done) || isFlightLanded ? 0.6 : 1 }}>
+            {isCancelled && <span style={{ marginRight:5 }}>❌</span>}
             {e.title}
           </span>
           {/* Landed badge */}
@@ -846,8 +849,14 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
             )}
           </div>
         ) : !confirmDel ? (
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
             <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
+            <button onClick={ev => { ev.stopPropagation(); setOpen(false); isOwn && onCancel && onCancel(e.id); }}
+              style={isCancelled
+                ? pill(C.T+'18', DTC.task, C.T+'50')
+                : pill('#C46A1415', WARN, '#C46A1450')}>
+              {isCancelled ? '↩ Uncancel' : '❌ Cancel'}
+            </button>
             <button onClick={handleDelReq} style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
             <button onClick={closeMenu}    style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
           </div>
@@ -922,8 +931,16 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
                   )}
                   <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); onEdit && onEdit(e); }}
                     style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
+                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); isOwn && onCancel && onCancel(e.id); }}
+                    style={isCancelled
+                      ? pill(C.T+'18', DTC.task, C.T+'50')
+                      : pill('#C46A1415', WARN, '#C46A1450')}>
+                    {isCancelled ? '↩ Uncancel' : '❌ Cancel'}
+                  </button>
                   <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); setConfirmDel(true); setOpen(true); }}
                     style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
+                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); }}
+                    style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
                 </div>
               )}
             </div>
@@ -1051,7 +1068,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false, isDark=false }) {
+function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false, isDark=false }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1292,7 +1309,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           <Sec label="Pending Tasks" count={openTasks} />
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+            {topTasks.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
           </div>
         </>)}
 
@@ -1318,7 +1335,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
           ) : (
             <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+              {todayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
             </div>
           )}
         </>)}
@@ -1328,7 +1345,7 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
 }
 
 // ─── AGENDA VIEW ─────────────────────────────────────────────────
-function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+function AgendaView({ entries, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1390,7 +1407,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
             </div>
             <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+              {grouped[d].map(e => <ECard key={e.id} e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
             </div>
           </div>
         );
@@ -1398,7 +1415,7 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
       </div>
   );
 }
-function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+function DayView({ entries, selDate, setSelDate, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1436,7 +1453,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
             boxShadow:SH.subtle }}>
             <p style={{ fontSize:12, color:C.muted, margin:'8px 0 2px',
               textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>All day</p>
-            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
+            {allDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} isAdmin={isAdmin} />)}
           </div>
         )}
         {/* Hourly slots */}
@@ -1455,7 +1472,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
                   <div style={{ background:C.card, borderRadius:BR.input, padding:'0 12px',
                     boxShadow:SH.card, border:`1px solid ${C.border}` }}>
                     {hEs.map(e => (
-                      <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
+                      <ECard key={e.id} e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} />
                     ))}
                   </div>
                 )}
@@ -1469,7 +1486,7 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
 }
 
 // ─── WEEK VIEW ───────────────────────────────────────────────────
-function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+function WeekView({ entries, selDate, setSelDate, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1567,7 +1584,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
           <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
             boxShadow:SH.card, border:`1px solid ${C.border}` }}>
             {selDayEs.map(e => (
-              <ECard key={e.id} e={e} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} readOnly={selIsPast} />
+              <ECard key={e.id} e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId} readOnly={selIsPast} />
             ))}
           </div>
         )}
@@ -1577,7 +1594,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -2020,7 +2037,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
+function CalendarTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
   const now = new Date();
   const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -2038,7 +2055,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
       <div style={{ flex:1, overflow:'hidden' }}>
         <MonthView entries={entries} selDate={selDate} setSelDate={setSelDate}
           vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
-          onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}
+          onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete}
           currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin}
           onSyncFlights={onSyncFlights} flightSyncCount={flightSyncCount} isDark={isDark} />
       </div>
@@ -2883,7 +2900,7 @@ const TYPE_CHIPS = [
   { t:'birthday', icon:'🎂', label:'Birthday' },
 ];
 
-function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin=false }) {
+function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserId, isAdmin=false }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -5187,13 +5204,26 @@ export default function App() {
   const toggleDone = useCallback(id => {
     const current = entriesRef.current.find(e => e.id === id);
     if (!current) return;
-    // Only allow toggling own entries — shared entries from others are read-only
     if (current.userId && current.userId !== user?.id) return;
     const willComplete = !current.done;
     const updated = { ...current, done: willComplete };
     setEntries(prev => prev.map(e => e.id === id ? updated : e));
     logAudit(willComplete ? 'completed' : 'reopened', current);
     if (user) dbUpsertEntry(user.id, updated);
+  }, [logAudit, user]);
+
+  const toggleCancel = useCallback(id => {
+    const current = entriesRef.current.find(e => e.id === id);
+    if (!current) return;
+    // Allow own entries or admin
+    const isOwn = !current.userId || current.userId === user?.id;
+    if (!isOwn) return;
+    const willCancel = !current.cancelled;
+    const updated = { ...current, cancelled: willCancel, done: willCancel ? false : current.done };
+    setEntries(prev => prev.map(e => e.id === id ? updated : e));
+    logAudit(willCancel ? 'updated' : 'reopened', current);
+    const ownerUserId = current.userId || user?.id;
+    if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
   }, [logAudit, user]);
 
   const updateEntry = useCallback(updated => {
@@ -5445,9 +5475,9 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} />}
-        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} />}
+        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
