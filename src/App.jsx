@@ -326,7 +326,20 @@ const TC  = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E, birthd
 const TI  = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈', birthday:'🎂' };
 const TL  = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event', birthday:'Birthday / Anniversary' };
 
-// getTC — call inside components to get theme-correct type colors
+// DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
+// Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
+const DTC = {
+  meeting:  '#1C4878',
+  flight:   '#0A4268',
+  task:     '#1A3A78',
+  reminder: '#4A2E08',
+  event:    '#38186A',
+  birthday: '#7A2A5A',
+};
+
+const PC = { low:DTC.task, medium:'#6B4E10', high:'#8A3A08', critical:'#6A2408' };
+const AL = { created:'Created', completed:'Completed', reopened:'Reopened', deleted:'Deleted', updated:'Updated' };
+
 const getTC = (c) => ({ meeting:c.M, flight:c.F, task:c.T, reminder:c.R, event:c.E, birthday:'#C4729A' });
 const getAC = (c) => ({ created:c.rose, completed:DTC.task, reopened:DTC.meeting, deleted:'#8A3A08', updated:DTC.event });
 
