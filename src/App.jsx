@@ -851,7 +851,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
         ) : !confirmDel ? (
           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
             <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
-            <button onClick={ev => { ev.stopPropagation(); setOpen(false); isOwn && onCancel && onCancel(e.id); }}
+            <button onClick={ev => { ev.stopPropagation(); setOpen(false); canEdit && onCancel && onCancel(e.id, isAdmin); }}
               style={isCancelled
                 ? pill(C.T+'18', DTC.task, C.T+'50')
                 : pill('#C46A1415', WARN, '#C46A1450')}>
@@ -931,7 +931,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
                   )}
                   <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); onEdit && onEdit(e); }}
                     style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
-                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); isOwn && onCancel && onCancel(e.id); }}
+                  <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); canEdit && onCancel && onCancel(e.id, isAdmin); }}
                     style={isCancelled
                       ? pill(C.T+'18', DTC.task, C.T+'50')
                       : pill('#C46A1415', WARN, '#C46A1450')}>
@@ -1289,7 +1289,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
                         Nothing here yet
                       </p>
                     : f.entries.map(e => <ECard key={e.id} e={e}
-                        onToggle={onToggle} onEdit={onEdit}
+                        onToggle={onToggle} onCancel={onCancel} onEdit={onEdit}
                         onDelete={onDelete} currentUserId={currentUserId} />)
                   }
                 </div>
@@ -1933,7 +1933,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                         )}
                       </div>
                       {/* ECard below route strip */}
-                      <ECard e={e} onToggle={onToggle} onEdit={onEdit}
+                      <ECard e={e} onToggle={onToggle} onCancel={onCancel} onEdit={onEdit}
                         onDelete={onDelete} currentUserId={currentUserId}
                         isAdmin={isAdmin}
                         readOnly={!isAdmin && isPastFlight} />
@@ -2024,7 +2024,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
                 boxShadow:SH.card, border:`1px solid ${C.border}` }}>
                 {selDayEs.map(e => <ECard key={e.id} e={e} onToggle={onToggle}
-                  onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId}
+                  onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} currentUserId={currentUserId}
                   isAdmin={isAdmin}
                   readOnly={!isAdmin && new Date(selDate+'T23:59:59') < new Date()} />)}
               </div>
@@ -3402,7 +3402,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
           : <div style={{ background:C.card, borderRadius:BR.card, padding:'0 14px',
               boxShadow:SH.card, border:`1px solid ${C.border}` }}>
               {results.map(e => <ECard key={e.id} e={e} onToggle={onToggle}
-                onEdit={onEdit} onDelete={onDelete}
+                onCancel={onCancel} onEdit={onEdit} onDelete={onDelete}
                 currentUserId={currentUserId} isAdmin={isAdmin} />)}
             </div>
         }
@@ -5212,12 +5212,12 @@ export default function App() {
     if (user) dbUpsertEntry(user.id, updated);
   }, [logAudit, user]);
 
-  const toggleCancel = useCallback(id => {
+  const toggleCancel = useCallback((id, isAdminAction=false) => {
     const current = entriesRef.current.find(e => e.id === id);
     if (!current) return;
-    // Allow own entries or admin
     const isOwn = !current.userId || current.userId === user?.id;
-    if (!isOwn) return;
+    // Allow own entries OR admin
+    if (!isOwn && !isAdminAction) return;
     const willCancel = !current.cancelled;
     const updated = { ...current, cancelled: willCancel, done: willCancel ? false : current.done };
     setEntries(prev => prev.map(e => e.id === id ? updated : e));
