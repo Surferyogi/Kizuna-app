@@ -756,6 +756,14 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {isCancelled && <span style={{ marginRight:5 }}>❌</span>}
             {e.title}
           </span>
+          {/* Cancelled badge */}
+          {isCancelled && (
+            <span style={{ fontSize:12, fontWeight:700, color:'#fff',
+              background:WARN, borderRadius:BR.pill, padding:'4px 12px',
+              flexShrink:0, boxShadow:`0 2px 8px ${WARN}40` }}>
+              Cancelled ✕
+            </span>
+          )}
           {/* Landed badge */}
           {isFlightLanded && (
             <span style={{ fontSize:12, fontWeight:700, color:'#fff',
