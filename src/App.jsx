@@ -1,5 +1,5 @@
 // Kizuna 絆 — v2.0.0 — Supabase sync across all devices
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, useContext, createContext } from "react";
 import { supabase, supabaseConfigured } from './supabase.js';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
@@ -225,6 +225,8 @@ const flightStatusLocal = (flight) => {
 
 // React hook — fetches live status, falls back to local
 function useLiveFlightStatus(flight) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const [status,      setStatus]      = useState(() => flightStatusLocal(flight));
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading,     setLoading]     = useState(false);
@@ -272,51 +274,68 @@ function useLiveFlightStatus(flight) {
 
 // Warm cream base · Terracotta rose accent · Blue/orange entry system
 // Deuteranopia/protanopia safe: green replaced with cornflower blue;
-// red/coral replaced with amber-orange. Text contrast ≥ 4.5:1 on cream.
-const C = {
-  bg:      '#F8F5F1',   // warm cream parchment
-  card:    '#FFFEFB',   // near-white card surface
-  elevated:'#F0EAE2',   // warm ecru — inputs, chips
-  border:  '#D8CEBC',   // soft beige — now clearly visible
-  muted:   '#9A9188',   // warm taupe — placeholder/disabled (contrast ≥ 3:1)
-  text:    '#1A1714',   // deep warm charcoal — contrast 14:1 on cream
-  dim:     '#5C5349',   // medium warm brown — contrast 6.5:1 (was too faint)
-  // Terracotta rose accent — grounded, calm, wellness
-  rose:    '#B8715C',   // slightly deeper for contrast on cream
+// ─── LIGHT PALETTE (default) ─────────────────────────────────────
+const C_LIGHT = {
+  bg:      '#F8F5F1',
+  card:    '#FFFEFB',
+  elevated:'#F0EAE2',
+  border:  '#D8CEBC',
+  muted:   '#9A9188',
+  text:    '#1A1714',
+  dim:     '#5C5349',
+  rose:    '#B8715C',
   roseL:   '#E0A898',
-  // Entry type colours — color-blind safe blue/orange system
-  // NO green, NO red — safe for deuteranopia + protanopia
-  M:       '#4D8EC4',   // steel blue        — meetings  (was dusty sky)
-  F:       '#5BB8E8',   // sky blue           — flights   (warm peach → open sky)
-  T:       '#4E7EC8',   // cornflower blue    — tasks     (replaces sage GREEN)
-  R:       '#A07840',   // warm toffee        — reminders (was sand, now richer)
-  E:       '#8A72B8',   // deeper lavender    — events    (more contrast)
+  M:       '#4D8EC4',
+  F:       '#5BB8E8',
+  T:       '#4E7EC8',
+  R:       '#A07840',
+  E:       '#8A72B8',
 };
+
+// ─── DARK PALETTE (9pm – 7am) ────────────────────────────────────
+const C_DARK = {
+  bg:      '#16130F',   // deep warm black
+  card:    '#1E1A15',   // lifted dark card
+  elevated:'#272118',   // inputs, chips
+  border:  '#3A3028',   // subtle warm border
+  muted:   '#7A7068',   // muted text — contrast ≥ 3:1 on dark bg
+  text:    '#F0E8DC',   // warm cream — contrast 14:1 on dark
+  dim:     '#B0A090',   // secondary text — contrast 6:1 on dark
+  rose:    '#D4957F',   // lightened rose — same hue, better contrast on dark
+  roseL:   '#E8B8A8',
+  M:       '#6AAAD8',   // lighter steel blue for dark bg
+  F:       '#7ACAED',   // lighter sky blue
+  T:       '#6A9ADA',   // lighter cornflower
+  R:       '#C49458',   // lighter toffee
+  E:       '#A890CC',   // lighter lavender
+};
+
+// Keep C as the light default for module-level derived constants
+const C = C_LIGHT;
+
+// ─── THEME CONTEXT ────────────────────────────────────────────────
+const ThemeContext = createContext(C_LIGHT);
+
+// ─── HELPERS: check dark hours (9pm=21 to 7am=7) ─────────────────
+function isDarkHour(now = new Date()) {
+  const h = now.getHours();
+  return h >= 21 || h < 7;
+}
 
 const TC  = { meeting:C.M, flight:C.F, task:C.T, reminder:C.R, event:C.E, birthday:'#C4729A' };
 const TI  = { meeting:'◯', flight:'◇', task:'□', reminder:'◷', event:'◈', birthday:'🎂' };
 const TL  = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Reminder', event:'Event', birthday:'Birthday / Anniversary' };
 
-// DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
-// Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
-// Rule: whenever a type color is used as a font color, use DTC, never TC.
-const DTC = {
-  meeting:  '#1C4878',   // deep steel navy   — text-safe on C.M tints
-  flight:   '#0A4268',   // deep sky navy     — text-safe on C.F tints & light sky bg
-  task:     '#1A3A78',   // deep cornflower   — text-safe on C.T tints
-  reminder: '#4A2E08',   // dark amber        — text-safe on C.R tints
-  event:    '#38186A',   // deep violet       — text-safe on C.E tints
-  birthday: '#7A2A5A',   // deep rose         — text-safe on birthday pink tints
-};
+// getTC — call inside components to get theme-correct type colors
+const getTC = (c) => ({ meeting:c.M, flight:c.F, task:c.T, reminder:c.R, event:c.E, birthday:'#C4729A' });
+const getAC = (c) => ({ created:c.rose, completed:DTC.task, reopened:DTC.meeting, deleted:'#8A3A08', updated:DTC.event });
 
-// PC.low uses DTC.task: badge renders same color as both text AND bg tint,
-// so the value must be dark enough to read against its own 28% alpha wash.
-const PC = { low:DTC.task, medium:'#6B4E10', high:'#8A3A08', critical:'#6A2408' };
-const AC = { created:C.rose, completed:DTC.task, reopened:DTC.meeting, deleted:'#8A3A08', updated:DTC.event };
-const AL = { created:'Created', completed:'Completed', reopened:'Reopened', deleted:'Deleted', updated:'Updated' };
-
-// Shared shadow levels — replaces harsh borders on cards
-const SH = {
+// getSH — softer shadows for dark mode
+const getSH = (dark) => dark ? {
+  card:    '0 2px 16px rgba(0,0,0,0.35)',
+  float:   '0 8px 32px rgba(0,0,0,0.50)',
+  subtle:  '0 1px 6px  rgba(0,0,0,0.25)',
+} : {
   card:    '0 2px 16px rgba(44,38,32,0.07)',
   float:   '0 8px 32px rgba(44,38,32,0.12)',
   subtle:  '0 1px 6px  rgba(44,38,32,0.05)',
@@ -515,42 +534,55 @@ async function dbRemoveMember(workspaceId, memberId) {
 
 
 // ─── SHARED UI ATOMS ─────────────────────────────────────────────
-const Sec = ({ label, count }) => (
-  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, marginTop:30 }}>
-    <span style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase', letterSpacing:'0.14em', whiteSpace:'nowrap' }}>{label}</span>
-    {count != null && (
-      <span style={{ fontSize:14, color:C.dim, background:C.elevated, borderRadius:BR.pill,
-        padding:'3px 10px', boxShadow:SH.subtle }}>{count}</span>
-    )}
-    <div style={{ flex:1, height:'1px', background:C.border }} />
-  </div>
-);
-
-// P3-17: SS and SR at module level — never recreated on SettingsTab renders
-const SS = ({ title, children }) => (
-  <div style={{ marginBottom:14 }}>
-    <p style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase',
-      letterSpacing:'0.14em', margin:'28px 0 10px' }}>{title}</p>
-    <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
-      boxShadow:SH.card, border:`1px solid ${C.border}` }}>
-      {children}
+function Sec({ label, count }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, marginTop:30 }}>
+      <span style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase', letterSpacing:'0.14em', whiteSpace:'nowrap' }}>{label}</span>
+      {count != null && (
+        <span style={{ fontSize:14, color:C.dim, background:C.elevated, borderRadius:BR.pill,
+          padding:'3px 10px', boxShadow:SH.subtle }}>{count}</span>
+      )}
+      <div style={{ flex:1, height:'1px', background:C.border }} />
     </div>
-  </div>
-);
+  );
+}
 
-const SR = ({ label, sub, right, noBorder }) => (
-  <div style={{ display:'flex', alignItems:'center', padding:'18px 20px',
-    borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:14 }}>
-    <div style={{ flex:1 }}>
-      <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500 }}>{label}</p>
-      {sub && <p style={{ margin:0, fontSize:14, color:C.dim, marginTop:3 }}>{sub}</p>}
+function SS({ title, children }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  return (
+    <div style={{ marginBottom:14 }}>
+      <p style={{ fontSize:14, fontWeight:700, color:C.rose, textTransform:'uppercase',
+        letterSpacing:'0.14em', margin:'28px 0 10px' }}>{title}</p>
+      <div style={{ background:C.card, borderRadius:BR.card, overflow:'hidden',
+        boxShadow:SH.card, border:`1px solid ${C.border}` }}>
+        {children}
+      </div>
     </div>
-    {right}
-  </div>
-);
+  );
+}
+
+function SR({ label, sub, right, noBorder }) {
+  const C = useContext(ThemeContext);
+  return (
+    <div style={{ display:'flex', alignItems:'center', padding:'18px 20px',
+      borderBottom:noBorder?'none':`1px solid ${C.border}`, gap:14 }}>
+      <div style={{ flex:1 }}>
+        <p style={{ margin:0, fontSize:16, color:C.text, fontWeight:500 }}>{label}</p>
+        {sub && <p style={{ margin:0, fontSize:14, color:C.dim, marginTop:3 }}>{sub}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
 
 // ─── ENTRY CARD ──────────────────────────────────────────────────
 function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, isAdmin=false }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const isReadOnly = readOnly || e._virtual === true;
   const col  = TC[e.type];
   const dcol = DTC[e.type] || col;
@@ -889,6 +921,8 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
 
 // ─── FLIGHT HERO CARD ────────────────────────────────────────────
 function FlightHeroCard({ flight, todayStr }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const { status, lastUpdated, loading } = useLiveFlightStatus(flight);
   const depName = airportCity(flight.depCity);
   const arrName = airportCity(flight.arrCity);
@@ -1003,6 +1037,9 @@ function FlightHeroCard({ flight, todayStr }) {
   );
 }
 function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   // Single live date source — everything derives from this one value.
   // useState ensures React re-renders atomically when date changes.
   const [now, setNow] = useState(() => new Date());
@@ -1273,6 +1310,9 @@ function HomeTab({ entries, onToggle, onEdit, onDelete, userName, currentUserId,
 
 // ─── AGENDA VIEW ─────────────────────────────────────────────────
 function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const grouped = useMemo(() => {
     const sorted = [...entries].sort((a,b) =>
       a.date.localeCompare(b.date) || (a.time||'99:99').localeCompare(b.time||'99:99'));
@@ -1340,6 +1380,9 @@ function AgendaView({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd 
   );
 }
 function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const dayEs = useMemo(() => entries.filter(e => e.date===selDate && e.time), [entries, selDate]);
   const allDayEs = useMemo(() => entries.filter(e => e.date===selDate && !e.time), [entries, selDate]);
   const hours  = Array.from({ length:24 }, (_,i) => i); // 00:00 → 23:00
@@ -1408,6 +1451,9 @@ function DayView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cur
 
 // ─── WEEK VIEW ───────────────────────────────────────────────────
 function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, currentUserId, onAdd }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const dt        = new Date(selDate+'T00:00:00');
   const dow       = dt.getDay();
   const weekStart = new Date(dt);
@@ -1513,6 +1559,9 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onEdit, onDelete, cu
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
 function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0 }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const daysInMonth = new Date(vm.y, vm.m+1, 0).getDate();
   const first       = new Date(vm.y, vm.m, 1);
   const offset      = first.getDay()===0 ? 6 : first.getDay()-1;
@@ -2287,6 +2336,8 @@ const SPLASH_PETALS = [
 ];
 
 function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const [swiping,     setSwiping]     = useState(false);
   const [touchStartY, setTouchStartY] = useState(null);
 
@@ -2773,6 +2824,9 @@ const TYPE_CHIPS = [
 ];
 
 function SearchTab({ entries, onToggle, onEdit, onDelete, currentUserId, isAdmin=false }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const [q,          setQ]         = useState('');
   const [typeF,      setTypeF]     = useState('all');
   const [quickF,     setQuickF]    = useState('week');
@@ -3292,6 +3346,8 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function MorningSummarySection({ userId }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const [status,      setStatus]     = useState('checking');
   const [subError,    setSubError]   = useState('');
   const [notifyHour,  setNotifyHour] = useState(8);
@@ -3335,7 +3391,14 @@ function MorningSummarySection({ userId }) {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
       const j = sub.toJSON();
-      const { error } = await supabase.from('push_subscriptions').upsert({
+
+      // Delete ALL previous subscriptions for this user first —
+      // prevents stale endpoints accumulating across reinstalls/SW changes
+      await supabase.from('push_subscriptions')
+        .delete().eq('user_id', userId);
+
+      // Insert fresh subscription
+      const { error } = await supabase.from('push_subscriptions').insert({
         user_id:      userId,
         endpoint:     j.endpoint,
         p256dh:       j.keys.p256dh,
@@ -3343,7 +3406,7 @@ function MorningSummarySection({ userId }) {
         display_name: null,
         notify_hour:  notifyHour,
         updated_at:   new Date().toISOString(),
-      }, { onConflict: 'user_id,endpoint' });
+      });
       if (error) throw error;
       setStatus('on');
     } catch (err) {
@@ -3523,6 +3586,8 @@ function MorningSummarySection({ userId }) {
 // ─── NEW MEMBER GUIDE ────────────────────────────────────────────
 // Admin-only collapsible guide for registering new members.
 function NewMemberGuide() {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const [open, setOpen] = useState(false);
 
   const Step = ({ n, title, children }) => (
@@ -3668,6 +3733,8 @@ SET display_name = 'Their Name';`}</Code>
 // Two-tap confirm guard — first tap shows warning, second tap executes reset.
 // Separated to module level so it's never recreated inside SettingsTab.
 function ResetSection({ onReset }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const [confirming, setConfirming] = useState(false);
   return (
     <div style={{ marginBottom:40 }}>
@@ -3724,6 +3791,8 @@ function ResetSection({ onReset }) {
 
 // ─── INVITE MODAL ────────────────────────────────────────────────
 function InviteModal({ onClose, workspaceId, invitedBy }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   const url    = 'https://surferyogi.github.io/Kizuna-app/';
   const qr     = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=B8715C&bgcolor=FFFEFB&data=${encodeURIComponent(url)}`;
   const [copied,       setCopied]       = useState(false);
@@ -3824,7 +3893,10 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId }) {
+function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId, isDark=false }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const AC = getAC(C);
   // Only show admin features once workspace is loaded AND role is confirmed admin
   // Never default to true — wait for confirmed data
   const isAdmin = workspaceLoaded && (workspace?.role === 'admin' || workspace?.ownerId === userId);
@@ -3954,6 +4026,13 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
       {/* Notifications — Daily Summary */}
       <MorningSummarySection userId={userId} />
 
+      {/* Appearance */}
+      <SS title="Appearance">
+        <SR label={isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}
+          sub={isDark ? 'Active 9:00 PM – 7:00 AM · switches automatically' : 'Active 7:00 AM – 9:00 PM · switches automatically'}
+          noBorder />
+      </SS>
+
       {/* Data & Privacy */}
       <SS title="Data & Privacy">
         <SR label="Encrypted at Rest" sub="All data secured by Supabase AES-256 encryption"
@@ -4040,6 +4119,8 @@ const mkBlank = () => ({
 });
 
 function EForm({ form, set }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
   // Auto-generate flight title from IATA codes
   const prevAutoRef = useRef('');
   useEffect(() => {
@@ -4278,6 +4359,9 @@ function EForm({ form, set }) {
 }
 
 function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const TC = getTC(C);
   const isEdit = editEntry !== null;
   const [step, setStep] = useState(isEdit ? 1 : 0);
   const [form, setForm] = useState(isEdit
@@ -4558,6 +4642,17 @@ const DEV_BYPASS_NAME = 'Koksum';
 
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
+  // ── Dark mode — active 9pm to 7am, checked every minute ──────
+  const [isDark, setIsDark] = useState(() => isDarkHour());
+  useEffect(() => {
+    const tick = () => setIsDark(isDarkHour());
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
+  const C  = isDark ? C_DARK  : C_LIGHT;
+  const SH = getSH(isDark);
+  const TC = getTC(C);
+  const AC = getAC(C);
   const [tab,          setTab]          = useState('home');
   const [entries,      setEntries]      = useState([]);
   const [auditLog,     setAuditLog]     = useState([]);
@@ -5201,25 +5296,30 @@ export default function App() {
   }
 
   return (
+    <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
     <div style={{ width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
       background:C.bg, color:C.text,
       fontFamily:`'Nunito','DM Sans',system-ui,sans-serif`,
       display:'flex', flexDirection:'column', position:'relative', overflow:'hidden',
-      WebkitFontSmoothing:'antialiased' }}>
+      WebkitFontSmoothing:'antialiased',
+      transition:'background 0.4s, color 0.4s' }}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&display=swap');
         * { -webkit-tap-highlight-color: transparent; }
-        input, select, textarea { font-family: 'Nunito', system-ui, sans-serif; }
+        input, select, textarea { font-family: 'Nunito', system-ui, sans-serif;
+          background: ${C.card}; color: ${C.text}; transition: background 0.4s, color 0.4s; }
         input[type=date]::-webkit-calendar-picker-indicator,
-        input[type=time]::-webkit-calendar-picker-indicator { filter: opacity(0.5); }
+        input[type=time]::-webkit-calendar-picker-indicator { filter: opacity(0.5) ${isDark ? 'invert(1)' : ''}; }
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
         ::-webkit-scrollbar { width:3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius:2px; }
+        ::placeholder { color: ${C.muted}; }
         button { font-family: 'Nunito', system-ui, sans-serif; }
+        * { transition: background-color 0.4s, border-color 0.3s, color 0.3s; }
       `}</style>
 
 
@@ -5237,7 +5337,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} />}
         {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
-        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} />}
+        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
@@ -5293,5 +5393,6 @@ export default function App() {
 
       </div>
     </div>
+    </ThemeContext.Provider>
   );
 }
