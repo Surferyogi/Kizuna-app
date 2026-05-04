@@ -2052,7 +2052,7 @@ function CalendarTab({ entries, onToggle, onEdit, onDelete, currentUserId, onAdd
 // Special day detection: birthdays > anniversary > festive > standard themes.
 // Privacy: birth years & anniversary year stay local — only prompt text leaves device.
 
-const QUOTE_CACHE_KEY  = 'kizuna_daily_quote_v1';
+const QUOTE_CACHE_KEY  = 'kizuna_daily_quote_v2'; // v2: fixed SGT local date key
 
 // 12 quote slots per day — active 5am to 9pm, silent midnight to 5am.
 // Each slot is identified by its start hour.
@@ -2072,13 +2072,20 @@ function getQuoteSlot(now = new Date()) {
 
 function getSlotKey(now = new Date()) {
   const h = now.getHours();
-  // 12am–4:59am: use yesterday's date with last slot
+  // Use local date — toISOString() is UTC which breaks SGT timezone
+  const localDate = (d) => {
+    const yr  = d.getFullYear();
+    const mo  = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${yr}-${mo}-${day}`;
+  };
+  // 12am–4:59am: use yesterday's date with last slot (no new quote overnight)
   if (h < 5) {
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    return `${yesterday.toISOString().slice(0,10)}-21`;
+    return `${localDate(yesterday)}-21`;
   }
-  return `${now.toISOString().slice(0,10)}-${getQuoteSlot(now)}`;
+  return `${localDate(now)}-${getQuoteSlot(now)}`;
 }
 const ANNA_BIRTH_MONTH = 4;  // April
 const ANNA_BIRTH_DAY   = 16;
@@ -2291,7 +2298,10 @@ async function fetchDailyQuote(supabaseClient) {
   // and the same slot never repeats the same theme on consecutive days
   const now = new Date();
   const day = detectSpecialDay(now);
-  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  // Use local midnight to avoid UTC offset shifting the day boundary
+  const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yearStart     = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear     = Math.floor((localMidnight - yearStart) / 86400000);
   const slotHour  = getQuoteSlot(now);
   const themeIndex = (dayOfYear * 7 + slotHour * 3) % STANDARD_THEMES.length;
   const prompt   = buildQuotePrompt(day, themeIndex);
