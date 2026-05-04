@@ -727,7 +727,7 @@ function ECard({ e, onToggle, onEdit, onDelete, currentUserId, readOnly=false, i
         <div onClick={() => { if (!open) setShowDetail(p=>!p); }}
           style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6,
             cursor:'pointer' }}>
-          {(e.type === 'task' || e.type === 'reminder' || (isPastDue && isOwn)) && (
+          {(e.type === 'task' || e.type === 'reminder' || isPastDue) && (
             <button onClick={ev => { ev.stopPropagation(); isOwn && onToggle && onToggle(e.id); }}
               style={{ width:26, height:26, borderRadius:7,
                 border:`2px solid ${e.done ? C.T : isPastDue ? WARN : C.border}`,
