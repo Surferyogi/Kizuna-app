@@ -1,6 +1,5 @@
 // Kizuna 絆 — Push Notification Handler
 // Imported into the Workbox-generated service worker via importScripts.
-// Handles push events and notification clicks.
 
 self.addEventListener('push', event => {
   if (!event.data) return;
@@ -15,7 +14,8 @@ self.addEventListener('push', event => {
     badge:              '/Kizuna-app/icon-192.png',
     tag:                payload.tag || 'kizuna-morning',
     requireInteraction: true,
-    data:               { url: payload.url || '/Kizuna-app/' },
+    // Store home URL so tap always lands on Home tab
+    data: { url: '/Kizuna-app/?tab=home' },
   };
 
   event.waitUntil(
@@ -25,15 +25,19 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   // Do NOT close — keeps notification in Notification Centre
-  const url = event.notification.data?.url || '/Kizuna-app/';
+  const url = event.notification.data?.url || '/Kizuna-app/?tab=home';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(list => {
+        // If Kizuna is already open, focus it and navigate to home
         for (const client of list) {
           if (client.url.includes('Kizuna-app') && 'focus' in client) {
+            client.postMessage({ type: 'NAVIGATE_HOME' });
             return client.focus();
           }
         }
+        // Otherwise open fresh to home tab
         return clients.openWindow(url);
       })
   );
