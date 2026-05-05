@@ -4022,7 +4022,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
-function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId, isDark=false, themeMode='auto', setTheme }) {
+function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId, isDark=false, themeMode='auto', setTheme, isAdmin=false, setFestiveTheme, setFestiveVisible }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const AC = getAC(C);
@@ -4230,6 +4230,60 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
         <SR label="Schema Version" sub={`Storage format v${SCHEMA_VERSION}`} noBorder
           right={<span style={{ fontSize:15, color:C.dim }}>v{SCHEMA_VERSION}</span>} />
       </SS>
+
+      {/* ── Developer Panel — admin only ─────────────────────────── */}
+      {isAdmin && (
+        <SS title="Developer Panel 🛠">
+          <div style={{ padding:'14px 18px' }}>
+            <p style={{ margin:'0 0 14px', fontSize:13, color:C.dim, lineHeight:1.6 }}>
+              Admin-only tools for testing features in production.
+            </p>
+
+            {/* ── Fireworks Test ── */}
+            <div style={{ marginBottom:16 }}>
+              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
+                🎆 Festive Fireworks
+              </p>
+              <p style={{ margin:'0 0 10px', fontSize:12, color:C.muted }}>
+                Triggers automatically on Jan 1 and CNY. Preview both themes here.
+              </p>
+              <div style={{ display:'flex', gap:8 }}>
+                <button
+                  onClick={() => {
+                    setFestiveTheme('new-year');
+                    setFestiveVisible(true);
+                  }}
+                  style={{ flex:1, padding:'10px 8px', borderRadius:BR.input,
+                    background:'linear-gradient(135deg,#1A1A2E,#16213E)',
+                    border:'1px solid #4A4A8A', color:'#B8D4FF',
+                    fontFamily:'inherit', fontSize:13, fontWeight:700,
+                    cursor:'pointer', letterSpacing:'0.04em' }}>
+                  🥂 New Year
+                </button>
+                <button
+                  onClick={() => {
+                    setFestiveTheme('cny');
+                    setFestiveVisible(true);
+                  }}
+                  style={{ flex:1, padding:'10px 8px', borderRadius:BR.input,
+                    background:'linear-gradient(135deg,#2E0A0A,#4A0E0E)',
+                    border:'1px solid #8A2A2A', color:'#FFB8B8',
+                    fontFamily:'inherit', fontSize:13, fontWeight:700,
+                    cursor:'pointer', letterSpacing:'0.04em' }}>
+                  🧧 CNY
+                </button>
+              </div>
+            </div>
+
+            {/* Future test slots */}
+            <div style={{ borderTop:`1px dashed ${C.border}`, paddingTop:12 }}>
+              <p style={{ margin:0, fontSize:12, color:C.border, fontStyle:'italic' }}>
+                More test functions will appear here as features are added.
+              </p>
+            </div>
+          </div>
+        </SS>
+      )}
 
       {/* Add New Member Guide — admin only */}
       {isAdmin && <NewMemberGuide />}
@@ -5800,7 +5854,7 @@ export default function App() {
         {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} />}
         {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
-        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} />}
+        {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} isAdmin={isAdmin} setFestiveTheme={setFestiveTheme} setFestiveVisible={setFestiveVisible} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
         {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
       </div>
