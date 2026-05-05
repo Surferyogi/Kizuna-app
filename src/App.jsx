@@ -4314,7 +4314,8 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               })()}
             </div>
 
-              {/* ── Seasonal Icons Test ── */}
+            {/* ── Seasonal Icons Test ── */}
+            <div style={{ borderTop:`1px dashed ${C.border}`, paddingTop:14 }}>
               <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
                 🌸 Seasonal Icons
               </p>
@@ -4324,7 +4325,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               {(() => {
                 const [testSeason, setTestSeason] = useState(null);
                 const seasons = [
-                  { key:'spring', label:'🌸 Spring', icon:<KizunaIcon />,     particles:<SakuraPetals />   },
+                  { key:'spring', label:'🌸 Spring', icon:<KizunaIcon />,     particles:<SakuraPetals />      },
                   { key:'summer', label:'🎆 Summer', icon:<FireworkIcon />,    particles:<FireworkParticles /> },
                   { key:'autumn', label:'🍁 Autumn', icon:<MomijiIcon />,      particles:<MomijiParticles />   },
                   { key:'winter', label:'❄️ Winter', icon:<SnowflakeIcon />,   particles:<SnowParticles />     },
@@ -4369,8 +4370,8 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                   </>
                 );
               })()}
-
             </div>
+
           </div>
         </SS>
       )}
