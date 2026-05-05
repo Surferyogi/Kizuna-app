@@ -7,36 +7,83 @@ const CNY_DATES = {
   2034: '02-19', 2035: '02-08',
 };
 
+// Deepavali (Singapore official dates)
+const DEEPAVALI_DATES = {
+  2026: '10-20', 2027: '11-08', 2028: '10-27', 2029: '10-17',
+  2030: '11-05', 2031: '10-25', 2032: '10-13', 2033: '11-01',
+  2034: '10-21', 2035: '10-10',
+};
+
 const rand    = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 const pick    = arr   => arr[randInt(0, arr.length - 1)];
 
 const THEMES = {
+  // ── New Year's Eve (Dec 31) ────────────────────────────────────────────
+  'nye': {
+    darkHues:   [48,52,56,200,215,225,240,245,250],
+    lightHues:  [48,52,56,200,215,225,240,245,250],
+    trailDark:  'hsl(215,85%,78%)', trailLight: 'hsl(48,90%,32%)',
+    burstMin: 180, burstMax: 340,
+    burstTypes: ['radial','willow','ring'],
+    label:      '🎉 Countdown to New Year!',
+    stopGrad:   ['#1A1A2E','#0D0D1A'], stopBorder: '#4A4AEE',
+    stopGlow:   '#6666FF', stopText: '#B8D4FF',
+  },
+  // ── New Year's Day (Jan 1) ────────────────────────────────────────────
   'new-year': {
     darkHues:   [48,52,56,200,215,225,240,245,250],
     lightHues:  [48,52,56,200,215,225,240,245,250],
-    trailDark:  'hsl(215,85%,78%)',
-    trailLight: 'hsl(48,90%,32%)',
+    trailDark:  'hsl(215,85%,78%)', trailLight: 'hsl(48,90%,32%)',
     burstMin: 220, burstMax: 400,
     burstTypes: ['radial','willow','ring'],
     label:      '🥂 Happy New Year!',
-    stopGrad:   ['#1A1A2E','#0D0D1A'],
-    stopBorder: '#4A4AEE',
-    stopGlow:   '#6666FF',
-    stopText:   '#B8D4FF',
+    stopGrad:   ['#1A1A2E','#0D0D1A'], stopBorder: '#4A4AEE',
+    stopGlow:   '#6666FF', stopText: '#B8D4FF',
   },
+  // ── Chinese New Year ─────────────────────────────────────────────────
   'cny': {
     darkHues:   [0,5,10,15,22,30,45,50,55],
     lightHues:  [0,5,10,15,22,30,45,50,55],
-    trailDark:  'hsl(15,95%,62%)',
-    trailLight: 'hsl(5,95%,28%)',
+    trailDark:  'hsl(15,95%,62%)', trailLight: 'hsl(5,95%,28%)',
     burstMin: 150, burstMax: 300,
     burstTypes: ['chrysanthemum','peony','gold-shimmer'],
-    label:      '🧧 新年快乐！',
-    stopGrad:   ['#2E0A0A','#1A0505'],
-    stopBorder: '#CC3333',
-    stopGlow:   '#FF4444',
-    stopText:   '#FFD0D0',
+    label:      '🧧 新年快乐！Happy CNY!',
+    stopGrad:   ['#2E0A0A','#1A0505'], stopBorder: '#CC3333',
+    stopGlow:   '#FF4444', stopText: '#FFD0D0',
+  },
+  // ── Singapore National Day (Aug 9) ───────────────────────────────────
+  'national-day': {
+    darkHues:   [0,355,350,210,220,230,0,0,0],  // red + blue + white
+    lightHues:  [0,355,350,210,220,230,0,0,0],
+    trailDark:  'hsl(0,90%,65%)', trailLight: 'hsl(220,80%,35%)',
+    burstMin: 200, burstMax: 380,
+    burstTypes: ['radial','ring','willow'],
+    label:      '🇸🇬 Happy National Day!',
+    stopGrad:   ['#2E0808','#0A0A1E'], stopBorder: '#DD2222',
+    stopGlow:   '#FF4444', stopText: '#FFD0D0',
+  },
+  // ── Deepavali ────────────────────────────────────────────────────────
+  'deepavali': {
+    darkHues:   [280,290,300,38,45,52,18,25,32],  // purple + gold + orange
+    lightHues:  [280,290,300,38,45,52,18,25,32],
+    trailDark:  'hsl(45,95%,65%)', trailLight: 'hsl(280,80%,35%)',
+    burstMin: 180, burstMax: 350,
+    burstTypes: ['chrysanthemum','ring','radial'],
+    label:      '🪔 Happy Deepavali!',
+    stopGrad:   ['#1E0A2E','#0A0510'], stopBorder: '#9933CC',
+    stopGlow:   '#CC66FF', stopText: '#E8D0FF',
+  },
+  // ── Christmas (Dec 25) ───────────────────────────────────────────────
+  'christmas': {
+    darkHues:   [0,5,355,120,130,140,0,0,0],  // red + green + white
+    lightHues:  [0,5,355,120,130,140,0,0,0],
+    trailDark:  'hsl(5,90%,65%)', trailLight: 'hsl(120,70%,28%)',
+    burstMin: 240, burstMax: 420,
+    burstTypes: ['willow','radial','ring'],
+    label:      '🎄 Merry Christmas!',
+    stopGrad:   ['#1E0808','#081E08'], stopBorder: '#CC2222',
+    stopGlow:   '#FF4444', stopText: '#FFD0D0',
   },
 };
 
@@ -398,12 +445,30 @@ export function detectFestiveTheme() {
   const year  = now.getFullYear();
   const month = now.getMonth() + 1;
   const day   = now.getDate();
-  if (month === 1 && day === 1) return 'new-year';
+
+  // New Year's Eve
+  if (month === 12 && day === 31) return 'nye';
+  // New Year's Day
+  if (month === 1  && day === 1)  return 'new-year';
+  // Christmas
+  if (month === 12 && day === 25) return 'christmas';
+  // Singapore National Day
+  if (month === 8  && day === 9)  return 'national-day';
+
+  // Chinese New Year (verified lunar dates)
   const cnyStr = CNY_DATES[year];
   if (cnyStr) {
     const [cm, cd] = cnyStr.split('-').map(Number);
     if (month === cm && day === cd) return 'cny';
   }
+
+  // Deepavali (Singapore official dates)
+  const deeStr = DEEPAVALI_DATES[year];
+  if (deeStr) {
+    const [dm, dd] = deeStr.split('-').map(Number);
+    if (month === dm && day === dd) return 'deepavali';
+  }
+
   return null;
 }
 
