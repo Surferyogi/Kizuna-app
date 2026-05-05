@@ -4266,10 +4266,64 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
             </div>
 
             {/* Future test slots */}
-            <div style={{ borderTop:`1px dashed ${C.border}`, paddingTop:12 }}>
-              <p style={{ margin:0, fontSize:12, color:C.border, fontStyle:'italic' }}>
-                More test functions will appear here as features are added.
+            <div style={{ borderTop:`1px dashed ${C.border}`, paddingTop:14, marginTop:4 }}>
+
+              {/* ── Seasonal Icons Test ── */}
+              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
+                🌸 Seasonal Icons
               </p>
+              <p style={{ margin:'0 0 12px', fontSize:12, color:C.muted }}>
+                Switches automatically by month. Preview all seasons here.
+              </p>
+              {(() => {
+                const [testSeason, setTestSeason] = useState(null);
+                const seasons = [
+                  { key:'spring', label:'🌸 Spring', icon:<KizunaIcon />,     particles:<SakuraPetals />   },
+                  { key:'summer', label:'🎆 Summer', icon:<FireworkIcon />,    particles:<FireworkParticles /> },
+                  { key:'autumn', label:'🍁 Autumn', icon:<MomijiIcon />,      particles:<MomijiParticles />   },
+                  { key:'winter', label:'❄️ Winter', icon:<SnowflakeIcon />,   particles:<SnowParticles />     },
+                ];
+                const active = seasons.find(s => s.key === testSeason);
+                return (
+                  <>
+                    <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+                      {seasons.map(({ key, label }) => (
+                        <button key={key} onClick={() => setTestSeason(testSeason === key ? null : key)}
+                          style={{ padding:'9px 12px', borderRadius:BR.input,
+                            background: testSeason === key ? C.rose : C.elevated,
+                            border:`1px solid ${testSeason === key ? C.rose : C.border}`,
+                            color: testSeason === key ? '#fff' : C.text,
+                            fontFamily:'inherit', fontSize:13, fontWeight:600,
+                            cursor:'pointer', transition:'all 0.2s' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {active && (
+                      <div style={{ display:'flex', alignItems:'center', gap:16,
+                        background:C.elevated, borderRadius:BR.card,
+                        padding:'16px 20px', border:`1px solid ${C.border}` }}>
+                        <div style={{ position:'relative', flexShrink:0 }}>
+                          {active.icon}
+                          {active.particles}
+                        </div>
+                        <div>
+                          <p style={{ margin:'0 0 3px', fontSize:15, fontWeight:700, color:C.text }}>
+                            {active.label}
+                          </p>
+                          <p style={{ margin:0, fontSize:12, color:C.muted }}>
+                            { active.key === 'spring' ? 'March – May'
+                            : active.key === 'summer' ? 'June – August'
+                            : active.key === 'autumn' ? 'September – November'
+                            : 'December – February' }
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
             </div>
           </div>
         </SS>
