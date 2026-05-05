@@ -222,16 +222,19 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
     let W = 0, H = 0;
 
     const getSize = () => {
-      // visualViewport = true visible area on mobile (accounts for iOS toolbar)
-      const vv = window.visualViewport;
-      W = vv ? vv.width  : window.innerWidth;
-      H = vv ? vv.height : window.innerHeight;
+      // Use innerWidth/innerHeight — reliable in both PWA and browser
+      // screen.width/height can differ from CSS viewport on retina
+      W = window.innerWidth  || document.documentElement.clientWidth;
+      H = window.innerHeight || document.documentElement.clientHeight;
     };
 
     const setupCanvas = () => {
       getSize();
       canvas.width  = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
+      // Explicit 100vw/100vh — overrides any parent constraint on iOS PWA
+      canvas.style.width  = '100vw';
+      canvas.style.height = '100vh';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     setupCanvas();
@@ -243,7 +246,6 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
 
     const handleResize = () => setupCanvas();
     window.addEventListener('resize', handleResize);
-    window.visualViewport?.addEventListener('resize', handleResize);
 
     st.rockets = []; st.particles = [];
 
@@ -316,7 +318,6 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
       cancelAnimationFrame(st.animId);
       clearTimeout(st.launchTimer);
       window.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('resize', handleResize);
       mq.removeEventListener('change', themeHandler);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
@@ -328,15 +329,17 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
 
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      position: 'fixed', top: 0, left: 0,
+      width: '100vw', height: '100vh',
       zIndex: 9999, pointerEvents: 'none',
+      overflow: 'hidden',
     }}>
       {/* Canvas fills full visible viewport */}
       <canvas
         ref={canvasRef}
         style={{
           position: 'absolute', top: 0, left: 0,
-          width: '100%', height: '100%',
+          width: '100vw', height: '100vh',
           display: 'block', background: 'transparent',
         }}
       />
@@ -384,7 +387,7 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
           WebkitBackdropFilter: 'blur(10px)',
         }}
       >
-        ✦ Stop Fireworks
+        Shush 🤫 the Sky
       </button>
     </div>
   );
