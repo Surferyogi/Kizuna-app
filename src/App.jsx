@@ -4242,33 +4242,26 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                 🎆 Festive Fireworks
               </p>
               <p style={{ margin:'0 0 10px', fontSize:12, color:C.muted }}>
-                Triggers automatically on Jan 1 and CNY. Preview both themes here.
+                Triggers automatically on festive days. Preview all themes here.
               </p>
-              <div style={{ display:'flex', gap:8 }}>
-                <button
-                  onClick={() => {
-                    setFestiveTheme('new-year');
-                    setFestiveVisible(true);
-                  }}
-                  style={{ flex:1, padding:'10px 8px', borderRadius:BR.input,
-                    background:'linear-gradient(135deg,#1A1A2E,#16213E)',
-                    border:'1px solid #4A4A8A', color:'#B8D4FF',
-                    fontFamily:'inherit', fontSize:13, fontWeight:700,
-                    cursor:'pointer', letterSpacing:'0.04em' }}>
-                  🥂 New Year
-                </button>
-                <button
-                  onClick={() => {
-                    setFestiveTheme('cny');
-                    setFestiveVisible(true);
-                  }}
-                  style={{ flex:1, padding:'10px 8px', borderRadius:BR.input,
-                    background:'linear-gradient(135deg,#2E0A0A,#4A0E0E)',
-                    border:'1px solid #8A2A2A', color:'#FFB8B8',
-                    fontFamily:'inherit', fontSize:13, fontWeight:700,
-                    cursor:'pointer', letterSpacing:'0.04em' }}>
-                  🧧 CNY
-                </button>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                {[
+                  { key:'nye',          label:'🎉 NYE'        },
+                  { key:'new-year',     label:'🥂 New Year'   },
+                  { key:'cny',          label:'🧧 CNY'        },
+                  { key:'national-day', label:'🇸🇬 Natl Day'  },
+                  { key:'deepavali',    label:'🪔 Deepavali'  },
+                  { key:'christmas',    label:'🎄 Christmas'  },
+                ].map(({ key, label }) => (
+                  <button key={key}
+                    onClick={() => { setFestiveTheme(key); setFestiveVisible(true); }}
+                    style={{ padding:'9px 12px', borderRadius:BR.input,
+                      background:C.elevated, border:`1px solid ${C.border}`,
+                      color:C.text, fontFamily:'inherit', fontSize:13,
+                      fontWeight:600, cursor:'pointer' }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
