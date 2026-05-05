@@ -160,18 +160,20 @@ function buildBurst(type, x, y, themeKey, isDark) {
       const h1 = pick(hues), h2 = pick(hues.filter(h => Math.abs(h-h1)>10)) ?? h1;
       ringBurst(55, 1.5, 3.0, h1);
       ringBurst(75, 3.5, 6.5, h2);
-    } else { // gold-shimmer / ring / radial → use radial for deepavali themes
+    } else if (type === 'ring') {
       const hue = pick(hues);
-      if (type === 'ring') {
-        ringBurst(40, 4.5, 6.0, hue);
-        for (let i = 0; i < 65; i++) particles.push(makeParticle(x, y, hue, isDark));
-      } else {
-        const gold = pick(hues.filter(h => h >= 38 && h <= 55).length > 0 ? hues.filter(h => h >= 38 && h <= 55) : hues);
-        for (let i = 0; i < 145; i++)
-          particles.push(makeParticle(x, y,
-            Math.random() < 0.6 ? gold : pick(hues), isDark,
-            { isStar: true, decay: rand(0.008,0.018) }));
-      }
+      ringBurst(40, 4.5, 6.0, hue);
+      for (let i = 0; i < 65; i++) particles.push(makeParticle(x, y, hue, isDark));
+    } else if (type === 'radial') {
+      const hue = pick(hues);
+      for (let i = 0; i < 100; i++) particles.push(makeParticle(x, y, hue, isDark));
+    } else { // gold-shimmer
+      const goldHues = hues.filter(h => h >= 38 && h <= 55);
+      const gold = goldHues.length > 0 ? pick(goldHues) : pick(hues);
+      for (let i = 0; i < 145; i++)
+        particles.push(makeParticle(x, y,
+          Math.random() < 0.6 ? gold : pick(hues), isDark,
+          { isStar: true, decay: rand(0.008,0.018) }));
     }
   }
   return particles;
@@ -181,8 +183,8 @@ function makeRocket(W, H, themeKey, isDark) {
   const x = rand(W * 0.06, W * 0.94);
   return {
     x, y: H, px: x, py: H,
-    vx: rand(-1.2, 1.2), vy: rand(-14, -10),
-    targetY: rand(H * 0.05, H * 0.40),
+    vx: rand(-1.8, 1.8), vy: rand(-18, -12),
+    targetY: rand(H * 0.05, H * 0.65),
     themeKey, isDark, exploded: false,
   };
 }
@@ -336,7 +338,7 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
           if (type === 'gold-shimmer') {
             const bx = r.x, by = r.y;
             setTimeout(() => {
-              const sec = buildBurst('chrysanthemum', bx, by, themeKey, st.isDark);
+              const sec = buildBurst('chrysanthemum', bx, by, theme, st.isDark);
               sec.forEach(p => { p.hue = pick([0,5,10]); p.vx *= 0.55; p.vy *= 0.55; p.decay = rand(0.018,0.030); });
               st.particles.push(...sec.slice(0, 50));
             }, 200);
@@ -389,7 +391,6 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
       position: 'fixed', top: 0, left: 0,
       width: '100vw', height: '100vh',
       zIndex: 9999, pointerEvents: 'none',
-      overflow: 'hidden',
     }}>
       {/* Canvas fills full visible viewport */}
       <canvas
