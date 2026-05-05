@@ -4026,9 +4026,6 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const AC = getAC(C);
-  // Only show admin features once workspace is loaded AND role is confirmed admin
-  // Never default to true — wait for confirmed data
-  const isAdmin = workspaceLoaded && (workspace?.role === 'admin' || workspace?.ownerId === userId);
   const [showInvite, setShowInvite] = useState(false);
 
   // Use live workspace members from Supabase — no localStorage fallback needed
