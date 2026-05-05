@@ -111,9 +111,13 @@ function makeParticle(x, y, hue, isDark, overrides = {}) {
 }
 
 function buildBurst(type, x, y, themeKey, isDark) {
-  const cfg = THEMES[themeKey];
+  const cfg = THEMES[themeKey] ?? THEMES['new-year'];
   const hues = isDark ? cfg.darkHues : cfg.lightHues;
   const particles = [];
+
+  // NYE, National Day and Christmas use the same radial/willow/ring builder as New Year
+  // Deepavali uses the same chrysanthemum/peony/gold-shimmer builder as CNY
+  const builderKey = (themeKey === 'cny' || themeKey === 'deepavali') ? 'cny' : 'new-year';
 
   const ringBurst = (count, sMin, sMax, hue, extra = {}) => {
     for (let i = 0; i < count; i++) {
@@ -124,7 +128,7 @@ function buildBurst(type, x, y, themeKey, isDark) {
     }
   };
 
-  if (themeKey === 'new-year') {
+  if (builderKey === 'new-year') {
     const hue = pick(hues);
     if (type === 'radial') {
       for (let i = 0; i < 100; i++) particles.push(makeParticle(x, y, hue, isDark));
@@ -136,13 +140,13 @@ function buildBurst(type, x, y, themeKey, isDark) {
           gravity: rand(0.09,0.14), decay: rand(0.006,0.016), drag: rand(0.96,0.98),
         }));
       }
-    } else {
+    } else { // ring
       ringBurst(40, 4.5, 6.0, hue);
       for (let i = 0; i < 65; i++) particles.push(makeParticle(x, y, hue, isDark));
     }
   }
 
-  if (themeKey === 'cny') {
+  if (builderKey === 'cny') {
     if (type === 'chrysanthemum') {
       const hue = pick(hues);
       for (let i = 0; i < 130; i++) {
@@ -156,12 +160,18 @@ function buildBurst(type, x, y, themeKey, isDark) {
       const h1 = pick(hues), h2 = pick(hues.filter(h => Math.abs(h-h1)>10)) ?? h1;
       ringBurst(55, 1.5, 3.0, h1);
       ringBurst(75, 3.5, 6.5, h2);
-    } else {
-      const gold = pick([45,50,55]);
-      for (let i = 0; i < 145; i++)
-        particles.push(makeParticle(x, y,
-          Math.random() < 0.6 ? gold : pick([0,5,10]), isDark,
-          { isStar: true, decay: rand(0.008,0.018) }));
+    } else { // gold-shimmer / ring / radial → use radial for deepavali themes
+      const hue = pick(hues);
+      if (type === 'ring') {
+        ringBurst(40, 4.5, 6.0, hue);
+        for (let i = 0; i < 65; i++) particles.push(makeParticle(x, y, hue, isDark));
+      } else {
+        const gold = pick(hues.filter(h => h >= 38 && h <= 55).length > 0 ? hues.filter(h => h >= 38 && h <= 55) : hues);
+        for (let i = 0; i < 145; i++)
+          particles.push(makeParticle(x, y,
+            Math.random() < 0.6 ? gold : pick(hues), isDark,
+            { isStar: true, decay: rand(0.008,0.018) }));
+      }
     }
   }
   return particles;
@@ -326,7 +336,7 @@ function FestiveFireworks({ theme, colorScheme = 'auto', isVisible, onComplete }
           if (type === 'gold-shimmer') {
             const bx = r.x, by = r.y;
             setTimeout(() => {
-              const sec = buildBurst('chrysanthemum', bx, by, theme, st.isDark);
+              const sec = buildBurst('chrysanthemum', bx, by, themeKey, st.isDark);
               sec.forEach(p => { p.hue = pick([0,5,10]); p.vx *= 0.55; p.vy *= 0.55; p.decay = rand(0.018,0.030); });
               st.particles.push(...sec.slice(0, 50));
             }, 200);
