@@ -1114,27 +1114,27 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
   const todayEs = useMemo(() => {
     const t = todayStr;
     return entries.filter(e => {
-      // Scheduled for today
-      if (e.date === t) return true;
+      if (e.cancelled) return false;
+      const isTR = e.type === 'task' || e.type === 'reminder';
 
-      // Dateless tasks/reminders — always show, unless done on a previous day
-      if ((e.type === 'task' || e.type === 'reminder') && !e.date) {
-        if (e.cancelled) return false;
-        if (!e.done) return true; // undone dateless → always today
-        // Done: only show if completed today
-        const completedDate = e.doneAt ? e.doneAt.slice(0, 10) : null;
-        return completedDate === t;
+      // ── DATELESS task/reminder ───────────────────────────────────
+      if (isTR && !e.date) {
+        if (!e.done) return true;                          // always show if undone
+        const cd = e.doneAt ? e.doneAt.slice(0,10) : null;
+        return cd === t;                                   // done: only on completion day
       }
 
-      // Done task/reminder completed today (has a past scheduled date)
-      if ((e.type === 'task' || e.type === 'reminder') && e.done && !e.cancelled) {
-        const completedDate = e.doneAt ? e.doneAt.slice(0, 10) : null;
-        if (completedDate === t) return true;
-        // No doneAt stored (completed before feature) — show if done
-        if (!e.doneAt) return true;
+      // ── DATED task/reminder ──────────────────────────────────────
+      if (isTR && e.date) {
+        if (!e.done) return e.date <= t;                  // undone: show if due today or overdue
+        // Done: show on completion date only
+        const cd = e.doneAt ? e.doneAt.slice(0,10) : e.date;
+        return cd === t;
       }
 
-      return false;
+      // ── All other entry types (flights, birthdays, etc.) ─────────
+      return e.date === t;
+
     }).sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
   }, [entries, todayStr]);
 
