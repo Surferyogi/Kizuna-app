@@ -4944,12 +4944,12 @@ const MomijiIcon = () => (
 
     {/* ── Foreground: static large + small 🍁 ── */}
     <div style={{ position:'absolute', bottom:0, left:0,
-      fontSize:28, lineHeight:1, zIndex:1,
+      fontSize:36, lineHeight:1, zIndex:1,
       transform:'rotate(-10deg)',
       filter:'drop-shadow(0 2px 6px rgba(180,60,0,0.55))',
       userSelect:'none' }}>🍁</div>
     <div style={{ position:'absolute', top:0, right:0,
-      fontSize:16, lineHeight:1, zIndex:1,
+      fontSize:21, lineHeight:1, zIndex:1,
       transform:'rotate(18deg)',
       filter:'drop-shadow(0 1px 4px rgba(180,60,0,0.45))',
       userSelect:'none' }}>🍁</div>
