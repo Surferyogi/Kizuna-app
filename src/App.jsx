@@ -4881,54 +4881,23 @@ const FireworkIcon = () => (
 );
 
 // ─── AUTUMN: Momiji (maple) leaf ──────────────────────────────────
-const MomijiIcon = () => {
-  // Realistic Acer palmatum — 7-lobe (deeply cut Japanese maple)
-  const leaf7 = "M0,1 C-1,0 -3,0 -5,1 C-8,2 -11,0 -12,-3 C-11,-6 -9,-6 -8,-4 C-9,-7 -9,-11 -7,-14 C-5,-11 -4,-10 -4,-7 C-5,-10 -4,-15 -2,-17 C-1,-13 -0.5,-11 0,-9 C0.5,-11 1,-13 2,-17 C4,-15 5,-10 4,-7 C4,-10 5,-11 7,-14 C9,-11 9,-7 8,-4 C9,-6 11,-6 12,-3 C11,0 8,2 5,1 C3,0 1,0 0,1 Z";
-  // 5-lobe (broader, rounder lobes — like Acer japonicum)
-  const leaf5 = "M0,2 C-2,1 -5,1 -8,-1 C-11,-3 -12,-7 -10,-10 C-8,-8 -7,-8 -7,-6 C-8,-9 -7,-13 -5,-15 C-3,-12 -2,-10 -2,-8 C-2,-11 -1,-14 0,-15 C1,-14 2,-11 2,-8 C2,-10 3,-12 5,-15 C7,-13 8,-9 7,-6 C7,-8 8,-8 10,-10 C12,-7 11,-3 8,-1 C5,1 2,1 0,2 Z";
-
-  // Colour palette: early-autumn greens + yellows + oranges + reds
-  const hues = [
-    { fill:'#4A7C3F', vein:'#2E5028' },  // deep forest green
-    { fill:'#7AAF3A', vein:'#4A7020' },  // bright spring green
-    { fill:'#C8B420', vein:'#8A7A10' },  // golden yellow
-    { fill:'#E08820', vein:'#A05810' },  // amber orange
-    { fill:'#CC4418', vein:'#8A2A08' },  // burnt sienna
-    { fill:'#E03030', vein:'#A01818' },  // crimson red
-  ];
-
-  const Leaf = ({ x, y, scale, rot, path, colorIdx, opacity=1 }) => {
-    const c = hues[colorIdx % hues.length];
-    return (
-      <g transform={`translate(${x},${y}) scale(${scale}) rotate(${rot})`} opacity={opacity}>
-        <path d={path} fill={c.fill} stroke={c.vein} strokeWidth="0.4" opacity="0.95"/>
-        {/* Main vein */}
-        <line x1="0" y1="2" x2="0" y2="-15" stroke={c.vein} strokeWidth="0.7" strokeLinecap="round" opacity="0.6"/>
-        {/* Side veins */}
-        <line x1="0" y1="-4"  x2="6"  y2="-8"  stroke={c.vein} strokeWidth="0.4" strokeLinecap="round" opacity="0.5"/>
-        <line x1="0" y1="-4"  x2="-6" y2="-8"  stroke={c.vein} strokeWidth="0.4" strokeLinecap="round" opacity="0.5"/>
-        <line x1="0" y1="-9"  x2="4"  y2="-13" stroke={c.vein} strokeWidth="0.3" strokeLinecap="round" opacity="0.4"/>
-        <line x1="0" y1="-9"  x2="-4" y2="-13" stroke={c.vein} strokeWidth="0.3" strokeLinecap="round" opacity="0.4"/>
-        {/* Stem */}
-        <line x1="0" y1="2" x2="0" y2="6" stroke={c.vein} strokeWidth="0.6" strokeLinecap="round" opacity="0.5"/>
-      </g>
-    );
-  };
-
-  return (
-    <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
-      style={{ display:'block', flexShrink:0 }}>
-      {/* Tiny background leaves */}
-      <Leaf x={47} y={30} scale={0.22} rot={55}  path={leaf5} colorIdx={0} opacity={0.45}/>
-      <Leaf x={4}  y={8}  scale={0.20} rot={-50} path={leaf7} colorIdx={2} opacity={0.38}/>
-      <Leaf x={28} y={38} scale={0.18} rot={70}  path={leaf5} colorIdx={4} opacity={0.35}/>
-      {/* Small leaf — upper right, yellow-orange */}
-      <Leaf x={37} y={14} scale={0.52} rot={22}  path={leaf5} colorIdx={3} opacity={0.88}/>
-      {/* Large leaf — lower left, crimson */}
-      <Leaf x={16} y={26} scale={0.82} rot={-8}  path={leaf7} colorIdx={5} opacity={0.95}/>
-    </svg>
-  );
-};
+const MomijiIcon = () => (
+  <svg width="52" height="42" viewBox="0 0 52 42"
+    style={{ display:'block', flexShrink:0, overflow:'visible' }}>
+    {/* Small 🍁 — upper right */}
+    <text x="37" y="18" textAnchor="middle" fontSize="16"
+      transform="rotate(18,37,18)"
+      style={{ filter:'drop-shadow(0 1px 3px rgba(180,60,0,0.45))' }}>🍁</text>
+    {/* Large 🍁 — lower left */}
+    <text x="14" y="33" textAnchor="middle" fontSize="26"
+      transform="rotate(-10,14,33)"
+      style={{ filter:'drop-shadow(0 2px 5px rgba(180,60,0,0.55))' }}>🍁</text>
+    {/* Tiny drifting leaves */}
+    <text x="48" y="10" textAnchor="middle" fontSize="9" opacity="0.5" transform="rotate(45,48,10)">🍁</text>
+    <text x="4"  y="10" textAnchor="middle" fontSize="8" opacity="0.4" transform="rotate(-35,4,10)">🍂</text>
+    <text x="30" y="40" textAnchor="middle" fontSize="8" opacity="0.38" transform="rotate(25,30,40)">🍁</text>
+  </svg>
+);
 
 // ─── WINTER: Snowflake ────────────────────────────────────────────
 const SnowflakeIcon = () => {
@@ -5121,56 +5090,31 @@ const FireworkParticles = () => (
   </div>
 );
 
-// ─── AUTUMN: Falling momiji leaves ───────────────────────────────
-// Realistic Acer palmatum leaf paths (centred at origin, ~18 unit radius)
-const LEAF_7 = "M0,1 C-1,0 -3,0 -5,1 C-8,2 -11,0 -12,-3 C-11,-6 -9,-6 -8,-4 C-9,-7 -9,-11 -7,-14 C-5,-11 -4,-10 -4,-7 C-5,-10 -4,-15 -2,-17 C-1,-13 -0.5,-11 0,-9 C0.5,-11 1,-13 2,-17 C4,-15 5,-10 4,-7 C4,-10 5,-11 7,-14 C9,-11 9,-7 8,-4 C9,-6 11,-6 12,-3 C11,0 8,2 5,1 C3,0 1,0 0,1 Z";
-const LEAF_5 = "M0,2 C-2,1 -5,1 -8,-1 C-11,-3 -12,-7 -10,-10 C-8,-8 -7,-8 -7,-6 C-8,-9 -7,-13 -5,-15 C-3,-12 -2,-10 -2,-8 C-2,-11 -1,-14 0,-15 C1,-14 2,-11 2,-8 C2,-10 3,-12 5,-15 C7,-13 8,-9 7,-6 C7,-8 8,-8 10,-10 C12,-7 11,-3 8,-1 C5,1 2,1 0,2 Z";
-
-// 12 falling leaf configs — mix of lobes, autumn palette, varied timing
+// ─── AUTUMN: Falling momiji leaves (emoji, spring-petal style) ───
 const MOMIJI_PARTICLES = [
-  // 5-lobe leaves — greens and yellows (early autumn)
-  { left:'15%', delay:'0s',    dur:'4.2s', anim:'momijiDrift1', fill:'#6A9E30', vein:'#3E6018', path:LEAF_5, size:14 },
-  { left:'72%', delay:'2.8s',  dur:'5.0s', anim:'momijiDrift2', fill:'#9CC428', vein:'#5E7A10', path:LEAF_5, size:11 },
-  { left:'88%', delay:'1.4s',  dur:'4.6s', anim:'momijiDrift5', fill:'#D4B818', vein:'#8A7808', path:LEAF_5, size:12 },
-  { left:'38%', delay:'3.6s',  dur:'5.4s', anim:'momijiDrift3', fill:'#E09020', vein:'#8A5810', path:LEAF_5, size:10 },
-  // 7-lobe leaves — oranges and reds (peak autumn)
-  { left:'55%', delay:'0.8s',  dur:'4.8s', anim:'momijiDrift4', fill:'#D46420', vein:'#8A3A08', path:LEAF_7, size:13 },
-  { left:'28%', delay:'2.2s',  dur:'4.4s', anim:'momijiDrift6', fill:'#C84218', vein:'#802208', path:LEAF_7, size:15 },
-  { left:'82%', delay:'3.0s',  dur:'5.2s', anim:'momijiDrift1', fill:'#E03028', vein:'#A01818', path:LEAF_7, size:12 },
-  { left:'10%', delay:'1.8s',  dur:'4.0s', anim:'momijiDrift2', fill:'#CC2828', vein:'#880E0E', path:LEAF_7, size:11 },
-  // Mixed — transitional hues
-  { left:'64%', delay:'0.4s',  dur:'5.6s', anim:'momijiDrift5', fill:'#B87020', vein:'#703A08', path:LEAF_5, size:10 },
-  { left:'44%', delay:'3.2s',  dur:'4.8s', anim:'momijiDrift3', fill:'#D85020', vein:'#902808', path:LEAF_7, size:13 },
-  { left:'8%',  delay:'1.0s',  dur:'5.0s', anim:'momijiDrift6', fill:'#8AB820', vein:'#507010', path:LEAF_5, size:11 },
-  { left:'76%', delay:'2.4s',  dur:'4.2s', anim:'momijiDrift4', fill:'#E86020', vein:'#A03808', path:LEAF_7, size:12 },
+  { left:'38%', anim:'momijiDrift1', dur:'3.4s', delay:'0.0s', emoji:'🍁', size:14 },
+  { left:'58%', anim:'momijiDrift2', dur:'4.3s', delay:'1.2s', emoji:'🍂', size:11 },
+  { left:'26%', anim:'momijiDrift3', dur:'3.9s', delay:'2.6s', emoji:'🍁', size:12 },
+  { left:'70%', anim:'momijiDrift4', dur:'5.0s', delay:'0.6s', emoji:'🍂', size:10 },
+  { left:'14%', anim:'momijiDrift5', dur:'4.6s', delay:'1.9s', emoji:'🍁', size:11 },
+  { left:'84%', anim:'momijiDrift6', dur:'3.7s', delay:'3.1s', emoji:'🍂', size:9  },
 ];
 
-const MomijiParticles = () => {
-  const veins = { '#6A9E30':'#3E6018','#9CC428':'#5E7A10','#D4B818':'#8A7808',
-    '#E09020':'#8A5810','#D46420':'#8A3A08','#C84218':'#802208',
-    '#E03028':'#A01818','#CC2828':'#880E0E','#B87020':'#703A08',
-    '#D85020':'#902808','#8AB820':'#507010','#E86020':'#A03808' };
-  return (
-    <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
-      pointerEvents:'none', overflow:'visible', zIndex:10 }}>
-      {MOMIJI_PARTICLES.map((p, i) => (
-        <div key={i} style={{
-          position:'absolute', top:4, left:p.left, opacity:0,
-          animationName:p.anim, animationDuration:p.dur, animationDelay:p.delay,
-          animationTimingFunction:'cubic-bezier(0.25,0.1,0.4,1.0)',
-          animationIterationCount:'infinite', animationFillMode:'both',
-        }}>
-          <svg width={p.size} height={p.size} viewBox="-13 -18 26 22" overflow="visible">
-            <path d={p.path} fill={p.fill} stroke={veins[p.fill]||'#602008'} strokeWidth="0.5" opacity="0.92"/>
-            <line x1="0" y1="2" x2="0" y2="-16" stroke={veins[p.fill]||'#602008'} strokeWidth="0.6" strokeLinecap="round" opacity="0.55"/>
-            <line x1="0" y1="-4" x2="5" y2="-9"  stroke={veins[p.fill]||'#602008'} strokeWidth="0.35" strokeLinecap="round" opacity="0.45"/>
-            <line x1="0" y1="-4" x2="-5" y2="-9" stroke={veins[p.fill]||'#602008'} strokeWidth="0.35" strokeLinecap="round" opacity="0.45"/>
-          </svg>
-        </div>
-      ))}
-    </div>
-  );
-};
+const MomijiParticles = () => (
+  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
+    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
+    {MOMIJI_PARTICLES.map((p, i) => (
+      <div key={i} style={{
+        position:'absolute', top:4, left:p.left,
+        fontSize:p.size, lineHeight:1, opacity:0,
+        animationName:p.anim, animationDuration:p.dur, animationDelay:p.delay,
+        animationTimingFunction:'ease-in',
+        animationIterationCount:'infinite', animationFillMode:'both',
+        userSelect:'none',
+      }}>{p.emoji}</div>
+    ))}
+  </div>
+);
 
 // ─── WINTER: Falling snowflakes ───────────────────────────────────
 const SNOW_PARTICLES = [
