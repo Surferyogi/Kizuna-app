@@ -2921,42 +2921,53 @@ const HOLIDAY_INFO = {
 //   isStatus    — layers on top of typeF (doesn't override it)
 //   icon        — emoji shown in chip
 const QUICK_FILTERS = (() => {
-  // Shared helpers — computed once per filter call for consistency
   const startOfToday = () => {
     const d = new Date(); d.setHours(0,0,0,0); return d;
   };
   const todayStr = () => fd(new Date());
 
-  // A task is "active" (undone, not cancelled) — always surfaces in time-scope views
-  const isActiveTask = e => e.type === 'task' && !e.done && !e.cancelled;
+  // Undone, uncancelled task OR reminder — always surfaces in time-scope views
+  const isActive = e =>
+    (e.type === 'task' || e.type === 'reminder') && !e.done && !e.cancelled;
+
+  // Done task or reminder — shows on its scheduled date
+  const isDoneEntry = e =>
+    (e.type === 'task' || e.type === 'reminder') && !!e.done && !e.cancelled;
 
   return [
     { k:'today',    l:'Today',              icon:'📅', impliedType:null,      isStatus:false,
       f: e => {
-        // Match today's date OR any non-completed task (undone tasks shown daily)
-        if (isActiveTask(e)) return true;
+        // Undone tasks/reminders always visible — they need attention today
+        if (isActive(e)) return true;
+        // Done tasks/reminders show on their scheduled date
+        if (isDoneEntry(e)) return e.date === todayStr();
+        // All other entry types: show only if today
         return e.date === todayStr();
       },
     },
     { k:'week',     l:'This Week',          icon:'🗓', impliedType:null,      isStatus:false,
       f: e => {
-        // Any active task stays visible regardless of date
-        if (isActiveTask(e)) return true;
-        const d = new Date(e.date + 'T00:00:00');
         const sot = startOfToday();
         const end = new Date(sot); end.setDate(end.getDate() + 7);
+        const d = new Date(e.date + 'T00:00:00');
+        // Undone tasks/reminders always visible this week
+        if (isActive(e)) return true;
+        // Done tasks/reminders show if their date falls within this week
+        if (isDoneEntry(e)) return d >= sot && d <= end;
         return d >= sot && d <= end;
       },
     },
     { k:'month',    l:'This Month',         icon:'📆', impliedType:null,      isStatus:false,
       f: e => {
-        // Any active task stays visible regardless of date
-        if (isActiveTask(e)) return true;
-        const d = new Date(e.date + 'T00:00:00');
         const n = new Date(); n.setHours(0,0,0,0);
+        const d = new Date(e.date + 'T00:00:00');
+        // Undone tasks/reminders always visible this month
+        if (isActive(e)) return true;
+        // Done tasks/reminders show if their date is this month
+        if (isDoneEntry(e)) return d.getFullYear() === n.getFullYear()
+          && d.getMonth() === n.getMonth() && d >= n;
         return d.getFullYear() === n.getFullYear()
-            && d.getMonth()    === n.getMonth()
-            && d >= n;
+          && d.getMonth() === n.getMonth() && d >= n;
       },
     },
     { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
