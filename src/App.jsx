@@ -1111,10 +1111,32 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
 
   // All memos derive from todayStr (from now state) — not from new Date() inline.
   // This guarantees they all update together in the same render cycle.
-  const todayEs = useMemo(() =>
-    entries.filter(e => e.date === todayStr)
-           .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99')),
-    [entries, todayStr]);
+  const todayEs = useMemo(() => {
+    const t = todayStr;
+    return entries.filter(e => {
+      // Scheduled for today
+      if (e.date === t) return true;
+
+      // Dateless tasks/reminders — always show, unless done on a previous day
+      if ((e.type === 'task' || e.type === 'reminder') && !e.date) {
+        if (e.cancelled) return false;
+        if (!e.done) return true; // undone dateless → always today
+        // Done: only show if completed today
+        const completedDate = e.doneAt ? e.doneAt.slice(0, 10) : null;
+        return completedDate === t;
+      }
+
+      // Done task/reminder completed today (has a past scheduled date)
+      if ((e.type === 'task' || e.type === 'reminder') && e.done && !e.cancelled) {
+        const completedDate = e.doneAt ? e.doneAt.slice(0, 10) : null;
+        if (completedDate === t) return true;
+        // No doneAt stored (completed before feature) — show if done
+        if (!e.doneAt) return true;
+      }
+
+      return false;
+    }).sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+  }, [entries, todayStr]);
 
   const nextFlight = useMemo(() =>
     entries.filter(e => e.type==='flight' && e.date >= todayStr)
