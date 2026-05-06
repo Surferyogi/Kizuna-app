@@ -2920,23 +2920,55 @@ const HOLIDAY_INFO = {
 //   impliedType — locks Row 2 to this type when active (null = free)
 //   isStatus    — layers on top of typeF (doesn't override it)
 //   icon        — emoji shown in chip
-const QUICK_FILTERS = [
-  { k:'today',    l:'Today',              icon:'📅', impliedType:null,      isStatus:false,
-    f: e => e.date===fd(new Date()) },
-  { k:'week',     l:'This Week',          icon:'🗓', impliedType:null,      isStatus:false,
-    f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date(),w=ad(n,7); return d>=n&&d<=w; } },
-  { k:'month',    l:'This Month',         icon:'📆', impliedType:null,      isStatus:false,
-    f: e => { const d=new Date(e.date+'T00:00:00'),n=new Date();
-      return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d>=n; } },
-  { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
-    f: e => e.type==='flight' && e.date>=fd(new Date()) },
-  { k:'reminders',l:'Upcoming Reminders', icon:'⏰', impliedType:'reminder',isStatus:false,
-    f: e => e.type==='reminder' && e.date>=fd(new Date()) && !e.done },
-  { k:'birthdays',l:'Upcoming Birthdays', icon:'🎂', impliedType:'birthday',isStatus:false,
-    f: e => e.type==='birthday' && e.date>=fd(new Date()) },
-  { k:'pending',  l:'Pending Tasks',      icon:'✓',  impliedType:'task',    isStatus:false,
-    f: e => e.type==='task' && !e.done },
-];
+const QUICK_FILTERS = (() => {
+  // Shared helpers — computed once per filter call for consistency
+  const startOfToday = () => {
+    const d = new Date(); d.setHours(0,0,0,0); return d;
+  };
+  const todayStr = () => fd(new Date());
+
+  // A task is "active" (undone, not cancelled) — always surfaces in time-scope views
+  const isActiveTask = e => e.type === 'task' && !e.done && !e.cancelled;
+
+  return [
+    { k:'today',    l:'Today',              icon:'📅', impliedType:null,      isStatus:false,
+      f: e => {
+        // Match today's date OR any non-completed task (undone tasks shown daily)
+        if (isActiveTask(e)) return true;
+        return e.date === todayStr();
+      },
+    },
+    { k:'week',     l:'This Week',          icon:'🗓', impliedType:null,      isStatus:false,
+      f: e => {
+        // Any active task stays visible regardless of date
+        if (isActiveTask(e)) return true;
+        const d = new Date(e.date + 'T00:00:00');
+        const sot = startOfToday();
+        const end = new Date(sot); end.setDate(end.getDate() + 7);
+        return d >= sot && d <= end;
+      },
+    },
+    { k:'month',    l:'This Month',         icon:'📆', impliedType:null,      isStatus:false,
+      f: e => {
+        // Any active task stays visible regardless of date
+        if (isActiveTask(e)) return true;
+        const d = new Date(e.date + 'T00:00:00');
+        const n = new Date(); n.setHours(0,0,0,0);
+        return d.getFullYear() === n.getFullYear()
+            && d.getMonth()    === n.getMonth()
+            && d >= n;
+      },
+    },
+    { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
+      f: e => e.type === 'flight' && e.date >= todayStr() },
+    { k:'reminders',l:'Upcoming Reminders', icon:'⏰', impliedType:'reminder',isStatus:false,
+      f: e => e.type === 'reminder' && e.date >= todayStr() && !e.done },
+    { k:'birthdays',l:'Upcoming Birthdays', icon:'🎂', impliedType:'birthday',isStatus:false,
+      f: e => e.type === 'birthday' && e.date >= todayStr() },
+    { k:'pending',  l:'Pending Tasks',      icon:'✓',  impliedType:'task',    isStatus:false,
+      f: e => e.type === 'task' && !e.done && !e.cancelled },
+  ];
+})();
 
 // Time-scope presets — mutually exclusive (only one at a time)
 const TIME_SCOPE_KEYS = new Set(['today','week','month']);
