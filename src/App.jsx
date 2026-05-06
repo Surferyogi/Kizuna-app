@@ -4880,38 +4880,95 @@ const KizunaIcon = () => {
 };
 
 // ─── SUMMER: Firework burst ───────────────────────────────────────
+const FIREWORK_ICON_CSS = `
+@keyframes fwSparkle1 {
+  0%,100% { opacity:0; transform:scale(0.4); }
+  20%,80% { opacity:1; transform:scale(1.2); }
+  50%     { opacity:0.85; transform:scale(1.0); }
+}
+@keyframes fwSparkle2 {
+  0%,100% { opacity:0; transform:scale(0.3); }
+  30%,70% { opacity:0.9; transform:scale(1.1); }
+  55%     { opacity:0.7; transform:scale(0.9); }
+}
+@keyframes fwSparkle3 {
+  0%,100% { opacity:0; transform:scale(0.5); }
+  25%,75% { opacity:1; transform:scale(1.3); }
+  50%     { opacity:0.8; transform:scale(1.0); }
+}
+@keyframes fwSparkle4 {
+  0%,100% { opacity:0; transform:scale(0.3); }
+  35%,65% { opacity:0.85; transform:scale(1.1); }
+  50%     { opacity:0.65; transform:scale(0.85); }
+}
+@keyframes fwSparkle5 {
+  0%,100% { opacity:0; transform:scale(0.4); }
+  15%,85% { opacity:1; transform:scale(1.2); }
+  50%     { opacity:0.9; transform:scale(1.05); }
+}
+@keyframes fwSparkle6 {
+  0%,100% { opacity:0; transform:scale(0.3); }
+  40%,60% { opacity:0.8; transform:scale(1.0); }
+  50%     { opacity:1; transform:scale(1.15); }
+}
+`;
+const FW_SPARKLES = [
+  { left:'10%', top:'5%',  anim:'fwSparkle1', dur:'1.4s', delay:'0.0s', color:'#FFD700', size:8 },
+  { left:'55%', top:'2%',  anim:'fwSparkle2', dur:'1.8s', delay:'0.4s', color:'#FF6B6B', size:7 },
+  { left:'80%', top:'20%', anim:'fwSparkle3', dur:'1.2s', delay:'0.8s', color:'#4ECDC4', size:6 },
+  { left:'5%',  top:'55%', anim:'fwSparkle4', dur:'1.6s', delay:'0.2s', color:'#C77DFF', size:7 },
+  { left:'70%', top:'60%', anim:'fwSparkle5', dur:'1.3s', delay:'0.6s', color:'#FF8C42', size:6 },
+  { left:'35%', top:'75%', anim:'fwSparkle6', dur:'1.9s', delay:'1.0s', color:'#FFD700', size:5 },
+];
+
 const FireworkIcon = () => (
-  <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
-    style={{ display:'block', flexShrink:0 }}>
-    {/* Small burst — upper right */}
-    {[0,45,90,135,180,225,270,315].map((a,i) => {
-      const rad = a * Math.PI / 180;
-      const x1 = 37, y1 = 12, len = 5.5;
-      return <line key={i}
-        x1={x1} y1={y1}
-        x2={(x1 + Math.cos(rad)*len).toFixed(1)}
-        y2={(y1 + Math.sin(rad)*len).toFixed(1)}
-        stroke={['#FFD700','#FF6B6B','#4ECDC4','#FF8C42','#C77DFF','#FFD700','#FF6B6B','#4ECDC4'][i]}
-        strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />;
-    })}
-    <circle cx="37" cy="12" r="1.8" fill="#FFD700" opacity="0.95" />
-    {/* Large burst — lower left */}
-    {[0,36,72,108,144,180,216,252,288,324].map((a,i) => {
-      const rad = a * Math.PI / 180;
-      const x1 = 15, y1 = 27, len = 8;
-      return <line key={i}
-        x1={x1} y1={y1}
-        x2={(x1 + Math.cos(rad)*len).toFixed(1)}
-        y2={(y1 + Math.sin(rad)*len).toFixed(1)}
-        stroke={['#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4','#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4'][i]}
-        strokeWidth="2" strokeLinecap="round" opacity="0.95" />;
-    })}
-    <circle cx="15" cy="27" r="2.5" fill="#FF6B6B" opacity="0.95" />
-    {/* Tiny sparks */}
-    {[[46,7,'#FFD700'],[6,35,'#4ECDC4'],[30,38,'#C77DFF'],[2,12,'#FF8C42']].map(([x,y,c],i) => (
-      <circle key={i} cx={x} cy={y} r="1" fill={c} opacity="0.7" />
+  <div style={{ position:'relative', width:52, height:42,
+    display:'block', flexShrink:0, overflow:'visible' }}>
+    <style>{FIREWORK_ICON_CSS}</style>
+
+    {/* ── Animated blinking sparkles ── */}
+    {FW_SPARKLES.map((s, i) => (
+      <div key={i} style={{
+        position:'absolute', top:s.top, left:s.left,
+        width:s.size, height:s.size, borderRadius:'50%',
+        background:s.color, opacity:0,
+        boxShadow:`0 0 ${s.size}px ${s.color}`,
+        pointerEvents:'none',
+        animationName:s.anim, animationDuration:s.dur, animationDelay:s.delay,
+        animationTimingFunction:'ease-in-out',
+        animationIterationCount:'infinite', animationFillMode:'both',
+        zIndex:0,
+      }} />
     ))}
-  </svg>
+
+    {/* ── Small static burst — upper right ── */}
+    <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
+      style={{ position:'absolute', top:0, left:0, zIndex:1 }}>
+      {[0,45,90,135,180,225,270,315].map((a,i) => {
+        const rad = a * Math.PI / 180;
+        const x1 = 37, y1 = 13, len = 8;
+        return <line key={i}
+          x1={x1} y1={y1}
+          x2={(x1 + Math.cos(rad)*len).toFixed(1)}
+          y2={(y1 + Math.sin(rad)*len).toFixed(1)}
+          stroke={['#FFD700','#FF6B6B','#4ECDC4','#FF8C42','#C77DFF','#FFD700','#FF6B6B','#4ECDC4'][i]}
+          strokeWidth="1.8" strokeLinecap="round" opacity="0.95" />;
+      })}
+      <circle cx="37" cy="13" r="2.5" fill="#FFD700" opacity="0.95" />
+      {/* ── Large static burst — lower left ── */}
+      {[0,36,72,108,144,180,216,252,288,324].map((a,i) => {
+        const rad = a * Math.PI / 180;
+        const x1 = 15, y1 = 28, len = 12;
+        return <line key={i}
+          x1={x1} y1={y1}
+          x2={(x1 + Math.cos(rad)*len).toFixed(1)}
+          y2={(y1 + Math.sin(rad)*len).toFixed(1)}
+          stroke={['#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4','#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4'][i]}
+          strokeWidth="2.8" strokeLinecap="round" opacity="0.98" />;
+      })}
+      <circle cx="15" cy="28" r="3.5" fill="#FF6B6B" opacity="0.98" />
+    </svg>
+  </div>
 );
 
 // ─── AUTUMN: Momiji (maple) leaf ──────────────────────────────────
@@ -5222,32 +5279,9 @@ const SakuraPetals = () => (
 );
 
 // ─── SUMMER: Firework particles ───────────────────────────────────
-const FIREWORK_PARTICLES = [
-  { left:'35%', delay:'0s',    dur:'2.2s', color:'#FFD700', size:7 },
-  { left:'55%', delay:'0.8s',  dur:'2.8s', color:'#FF6B6B', size:6 },
-  { left:'25%', delay:'1.6s',  dur:'2.4s', color:'#4ECDC4', size:5 },
-  { left:'48%', delay:'0.4s',  dur:'3.0s', color:'#C77DFF', size:6 },
-  { left:'62%', delay:'1.2s',  dur:'2.6s', color:'#FF8C42', size:5 },
-];
-const FireworkParticles = () => (
-  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
-    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
-    {FIREWORK_PARTICLES.map((p, i) => (
-      <div key={i} style={{
-        position:'absolute', top:8, left:p.left,
-        width:p.size, height:p.size, borderRadius:'50%',
-        background:p.color, opacity:0,
-        animationName:'fireworkBurst',
-        animationDuration:p.dur,
-        animationDelay:p.delay,
-        animationTimingFunction:'ease-out',
-        animationIterationCount:'infinite',
-        animationFillMode:'both',
-        boxShadow:`0 0 4px ${p.color}`,
-      }} />
-    ))}
-  </div>
-);
+// FireworkParticles stubbed — animation now self-contained inside FireworkIcon
+const FIREWORK_PARTICLES = [];
+const FireworkParticles = () => null;
 
 // ─── AUTUMN: Falling momiji leaves (emoji, spring-petal style) ───
 const MOMIJI_PARTICLES = [
