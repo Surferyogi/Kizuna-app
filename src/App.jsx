@@ -5004,13 +5004,14 @@ const SNOW_ICON_CSS = `
   100% { transform:translate(8px,50px) rotate(-110deg);  opacity:0; }
 }
 `;
-const SNOW_BG_FLAKES = [
-  { anim:'sFlake1', dur:'3.4s', delay:'0.0s', emoji:'❄️', size:11 },
-  { anim:'sFlake2', dur:'4.2s', delay:'1.3s', emoji:'❄️', size:9  },
-  { anim:'sFlake3', dur:'3.0s', delay:'2.7s', emoji:'❄️', size:10 },
-  { anim:'sFlake4', dur:'4.8s', delay:'0.6s', emoji:'❄️', size:8  },
-  { anim:'sFlake5', dur:'3.7s', delay:'1.8s', emoji:'❄️', size:9  },
-  { anim:'sFlake6', dur:'4.0s', delay:'3.2s', emoji:'❄️', size:8  },
+// Small snow dots — pure white circles of varying sizes
+const SNOW_BG_DOTS = [
+  { anim:'sFlake1', dur:'3.4s', delay:'0.0s', r:3.5 },
+  { anim:'sFlake2', dur:'4.2s', delay:'1.3s', r:2.5 },
+  { anim:'sFlake3', dur:'3.0s', delay:'2.7s', r:3.0 },
+  { anim:'sFlake4', dur:'4.8s', delay:'0.6s', r:2.0 },
+  { anim:'sFlake5', dur:'3.7s', delay:'1.8s', r:2.8 },
+  { anim:'sFlake6', dur:'4.0s', delay:'3.2s', r:2.2 },
 ];
 
 const SnowflakeIcon = () => (
@@ -5018,20 +5019,24 @@ const SnowflakeIcon = () => (
     display:'block', flexShrink:0, overflow:'visible' }}>
     <style>{SNOW_ICON_CSS}</style>
 
-    {/* ── Animated falling flakes — behind the main emojis ── */}
-    {SNOW_BG_FLAKES.map((f, i) => (
+    {/* ── Animated falling snow dots — white circles ── */}
+    {SNOW_BG_DOTS.map((d, i) => (
       <div key={i} style={{
-        position:'absolute', top:0, left:0,
-        fontSize:f.size, lineHeight:1,
-        opacity:0, userSelect:'none', pointerEvents:'none',
-        animationName:f.anim, animationDuration:f.dur,
-        animationDelay:f.delay, animationTimingFunction:'linear',
+        position:'absolute', top:0, left:0, opacity:0,
+        pointerEvents:'none',
+        animationName:d.anim, animationDuration:d.dur, animationDelay:d.delay,
+        animationTimingFunction:'linear',
         animationIterationCount:'infinite', animationFillMode:'both',
         zIndex:0,
-      }}>{f.emoji}</div>
+      }}>
+        <svg width={d.r*2+2} height={d.r*2+2}
+          viewBox={`${-d.r-1} ${-d.r-1} ${d.r*2+2} ${d.r*2+2}`}>
+          <circle cx="0" cy="0" r={d.r} fill="white" opacity="0.85" />
+        </svg>
+      </div>
     ))}
 
-    {/* ── Foreground: static large + small ❄️ ── */}
+    {/* ── Foreground: static large + small ❄️ — unchanged ── */}
     <div style={{ position:'absolute', bottom:0, left:0,
       fontSize:36, lineHeight:1, zIndex:1,
       transform:'rotate(-10deg)',
@@ -5152,29 +5157,34 @@ const PETAL_CSS = `
 }
 `;
 
-const PETALS = [
-  { left:'38%', animationName:'petalFall1', animationDuration:'3.2s', animationDelay:'0s',    width:6, height:7, color:'#EAA898' },
-  { left:'58%', animationName:'petalFall2', animationDuration:'4.1s', animationDelay:'1.3s',  width:5, height:6, color:'#F0C0B4' },
-  { left:'28%', animationName:'petalFall3', animationDuration:'3.7s', animationDelay:'2.4s',  width:5, height:6, color:'#EAB8A8' },
-  { left:'50%', animationName:'petalFall4', animationDuration:'4.8s', animationDelay:'0.7s',  width:4, height:5, color:'#E8A090' },
+// Small normal leaf path — simple pointed oval
+const SPRING_LEAF_PATH = "M0,-6 C2,-4 3,0 2,4 C1,6 -1,6 -2,4 C-3,0 -2,-4 0,-6 Z";
+const SPRING_LEAVES = [
+  { left:'38%', anim:'petalFall1', dur:'3.2s', delay:'0.0s', fill:'#5AA830', size:7, rot:15  },
+  { left:'58%', anim:'petalFall2', dur:'4.1s', delay:'1.3s', fill:'#78C040', size:6, rot:-20 },
+  { left:'28%', anim:'petalFall3', dur:'3.7s', delay:'2.4s', fill:'#4A9428', size:6, rot:35  },
+  { left:'50%', anim:'petalFall4', dur:'4.8s', delay:'0.7s', fill:'#90C838', size:5, rot:-10 },
 ];
 
 const SakuraPetals = () => (
   <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
     pointerEvents:'none', overflow:'visible', zIndex:10 }}>
     <style>{PETAL_CSS}</style>
-    {PETALS.map((p, i) => (
+    {SPRING_LEAVES.map((l, i) => (
       <div key={i} style={{
-        position:'absolute', top:4, left:p.left,
-        width:p.width, height:p.height, borderRadius:'50% 50% 50% 0',
-        background:p.color, opacity:0,
-        animationName:p.animationName,
-        animationDuration:p.animationDuration,
-        animationDelay:p.animationDelay,
+        position:'absolute', top:4, left:l.left, opacity:0,
+        animationName:l.anim, animationDuration:l.dur, animationDelay:l.delay,
         animationTimingFunction:'ease-in',
-        animationIterationCount:'infinite',
-        animationFillMode:'both',
-      }} />
+        animationIterationCount:'infinite', animationFillMode:'both',
+      }}>
+        <svg width={l.size} height={l.size+2} viewBox="-4 -7 8 14" overflow="visible">
+          <path d={SPRING_LEAF_PATH} fill={l.fill} stroke="#2E6010"
+            strokeWidth="0.5" opacity="0.88" transform={`rotate(${l.rot})`} />
+          <line x1="0" y1="5" x2="0" y2="-5" stroke="#2E6010"
+            strokeWidth="0.4" strokeLinecap="round" opacity="0.5"
+            transform={`rotate(${l.rot})`} />
+        </svg>
+      </div>
     ))}
   </div>
 );
