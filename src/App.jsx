@@ -2930,11 +2930,14 @@ const QUICK_FILTERS = (() => {
   const isActive = e =>
     (e.type === 'task' || e.type === 'reminder') && !e.done && !e.cancelled;
 
-  // Done task or reminder — shows on the day it was completed (doneAt) OR its scheduled date
+  // Done task or reminder — shows on the day it was completed
+  // If doneAt exists → use that date
+  // If no doneAt (completed before this feature) → treat as today so it's always visible
   const isDoneEntry = e => {
     if (!((e.type === 'task' || e.type === 'reminder') && !!e.done && !e.cancelled)) return false;
-    // If we have a completion timestamp, use that date; otherwise fall back to scheduled date
-    const completedDate = e.doneAt ? e.doneAt.slice(0, 10) : e.date;
+    const completedDate = e.doneAt
+      ? e.doneAt.slice(0, 10)
+      : todayStr(); // no timestamp = assume completed today
     return { completedDate };
   };
 
