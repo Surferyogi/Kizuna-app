@@ -4883,22 +4883,77 @@ const FireworkIcon = () => (
 );
 
 // ─── AUTUMN: Momiji (maple) leaf ──────────────────────────────────
+const MOMIJI_ICON_CSS = `
+@keyframes mLeaf1 {
+  0%   { transform:translate(8px,-12px) rotate(0deg);   opacity:0; }
+  8%   { opacity:0.85; }
+  100% { transform:translate(24px,58px) rotate(340deg); opacity:0; }
+}
+@keyframes mLeaf2 {
+  0%   { transform:translate(28px,-8px) rotate(20deg);  opacity:0; }
+  12%  { opacity:0.7; }
+  100% { transform:translate(10px,56px) rotate(-300deg); opacity:0; }
+}
+@keyframes mLeaf3 {
+  0%   { transform:translate(48px,-10px) rotate(-10deg); opacity:0; }
+  10%  { opacity:0.75; }
+  100% { transform:translate(36px,60px) rotate(380deg); opacity:0; }
+}
+@keyframes mLeaf4 {
+  0%   { transform:translate(16px,-6px) rotate(30deg);  opacity:0; }
+  15%  { opacity:0.65; }
+  100% { transform:translate(2px,54px) rotate(-260deg); opacity:0; }
+}
+@keyframes mLeaf5 {
+  0%   { transform:translate(38px,-14px) rotate(-20deg); opacity:0; }
+  9%   { opacity:0.8; }
+  100% { transform:translate(52px,58px) rotate(300deg); opacity:0; }
+}
+@keyframes mLeaf6 {
+  0%   { transform:translate(22px,-8px) rotate(15deg);  opacity:0; }
+  13%  { opacity:0.6; }
+  100% { transform:translate(8px,52px) rotate(-320deg); opacity:0; }
+}
+`;
+const MOMIJI_BG_LEAVES = [
+  { anim:'mLeaf1', dur:'3.6s', delay:'0.0s', emoji:'🍁', size:11 },
+  { anim:'mLeaf2', dur:'4.4s', delay:'1.4s', emoji:'🍂', size:9  },
+  { anim:'mLeaf3', dur:'3.2s', delay:'2.8s', emoji:'🍁', size:10 },
+  { anim:'mLeaf4', dur:'5.0s', delay:'0.7s', emoji:'🍂', size:8  },
+  { anim:'mLeaf5', dur:'3.8s', delay:'1.9s', emoji:'🍁', size:9  },
+  { anim:'mLeaf6', dur:'4.2s', delay:'3.3s', emoji:'🍂', size:8  },
+];
+
 const MomijiIcon = () => (
-  <svg width="52" height="42" viewBox="0 0 52 42"
-    style={{ display:'block', flexShrink:0, overflow:'visible' }}>
-    {/* Small 🍁 — upper right */}
-    <text x="37" y="18" textAnchor="middle" fontSize="16"
-      transform="rotate(18,37,18)"
-      style={{ filter:'drop-shadow(0 1px 3px rgba(180,60,0,0.45))' }}>🍁</text>
-    {/* Large 🍁 — lower left */}
-    <text x="14" y="33" textAnchor="middle" fontSize="26"
-      transform="rotate(-10,14,33)"
-      style={{ filter:'drop-shadow(0 2px 5px rgba(180,60,0,0.55))' }}>🍁</text>
-    {/* Tiny drifting leaves */}
-    <text x="48" y="10" textAnchor="middle" fontSize="9" opacity="0.5" transform="rotate(45,48,10)">🍁</text>
-    <text x="4"  y="10" textAnchor="middle" fontSize="8" opacity="0.4" transform="rotate(-35,4,10)">🍂</text>
-    <text x="30" y="40" textAnchor="middle" fontSize="8" opacity="0.38" transform="rotate(25,30,40)">🍁</text>
-  </svg>
+  <div style={{ position:'relative', width:52, height:42,
+    display:'block', flexShrink:0, overflow:'visible' }}>
+    <style>{MOMIJI_ICON_CSS}</style>
+
+    {/* ── Animated falling leaves — behind the main emojis ── */}
+    {MOMIJI_BG_LEAVES.map((l, i) => (
+      <div key={i} style={{
+        position:'absolute', top:0, left:0,
+        fontSize:l.size, lineHeight:1,
+        opacity:0, userSelect:'none', pointerEvents:'none',
+        animationName:l.anim, animationDuration:l.dur,
+        animationDelay:l.delay, animationTimingFunction:'ease-in',
+        animationIterationCount:'infinite', animationFillMode:'both',
+        zIndex:0,
+      }}>{l.emoji}</div>
+    ))}
+
+    {/* ── Foreground: static large + small 🍁 ── */}
+    <div style={{ position:'absolute', bottom:0, left:0,
+      fontSize:28, lineHeight:1, zIndex:1,
+      transform:'rotate(-10deg)',
+      filter:'drop-shadow(0 2px 6px rgba(180,60,0,0.55))',
+      userSelect:'none' }}>🍁</div>
+    <div style={{ position:'absolute', top:0, right:0,
+      fontSize:16, lineHeight:1, zIndex:1,
+      transform:'rotate(18deg)',
+      filter:'drop-shadow(0 1px 4px rgba(180,60,0,0.45))',
+      userSelect:'none' }}>🍁</div>
+  </div>
 );
 
 // ─── WINTER: Snowflake ────────────────────────────────────────────
