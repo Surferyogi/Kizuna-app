@@ -2258,8 +2258,8 @@ function buildQuoteLabel(day) {
   if (isAnniversary)    parts.push('Wedding Anniversary');
   if (festiveName)      parts.push(festiveName);
 
-  const suffix = parts.length > 0 ? ' · Today\'s Quote' : ' · Today\'s Reflection';
-  return (parts.length > 0 ? parts.join(' & ') : null) + suffix;
+  const suffix = " · Today's Quote";
+  return parts.length > 0 ? parts.join(' & ') + suffix : null;
 }
 
 // Famous people whose quotes fit each special day type
@@ -2375,7 +2375,7 @@ async function fetchDailyQuote(supabaseClient) {
   const themeIndex = (dayOfYear * 7 + slotHour * 3) % STANDARD_THEMES.length;
   const prompt   = buildQuotePrompt(day, themeIndex, slotHour);
   const label    = buildQuoteLabel(day) ||
-    (STANDARD_THEMES[themeIndex % STANDARD_THEMES.length].label + ' · Today\'s Reflection');
+    '* · Today\'s Reflection';
   const isSpecial = day.isAnnaBirthday || day.isSophiaBirthday || day.isKoksumBirthday ||
                     day.isAnniversary  || !!day.festiveName;
 
