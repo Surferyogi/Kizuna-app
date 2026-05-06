@@ -4915,13 +4915,18 @@ const MOMIJI_ICON_CSS = `
   100% { transform:translate(8px,52px) rotate(-320deg); opacity:0; }
 }
 `;
+// Small leaf SVG — simple 5-lobe shape at ~12×14 units
+// fill colour is passed per leaf for green/yellow variety
+const BG_LEAF_PATH = "M0,1 C-1.5,0 -3.5,0.5 -5,-1 C-7,-3 -6.5,-6 -5,-8 C-3.5,-6 -2.5,-6 -2,-4 C-2.5,-6 -2,-9 0,-10 C2,-9 2.5,-6 2,-4 C2.5,-6 3.5,-6 5,-8 C6.5,-6 7,-3 5,-1 C3.5,0.5 1.5,0 0,1 Z";
+
+// 6 falling leaves: greens → yellows spectrum
 const MOMIJI_BG_LEAVES = [
-  { anim:'mLeaf1', dur:'3.6s', delay:'0.0s', emoji:'🍁', size:11 },
-  { anim:'mLeaf2', dur:'4.4s', delay:'1.4s', emoji:'🍂', size:9  },
-  { anim:'mLeaf3', dur:'3.2s', delay:'2.8s', emoji:'🍁', size:10 },
-  { anim:'mLeaf4', dur:'5.0s', delay:'0.7s', emoji:'🍂', size:8  },
-  { anim:'mLeaf5', dur:'3.8s', delay:'1.9s', emoji:'🍁', size:9  },
-  { anim:'mLeaf6', dur:'4.2s', delay:'3.3s', emoji:'🍂', size:8  },
+  { anim:'mLeaf1', dur:'3.6s', delay:'0.0s', size:11, fill:'#4E8C2A', rot:15  },
+  { anim:'mLeaf2', dur:'4.4s', delay:'1.4s', size:9,  fill:'#82B030', rot:-20 },
+  { anim:'mLeaf3', dur:'3.2s', delay:'2.8s', size:10, fill:'#A8C420', rot:35  },
+  { anim:'mLeaf4', dur:'5.0s', delay:'0.7s', size:8,  fill:'#C8C018', rot:-10 },
+  { anim:'mLeaf5', dur:'3.8s', delay:'1.9s', size:9,  fill:'#D4A818', rot:25  },
+  { anim:'mLeaf6', dur:'4.2s', delay:'3.3s', size:8,  fill:'#BCBA20', rot:-30 },
 ];
 
 const MomijiIcon = () => (
@@ -4929,20 +4934,30 @@ const MomijiIcon = () => (
     display:'block', flexShrink:0, overflow:'visible' }}>
     <style>{MOMIJI_ICON_CSS}</style>
 
-    {/* ── Animated falling leaves — behind the main emojis ── */}
+    {/* ── Animated falling leaves — green/yellow SVGs behind the main emojis ── */}
     {MOMIJI_BG_LEAVES.map((l, i) => (
       <div key={i} style={{
         position:'absolute', top:0, left:0,
-        fontSize:l.size, lineHeight:1,
         opacity:0, userSelect:'none', pointerEvents:'none',
         animationName:l.anim, animationDuration:l.dur,
         animationDelay:l.delay, animationTimingFunction:'ease-in',
         animationIterationCount:'infinite', animationFillMode:'both',
         zIndex:0,
-      }}>{l.emoji}</div>
+      }}>
+        <svg width={l.size} height={l.size+2}
+          viewBox="-7 -11 14 13" overflow="visible">
+          <path d={BG_LEAF_PATH}
+            fill={l.fill} stroke="#2A5010" strokeWidth="0.4" opacity="0.9"
+            transform={`rotate(${l.rot})`} />
+          <line x1="0" y1="1" x2="0" y2="-9"
+            stroke="#2A5010" strokeWidth="0.5"
+            strokeLinecap="round" opacity="0.5"
+            transform={`rotate(${l.rot})`} />
+        </svg>
+      </div>
     ))}
 
-    {/* ── Foreground: static large + small 🍁 ── */}
+    {/* ── Foreground: static large + small 🍁 — unchanged ── */}
     <div style={{ position:'absolute', bottom:0, left:0,
       fontSize:36, lineHeight:1, zIndex:1,
       transform:'rotate(-10deg)',
