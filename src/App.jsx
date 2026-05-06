@@ -2930,17 +2930,22 @@ const QUICK_FILTERS = (() => {
   const isActive = e =>
     (e.type === 'task' || e.type === 'reminder') && !e.done && !e.cancelled;
 
-  // Done task or reminder — shows on its scheduled date
-  const isDoneEntry = e =>
-    (e.type === 'task' || e.type === 'reminder') && !!e.done && !e.cancelled;
+  // Done task or reminder — shows on the day it was completed (doneAt) OR its scheduled date
+  const isDoneEntry = e => {
+    if (!((e.type === 'task' || e.type === 'reminder') && !!e.done && !e.cancelled)) return false;
+    // If we have a completion timestamp, use that date; otherwise fall back to scheduled date
+    const completedDate = e.doneAt ? e.doneAt.slice(0, 10) : e.date;
+    return { completedDate };
+  };
 
   return [
     { k:'today',    l:'Today',              icon:'📅', impliedType:null,      isStatus:false,
       f: e => {
         // Undone tasks/reminders always visible — they need attention today
         if (isActive(e)) return true;
-        // Done tasks/reminders show on their scheduled date
-        if (isDoneEntry(e)) return e.date === todayStr();
+        // Done tasks/reminders show on the day they were completed
+        const done = isDoneEntry(e);
+        if (done) return done.completedDate === todayStr();
         // All other entry types: show only if today
         return e.date === todayStr();
       },
@@ -2949,25 +2954,31 @@ const QUICK_FILTERS = (() => {
       f: e => {
         const sot = startOfToday();
         const end = new Date(sot); end.setDate(end.getDate() + 7);
-        const d = new Date(e.date + 'T00:00:00');
         // Undone tasks/reminders always visible this week
         if (isActive(e)) return true;
-        // Done tasks/reminders show if their date falls within this week
-        if (isDoneEntry(e)) return d >= sot && d <= end;
+        // Done tasks/reminders: use completion date if available
+        const done = isDoneEntry(e);
+        if (done) {
+          const d = new Date(done.completedDate + 'T00:00:00');
+          return d >= sot && d <= end;
+        }
+        const d = new Date(e.date + 'T00:00:00');
         return d >= sot && d <= end;
       },
     },
     { k:'month',    l:'This Month',         icon:'📆', impliedType:null,      isStatus:false,
       f: e => {
         const n = new Date(); n.setHours(0,0,0,0);
-        const d = new Date(e.date + 'T00:00:00');
         // Undone tasks/reminders always visible this month
         if (isActive(e)) return true;
-        // Done tasks/reminders show if their date is this month
-        if (isDoneEntry(e)) return d.getFullYear() === n.getFullYear()
-          && d.getMonth() === n.getMonth() && d >= n;
-        return d.getFullYear() === n.getFullYear()
-          && d.getMonth() === n.getMonth() && d >= n;
+        // Done tasks/reminders: use completion date if available
+        const done = isDoneEntry(e);
+        if (done) {
+          const d = new Date(done.completedDate + 'T00:00:00');
+          return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d >= n;
+        }
+        const d = new Date(e.date + 'T00:00:00');
+        return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d >= n;
       },
     },
     { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
@@ -4892,44 +4903,47 @@ const KizunaIcon = () => {
 
 // ─── SUMMER: Firework burst ───────────────────────────────────────
 const FIREWORK_ICON_CSS = `
-@keyframes fwSparkle1 {
-  0%,100% { opacity:0; transform:scale(0.4); }
-  20%,80% { opacity:1; transform:scale(1.2); }
-  50%     { opacity:0.85; transform:scale(1.0); }
-}
-@keyframes fwSparkle2 {
-  0%,100% { opacity:0; transform:scale(0.3); }
-  30%,70% { opacity:0.9; transform:scale(1.1); }
-  55%     { opacity:0.7; transform:scale(0.9); }
-}
-@keyframes fwSparkle3 {
-  0%,100% { opacity:0; transform:scale(0.5); }
-  25%,75% { opacity:1; transform:scale(1.3); }
-  50%     { opacity:0.8; transform:scale(1.0); }
-}
-@keyframes fwSparkle4 {
-  0%,100% { opacity:0; transform:scale(0.3); }
-  35%,65% { opacity:0.85; transform:scale(1.1); }
-  50%     { opacity:0.65; transform:scale(0.85); }
-}
-@keyframes fwSparkle5 {
-  0%,100% { opacity:0; transform:scale(0.4); }
-  15%,85% { opacity:1; transform:scale(1.2); }
-  50%     { opacity:0.9; transform:scale(1.05); }
-}
-@keyframes fwSparkle6 {
-  0%,100% { opacity:0; transform:scale(0.3); }
-  40%,60% { opacity:0.8; transform:scale(1.0); }
-  50%     { opacity:1; transform:scale(1.15); }
-}
+/* Large burst — rays grow outward then fade, staggered per ray */
+@keyframes fwRayL0  { 0%{stroke-dashoffset:12;opacity:0} 8%{opacity:1} 55%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL1  { 0%{stroke-dashoffset:12;opacity:0} 12%{opacity:1} 58%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL2  { 0%{stroke-dashoffset:12;opacity:0} 16%{opacity:1} 62%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL3  { 0%{stroke-dashoffset:12;opacity:0} 20%{opacity:1} 66%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL4  { 0%{stroke-dashoffset:12;opacity:0} 24%{opacity:1} 70%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL5  { 0%{stroke-dashoffset:12;opacity:0} 28%{opacity:1} 74%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL6  { 0%{stroke-dashoffset:12;opacity:0} 32%{opacity:1} 78%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL7  { 0%{stroke-dashoffset:12;opacity:0} 36%{opacity:1} 82%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL8  { 0%{stroke-dashoffset:12;opacity:0} 40%{opacity:1} 86%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
+@keyframes fwRayL9  { 0%{stroke-dashoffset:12;opacity:0} 44%{opacity:1} 90%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
+/* Small burst — rays grow outward then fade, staggered per ray */
+@keyframes fwRayS0  { 0%{stroke-dashoffset:8;opacity:0} 10%{opacity:1} 55%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS1  { 0%{stroke-dashoffset:8;opacity:0} 18%{opacity:1} 60%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS2  { 0%{stroke-dashoffset:8;opacity:0} 26%{opacity:1} 65%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS3  { 0%{stroke-dashoffset:8;opacity:0} 34%{opacity:1} 70%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS4  { 0%{stroke-dashoffset:8;opacity:0} 42%{opacity:1} 75%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS5  { 0%{stroke-dashoffset:8;opacity:0} 50%{opacity:1} 80%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS6  { 0%{stroke-dashoffset:8;opacity:0} 58%{opacity:1} 85%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
+@keyframes fwRayS7  { 0%{stroke-dashoffset:8;opacity:0} 66%{opacity:1} 90%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
+/* Centre glow pulse */
+@keyframes fwGlowL { 0%,100%{r:1;opacity:0.3} 40%{r:4;opacity:1} 70%{r:3;opacity:0.8} }
+@keyframes fwGlowS { 0%,100%{r:0.8;opacity:0.3} 40%{r:3;opacity:1} 70%{r:2.2;opacity:0.8} }
+/* Background sparkles */
+@keyframes fwSparkle1 { 0%,100%{opacity:0;transform:scale(0.4)} 30%,70%{opacity:1;transform:scale(1.2)} }
+@keyframes fwSparkle2 { 0%,100%{opacity:0;transform:scale(0.3)} 35%,65%{opacity:0.9;transform:scale(1.1)} }
+@keyframes fwSparkle3 { 0%,100%{opacity:0;transform:scale(0.5)} 25%,75%{opacity:1;transform:scale(1.3)} }
+@keyframes fwSparkle4 { 0%,100%{opacity:0;transform:scale(0.3)} 40%,60%{opacity:0.85;transform:scale(1.0)} }
+@keyframes fwSparkle5 { 0%,100%{opacity:0;transform:scale(0.4)} 20%,80%{opacity:1;transform:scale(1.2)} }
+@keyframes fwSparkle6 { 0%,100%{opacity:0;transform:scale(0.3)} 45%,55%{opacity:0.8;transform:scale(1.15)} }
 `;
+
+const L_COLORS = ['#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4','#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4'];
+const S_COLORS = ['#FFD700','#FF6B6B','#4ECDC4','#FF8C42','#C77DFF','#FFD700','#FF6B6B','#4ECDC4'];
 const FW_SPARKLES = [
-  { left:'10%', top:'5%',  anim:'fwSparkle1', dur:'1.4s', delay:'0.0s', color:'#FFD700', size:8 },
-  { left:'55%', top:'2%',  anim:'fwSparkle2', dur:'1.8s', delay:'0.4s', color:'#FF6B6B', size:7 },
-  { left:'80%', top:'20%', anim:'fwSparkle3', dur:'1.2s', delay:'0.8s', color:'#4ECDC4', size:6 },
-  { left:'5%',  top:'55%', anim:'fwSparkle4', dur:'1.6s', delay:'0.2s', color:'#C77DFF', size:7 },
-  { left:'70%', top:'60%', anim:'fwSparkle5', dur:'1.3s', delay:'0.6s', color:'#FF8C42', size:6 },
-  { left:'35%', top:'75%', anim:'fwSparkle6', dur:'1.9s', delay:'1.0s', color:'#FFD700', size:5 },
+  { left:'8%',  top:'4%',  anim:'fwSparkle1', dur:'1.4s', delay:'0.0s', color:'#FFD700', size:7 },
+  { left:'58%', top:'1%',  anim:'fwSparkle2', dur:'1.8s', delay:'0.5s', color:'#FF6B6B', size:6 },
+  { left:'82%', top:'22%', anim:'fwSparkle3', dur:'1.2s', delay:'0.9s', color:'#4ECDC4', size:5 },
+  { left:'4%',  top:'58%', anim:'fwSparkle4', dur:'1.6s', delay:'0.3s', color:'#C77DFF', size:6 },
+  { left:'72%', top:'62%', anim:'fwSparkle5', dur:'1.3s', delay:'0.7s', color:'#FF8C42', size:5 },
+  { left:'36%', top:'78%', anim:'fwSparkle6', dur:'1.9s', delay:'1.1s', color:'#FFD700', size:4 },
 ];
 
 const FireworkIcon = () => (
@@ -4937,47 +4951,55 @@ const FireworkIcon = () => (
     display:'block', flexShrink:0, overflow:'visible' }}>
     <style>{FIREWORK_ICON_CSS}</style>
 
-    {/* ── Animated blinking sparkles ── */}
+    {/* ── Background blinking sparkles ── */}
     {FW_SPARKLES.map((s, i) => (
       <div key={i} style={{
         position:'absolute', top:s.top, left:s.left,
         width:s.size, height:s.size, borderRadius:'50%',
-        background:s.color, opacity:0,
+        background:s.color, opacity:0, pointerEvents:'none',
         boxShadow:`0 0 ${s.size}px ${s.color}`,
-        pointerEvents:'none',
         animationName:s.anim, animationDuration:s.dur, animationDelay:s.delay,
         animationTimingFunction:'ease-in-out',
-        animationIterationCount:'infinite', animationFillMode:'both',
-        zIndex:0,
+        animationIterationCount:'infinite', animationFillMode:'both', zIndex:0,
       }} />
     ))}
 
-    {/* ── Small static burst — upper right ── */}
+    {/* ── Animated burst SVG — rays draw outward sequentially ── */}
     <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
-      style={{ position:'absolute', top:0, left:0, zIndex:1 }}>
+      style={{ position:'absolute', top:0, left:0, zIndex:1 }}
+      className="fw-burst">
+
+      {/* Small burst — upper right, 8 rays, 2s cycle */}
       {[0,45,90,135,180,225,270,315].map((a,i) => {
         const rad = a * Math.PI / 180;
         const x1 = 37, y1 = 13, len = 8;
+        const x2 = x1 + Math.cos(rad)*len;
+        const y2 = y1 + Math.sin(rad)*len;
         return <line key={i}
-          x1={x1} y1={y1}
-          x2={(x1 + Math.cos(rad)*len).toFixed(1)}
-          y2={(y1 + Math.sin(rad)*len).toFixed(1)}
-          stroke={['#FFD700','#FF6B6B','#4ECDC4','#FF8C42','#C77DFF','#FFD700','#FF6B6B','#4ECDC4'][i]}
-          strokeWidth="1.8" strokeLinecap="round" opacity="0.95" />;
+          x1={x1} y1={y1} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+          stroke={S_COLORS[i]} strokeWidth="1.8" strokeLinecap="round"
+          strokeDasharray="8" strokeDashoffset="8"
+          style={{ animation:`fwRayS${i} 2s ${(i*0.06).toFixed(2)}s infinite ease-out` }} />;
       })}
-      <circle cx="37" cy="13" r="2.5" fill="#FFD700" opacity="0.95" />
-      {/* ── Large static burst — lower left ── */}
+      <circle cx="37" cy="13"
+        style={{ animation:'fwGlowS 2s 0s infinite ease-in-out' }}
+        fill="#FFD700" />
+
+      {/* Large burst — lower left, 10 rays, 2.4s cycle */}
       {[0,36,72,108,144,180,216,252,288,324].map((a,i) => {
         const rad = a * Math.PI / 180;
         const x1 = 15, y1 = 28, len = 12;
+        const x2 = x1 + Math.cos(rad)*len;
+        const y2 = y1 + Math.sin(rad)*len;
         return <line key={i}
-          x1={x1} y1={y1}
-          x2={(x1 + Math.cos(rad)*len).toFixed(1)}
-          y2={(y1 + Math.sin(rad)*len).toFixed(1)}
-          stroke={['#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4','#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4'][i]}
-          strokeWidth="2.8" strokeLinecap="round" opacity="0.98" />;
+          x1={x1} y1={y1} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+          stroke={L_COLORS[i]} strokeWidth="2.8" strokeLinecap="round"
+          strokeDasharray="12" strokeDashoffset="12"
+          style={{ animation:`fwRayL${i} 2.4s ${(i*0.05).toFixed(2)}s infinite ease-out` }} />;
       })}
-      <circle cx="15" cy="28" r="3.5" fill="#FF6B6B" opacity="0.98" />
+      <circle cx="15" cy="28"
+        style={{ animation:'fwGlowL 2.4s 0s infinite ease-in-out' }}
+        fill="#FF6B6B" />
     </svg>
   </div>
 );
@@ -5841,7 +5863,11 @@ export default function App() {
     if (!current) return;
     if (current.userId && current.userId !== user?.id) return;
     const willComplete = !current.done;
-    const updated = { ...current, done: willComplete };
+    const updated = {
+      ...current,
+      done: willComplete,
+      doneAt: willComplete ? new Date().toISOString() : null,
+    };
     setEntries(prev => prev.map(e => e.id === id ? updated : e));
     logAudit(willComplete ? 'completed' : 'reopened', current);
     if (user) dbUpsertEntry(user.id, updated);
