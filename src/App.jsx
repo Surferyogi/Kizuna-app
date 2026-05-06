@@ -4022,6 +4022,93 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
+// ─── Dev Panel sub-components (hooks need proper function components) ──────
+const QUOTE_DEMOS = [
+  { label:'🌸 Spring',      quote:{ quote:'In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.', label:'Being Present · Today's Reflection', isSpecial:false } },
+  { label:'🎆 Summer',      quote:{ quote:'Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.', label:'Simple Joy · Today's Reflection', isSpecial:false } },
+  { label:'🍁 Autumn',      quote:{ quote:'Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.', label:'Home & Belonging · Today's Reflection', isSpecial:false } },
+  { label:'❄️ Winter',      quote:{ quote:'In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.', label:'Inner Calm · Today's Reflection', isSpecial:false } },
+  { label:'🧧 CNY',         quote:{ quote:'A new year opens like a door we have never walked through — full of rooms we have not yet discovered.', label:'Chinese New Year · Special Quote', isSpecial:true } },
+  { label:'🌸 Mother's',   quote:{ quote:'Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.', label:'Mother's Day · Special Quote', isSpecial:true } },
+  { label:'👨 Father's',   quote:{ quote:'He taught us not by what he said but by how he stayed — steady as earth beneath every storm.', label:'Father's Day · Special Quote', isSpecial:true } },
+  { label:'🎂 Birthday',    quote:{ quote:'Today we count not just years but all the small brave moments that quietly shaped who we are becoming.', label:'Birthday · Special Quote', isSpecial:true } },
+  { label:'💍 Anniversary', quote:{ quote:'Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.', label:'Anniversary · Special Quote', isSpecial:true } },
+  { label:'📖 Rumi',        quote:{ quote:'Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi', label:'Trust · Today's Reflection', isSpecial:false } },
+];
+
+function DevQuoteTester() {
+  const C = useContext(ThemeContext);
+  const [testQuote, setTestQuote] = useState(null);
+  return (
+    <>
+      {testQuote && (
+        <DailyQuoteScreen quoteData={testQuote} loading={false} onDismiss={() => setTestQuote(null)} />
+      )}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+        {QUOTE_DEMOS.map(({ label, quote }) => (
+          <button key={label} onClick={() => setTestQuote(quote)}
+            style={{ padding:'9px 12px', borderRadius:BR.input,
+              background:C.elevated, border:`1px solid ${C.border}`,
+              color:C.text, fontFamily:'inherit', fontSize:13,
+              fontWeight:600, cursor:'pointer' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+const SEASON_OPTIONS = [
+  { key:'spring', label:'🌸 Spring', months:'March – May' },
+  { key:'summer', label:'🎆 Summer', months:'June – August' },
+  { key:'autumn', label:'🍁 Autumn', months:'September – November' },
+  { key:'winter', label:'❄️ Winter', months:'December – February' },
+];
+
+function DevSeasonTester() {
+  const C = useContext(ThemeContext);
+  const SH = getSH(C === C_DARK);
+  const [testSeason, setTestSeason] = useState(null);
+  const iconMap  = { spring:<KizunaIcon />,   summer:<FireworkIcon />,
+                     autumn:<MomijiIcon />,    winter:<SnowflakeIcon /> };
+  const partMap  = { spring:<SakuraPetals />, summer:<FireworkParticles />,
+                     autumn:<MomijiParticles />, winter:<SnowParticles /> };
+  const active   = SEASON_OPTIONS.find(s => s.key === testSeason);
+  return (
+    <>
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        {SEASON_OPTIONS.map(({ key, label }) => (
+          <button key={key} onClick={() => setTestSeason(testSeason === key ? null : key)}
+            style={{ padding:'9px 12px', borderRadius:BR.input,
+              background: testSeason === key ? C.rose : C.elevated,
+              border:`1px solid ${testSeason === key ? C.rose : C.border}`,
+              color: testSeason === key ? '#fff' : C.text,
+              fontFamily:'inherit', fontSize:13, fontWeight:600,
+              cursor:'pointer', transition:'all 0.2s' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {active && (
+        <div style={{ display:'flex', alignItems:'center', gap:16,
+          background:C.elevated, borderRadius:BR.card,
+          padding:'16px 20px', border:`1px solid ${C.border}`,
+          boxShadow:SH.subtle }}>
+          <div style={{ position:'relative', flexShrink:0 }}>
+            {iconMap[active.key]}
+            {partMap[active.key]}
+          </div>
+          <div>
+            <p style={{ margin:'0 0 3px', fontSize:15, fontWeight:700, color:C.text }}>{active.label}</p>
+            <p style={{ margin:0, fontSize:12, color:C.muted }}>{active.months}</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspace, workspaceLoaded, setWorkspace, userId, isDark=false, themeMode='auto', setTheme, isAdmin=false, setFestiveTheme, setFestiveVisible }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
@@ -4273,45 +4360,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               <p style={{ margin:'0 0 10px', fontSize:12, color:C.muted }}>
                 Preview the quote page for each theme. Tap the screen to dismiss.
               </p>
-              {(() => {
-                const [testQuote, setTestQuote] = useState(null);
-                const demos = [
-                  { label:'🌸 Spring',      quote:{ quote:'In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.', label:'Being Present · Today\'s Reflection', isSpecial:false } },
-                  { label:'🎆 Summer',      quote:{ quote:'Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.', label:'Simple Joy · Today\'s Reflection', isSpecial:false } },
-                  { label:'🍁 Autumn',      quote:{ quote:'Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.', label:'Home & Belonging · Today\'s Reflection', isSpecial:false } },
-                  { label:'❄️ Winter',      quote:{ quote:'In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.', label:'Inner Calm · Today\'s Reflection', isSpecial:false } },
-                  { label:'🧧 CNY',         quote:{ quote:'A new year opens like a door we have never walked through — full of rooms we have not yet discovered.', label:'Chinese New Year · Special Quote', isSpecial:true } },
-                  { label:'🌸 Mother\'s',   quote:{ quote:'Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.', label:'Mother\'s Day · Special Quote', isSpecial:true } },
-                  { label:'👨 Father\'s',   quote:{ quote:'He taught us not by what he said but by how he stayed — steady as earth beneath every storm.', label:'Father\'s Day · Special Quote', isSpecial:true } },
-                  { label:'🎂 Birthday',    quote:{ quote:'Today we count not just years but all the small brave moments that quietly shaped who we are becoming.', label:'Birthday · Special Quote', isSpecial:true } },
-                  { label:'💍 Anniversary', quote:{ quote:'Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.', label:'Anniversary · Special Quote', isSpecial:true } },
-                  { label:'📖 Rumi',        quote:{ quote:'Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi', label:'Trust · Today\'s Reflection', isSpecial:false } },
-                ];
-                return (
-                  <>
-                    {testQuote && (
-                      <DailyQuoteScreen
-                        quoteData={testQuote}
-                        loading={false}
-                        onDismiss={() => setTestQuote(null)}
-                      />
-                    )}
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                      {demos.map(({ label, quote }) => (
-                        <button key={label}
-                          onClick={() => setTestQuote(quote)}
-                          style={{ padding:'9px 12px', borderRadius:BR.input,
-                            background: C.elevated,
-                            border:`1px solid ${C.border}`,
-                            color:C.text, fontFamily:'inherit',
-                            fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                );
-              })()}
+              <DevQuoteTester />
             </div>
 
             {/* ── Seasonal Icons Test ── */}
@@ -4322,54 +4371,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               <p style={{ margin:'0 0 12px', fontSize:12, color:C.muted }}>
                 Switches automatically by month. Preview all seasons here.
               </p>
-              {(() => {
-                const [testSeason, setTestSeason] = useState(null);
-                const seasons = [
-                  { key:'spring', label:'🌸 Spring', icon:<KizunaIcon />,     particles:<SakuraPetals />      },
-                  { key:'summer', label:'🎆 Summer', icon:<FireworkIcon />,    particles:<FireworkParticles /> },
-                  { key:'autumn', label:'🍁 Autumn', icon:<MomijiIcon />,      particles:<MomijiParticles />   },
-                  { key:'winter', label:'❄️ Winter', icon:<SnowflakeIcon />,   particles:<SnowParticles />     },
-                ];
-                const active = seasons.find(s => s.key === testSeason);
-                return (
-                  <>
-                    <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-                      {seasons.map(({ key, label }) => (
-                        <button key={key} onClick={() => setTestSeason(testSeason === key ? null : key)}
-                          style={{ padding:'9px 12px', borderRadius:BR.input,
-                            background: testSeason === key ? C.rose : C.elevated,
-                            border:`1px solid ${testSeason === key ? C.rose : C.border}`,
-                            color: testSeason === key ? '#fff' : C.text,
-                            fontFamily:'inherit', fontSize:13, fontWeight:600,
-                            cursor:'pointer', transition:'all 0.2s' }}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {active && (
-                      <div style={{ display:'flex', alignItems:'center', gap:16,
-                        background:C.elevated, borderRadius:BR.card,
-                        padding:'16px 20px', border:`1px solid ${C.border}` }}>
-                        <div style={{ position:'relative', flexShrink:0 }}>
-                          {active.icon}
-                          {active.particles}
-                        </div>
-                        <div>
-                          <p style={{ margin:'0 0 3px', fontSize:15, fontWeight:700, color:C.text }}>
-                            {active.label}
-                          </p>
-                          <p style={{ margin:0, fontSize:12, color:C.muted }}>
-                            { active.key === 'spring' ? 'March – May'
-                            : active.key === 'summer' ? 'June – August'
-                            : active.key === 'autumn' ? 'September – November'
-                            : 'December – February' }
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              <DevSeasonTester />
             </div>
 
           </div>
