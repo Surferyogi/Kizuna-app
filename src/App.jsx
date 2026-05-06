@@ -4024,16 +4024,16 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 // ─── Dev Panel sub-components (hooks need proper function components) ──────
 const QUOTE_DEMOS = [
-  { label:'🌸 Spring',      quote:{ quote:'In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.', label:'Being Present · Today's Reflection', isSpecial:false } },
-  { label:'🎆 Summer',      quote:{ quote:'Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.', label:'Simple Joy · Today's Reflection', isSpecial:false } },
-  { label:'🍁 Autumn',      quote:{ quote:'Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.', label:'Home & Belonging · Today's Reflection', isSpecial:false } },
-  { label:'❄️ Winter',      quote:{ quote:'In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.', label:'Inner Calm · Today's Reflection', isSpecial:false } },
-  { label:'🧧 CNY',         quote:{ quote:'A new year opens like a door we have never walked through — full of rooms we have not yet discovered.', label:'Chinese New Year · Special Quote', isSpecial:true } },
-  { label:'🌸 Mother's',   quote:{ quote:'Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.', label:'Mother's Day · Special Quote', isSpecial:true } },
-  { label:'👨 Father's',   quote:{ quote:'He taught us not by what he said but by how he stayed — steady as earth beneath every storm.', label:'Father's Day · Special Quote', isSpecial:true } },
-  { label:'🎂 Birthday',    quote:{ quote:'Today we count not just years but all the small brave moments that quietly shaped who we are becoming.', label:'Birthday · Special Quote', isSpecial:true } },
-  { label:'💍 Anniversary', quote:{ quote:'Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.', label:'Anniversary · Special Quote', isSpecial:true } },
-  { label:'📖 Rumi',        quote:{ quote:'Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi', label:'Trust · Today's Reflection', isSpecial:false } },
+  { label:"🌸 Spring",      quote:{ quote:"In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.", label:"Being Present · Today's Reflection", isSpecial:false } },
+  { label:"🎆 Summer",      quote:{ quote:"Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.", label:"Simple Joy · Today's Reflection", isSpecial:false } },
+  { label:"🍁 Autumn",      quote:{ quote:"Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.", label:"Home & Belonging · Today's Reflection", isSpecial:false } },
+  { label:"❄️ Winter",      quote:{ quote:"In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.", label:"Inner Calm · Today's Reflection", isSpecial:false } },
+  { label:"🧧 CNY",         quote:{ quote:"A new year opens like a door we have never walked through — full of rooms we have not yet discovered.", label:"Chinese New Year · Special Quote", isSpecial:true } },
+  { label:"🌸 Mother's",    quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
+  { label:"👨 Father's",    quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
+  { label:"🎂 Birthday",    quote:{ quote:"Today we count not just years but all the small brave moments that quietly shaped who we are becoming.", label:"Birthday · Special Quote", isSpecial:true } },
+  { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
+  { label:"📖 Rumi",        quote:{ quote:"Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi", label:"Trust · Today's Reflection", isSpecial:false } },
 ];
 
 function DevQuoteTester() {
