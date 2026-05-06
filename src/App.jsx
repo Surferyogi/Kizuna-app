@@ -4957,33 +4957,78 @@ const MomijiIcon = () => (
 );
 
 // ─── WINTER: Snowflake ────────────────────────────────────────────
-const SnowflakeIcon = () => {
-  const arms = [0, 60, 120, 180, 240, 300];
-  const Arm = ({ cx, cy, rot, scale=1 }) => (
-    <g transform={`translate(${cx},${cy}) rotate(${rot}) scale(${scale})`}>
-      <line x1="0" y1="0" x2="0" y2="-8" stroke="#A8D8EA" strokeWidth="1.6" strokeLinecap="round" />
-      <line x1="-2.5" y1="-4" x2="2.5" y2="-4" stroke="#A8D8EA" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="-1.8" y1="-6.2" x2="1.8" y2="-6.2" stroke="#A8D8EA" strokeWidth="1" strokeLinecap="round" />
-      <circle cx="0" cy="-8" r="0.8" fill="#C8EEFF" opacity="0.9" />
-    </g>
-  );
-  return (
-    <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
-      style={{ display:'block', flexShrink:0 }}>
-      {/* Small snowflake — upper right */}
-      {arms.map(a => <Arm key={a} cx={37} cy={13} rot={a} scale={0.62} />)}
-      <circle cx="37" cy="13" r="1.4" fill="#C8EEFF" opacity="0.9" />
-      {/* Large snowflake — lower left */}
-      {arms.map(a => <Arm key={a} cx={15} cy={27} rot={a} scale={1} />)}
-      <circle cx="15" cy="27" r="2" fill="#C8EEFF" opacity="0.95" />
-      {/* Tiny snow dots */}
-      {[[47,7],[6,34],[30,37],[3,14],[42,32]].map(([x,y],i) => (
-        <circle key={i} cx={x} cy={y} r="1.2" fill="#C8EEFF" opacity="0.55" />
-      ))}
-    </svg>
-  );
-};
+const SNOW_ICON_CSS = `
+@keyframes sFlake1 {
+  0%   { transform:translate(8px,-12px) rotate(0deg);    opacity:0; }
+  8%   { opacity:0.8; }
+  100% { transform:translate(22px,58px) rotate(180deg);  opacity:0; }
+}
+@keyframes sFlake2 {
+  0%   { transform:translate(28px,-8px) rotate(20deg);   opacity:0; }
+  12%  { opacity:0.65; }
+  100% { transform:translate(12px,54px) rotate(-90deg);  opacity:0; }
+}
+@keyframes sFlake3 {
+  0%   { transform:translate(46px,-10px) rotate(-15deg); opacity:0; }
+  10%  { opacity:0.75; }
+  100% { transform:translate(34px,60px) rotate(120deg);  opacity:0; }
+}
+@keyframes sFlake4 {
+  0%   { transform:translate(16px,-6px) rotate(30deg);   opacity:0; }
+  15%  { opacity:0.6; }
+  100% { transform:translate(4px,52px) rotate(-150deg);  opacity:0; }
+}
+@keyframes sFlake5 {
+  0%   { transform:translate(36px,-14px) rotate(-10deg); opacity:0; }
+  9%   { opacity:0.7; }
+  100% { transform:translate(50px,56px) rotate(200deg);  opacity:0; }
+}
+@keyframes sFlake6 {
+  0%   { transform:translate(22px,-8px) rotate(15deg);   opacity:0; }
+  13%  { opacity:0.55; }
+  100% { transform:translate(8px,50px) rotate(-110deg);  opacity:0; }
+}
+`;
+const SNOW_BG_FLAKES = [
+  { anim:'sFlake1', dur:'3.4s', delay:'0.0s', emoji:'❄️', size:11 },
+  { anim:'sFlake2', dur:'4.2s', delay:'1.3s', emoji:'❄️', size:9  },
+  { anim:'sFlake3', dur:'3.0s', delay:'2.7s', emoji:'❄️', size:10 },
+  { anim:'sFlake4', dur:'4.8s', delay:'0.6s', emoji:'❄️', size:8  },
+  { anim:'sFlake5', dur:'3.7s', delay:'1.8s', emoji:'❄️', size:9  },
+  { anim:'sFlake6', dur:'4.0s', delay:'3.2s', emoji:'❄️', size:8  },
+];
 
+const SnowflakeIcon = () => (
+  <div style={{ position:'relative', width:52, height:42,
+    display:'block', flexShrink:0, overflow:'visible' }}>
+    <style>{SNOW_ICON_CSS}</style>
+
+    {/* ── Animated falling flakes — behind the main emojis ── */}
+    {SNOW_BG_FLAKES.map((f, i) => (
+      <div key={i} style={{
+        position:'absolute', top:0, left:0,
+        fontSize:f.size, lineHeight:1,
+        opacity:0, userSelect:'none', pointerEvents:'none',
+        animationName:f.anim, animationDuration:f.dur,
+        animationDelay:f.delay, animationTimingFunction:'linear',
+        animationIterationCount:'infinite', animationFillMode:'both',
+        zIndex:0,
+      }}>{f.emoji}</div>
+    ))}
+
+    {/* ── Foreground: static large + small ❄️ ── */}
+    <div style={{ position:'absolute', bottom:0, left:0,
+      fontSize:36, lineHeight:1, zIndex:1,
+      transform:'rotate(-10deg)',
+      filter:'drop-shadow(0 2px 6px rgba(100,200,240,0.55))',
+      userSelect:'none' }}>❄️</div>
+    <div style={{ position:'absolute', top:0, right:0,
+      fontSize:21, lineHeight:1, zIndex:1,
+      transform:'rotate(18deg)',
+      filter:'drop-shadow(0 1px 4px rgba(100,200,240,0.45))',
+      userSelect:'none' }}>❄️</div>
+  </div>
+);
 // ─── SEASONAL ICON WRAPPER ────────────────────────────────────────
 const SeasonIcon = () => {
   const season = getSeason();
@@ -5174,42 +5219,10 @@ const MomijiParticles = () => (
 );
 
 // ─── WINTER: Falling snowflakes ───────────────────────────────────
-const SNOW_PARTICLES = [
-  { left:'42%', delay:'0s',    dur:'3.0s', anim:'snowFall1', size:6 },
-  { left:'60%', delay:'1.0s',  dur:'3.8s', anim:'snowFall2', size:5 },
-  { left:'30%', delay:'2.0s',  dur:'3.4s', anim:'snowFall3', size:5 },
-  { left:'52%', delay:'0.5s',  dur:'4.2s', anim:'snowFall4', size:4 },
-];
-const SnowParticles = () => (
-  <div style={{ position:'absolute', top:0, right:0, width:68, height:60,
-    pointerEvents:'none', overflow:'visible', zIndex:10 }}>
-    {SNOW_PARTICLES.map((p, i) => (
-      <div key={i} style={{
-        position:'absolute', top:4, left:p.left,
-        width:p.size, height:p.size, opacity:0,
-        animationName:p.anim,
-        animationDuration:p.dur,
-        animationDelay:p.delay,
-        animationTimingFunction:'linear',
-        animationIterationCount:'infinite',
-        animationFillMode:'both',
-      }}>
-        <svg width={p.size} height={p.size} viewBox="-8 -8 16 16">
-          {[0,60,120].map(a => {
-            const r = a * Math.PI / 180;
-            return <g key={a}>
-              <line x1={(-Math.cos(r)*6).toFixed(1)} y1={(-Math.sin(r)*6).toFixed(1)}
-                    x2={(Math.cos(r)*6).toFixed(1)}  y2={(Math.sin(r)*6).toFixed(1)}
-                    stroke="#A8D8EA" strokeWidth="1.5" strokeLinecap="round" />
-            </g>;
-          })}
-          <circle cx="0" cy="0" r="1.5" fill="#C8EEFF" />
-        </svg>
-      </div>
-    ))}
-  </div>
-);
-
+// SnowParticles is now embedded inside SnowflakeIcon — kept as empty stub
+// so SeasonParticles wrapper doesn't break
+const SNOW_PARTICLES = [];
+const SnowParticles = () => null;
 // ─── SEASONAL PARTICLES WRAPPER ───────────────────────────────────
 const SeasonParticles = () => {
   const season = getSeason();
