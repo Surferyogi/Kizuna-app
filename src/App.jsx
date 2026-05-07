@@ -4450,11 +4450,20 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 // ─── Dev Panel sub-components (hooks need proper function components) ──────
-const QUOTE_DEMOS = [
-  { label:"🌸 Spring",      quote:{ quote:"In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.", label:"Being Present · Today's Reflection", isSpecial:false } },
-  { label:"🎆 Summer",      quote:{ quote:"Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.", label:"Simple Joy · Today's Reflection", isSpecial:false } },
-  { label:"🍁 Autumn",      quote:{ quote:"Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.", label:"Home & Belonging · Today's Reflection", isSpecial:false } },
-  { label:"❄️ Winter",      quote:{ quote:"In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.", label:"Inner Calm · Today's Reflection", isSpecial:false } },
+// Seasonal quote data for the 4 seasons
+const SEASON_QUOTES = [
+  { key:'spring', label:'🌸 Spring', bg:'#120a0e', useCanvas:false,
+    quote:{ quote:"In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.", label:"Being Present · Today's Reflection", isSpecial:false } },
+  { key:'summer', label:'🎆 Summer', bg:'#020b18', useCanvas:true,
+    quote:{ quote:"Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.", label:"Simple Joy · Today's Reflection", isSpecial:false } },
+  { key:'autumn', label:'🍁 Autumn', bg:'#0e0802', useCanvas:false,
+    quote:{ quote:"Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.", label:"Home & Belonging · Today's Reflection", isSpecial:false } },
+  { key:'winter', label:'❄️ Winter', bg:'#080d18', useCanvas:true,
+    quote:{ quote:"In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.", label:"Inner Calm · Today's Reflection", isSpecial:false } },
+];
+
+// Special occasion quotes (non-seasonal)
+const OCCASION_QUOTES = [
   { label:"🧧 CNY",         quote:{ quote:"A new year opens like a door we have never walked through — full of rooms we have not yet discovered.", label:"Chinese New Year · Special Quote", isSpecial:true } },
   { label:"🌸 Mother's",    quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
   { label:"👨 Father's",    quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
@@ -4463,95 +4472,98 @@ const QUOTE_DEMOS = [
   { label:"📖 Rumi",        quote:{ quote:"Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi", label:"Trust · Today's Reflection", isSpecial:false } },
 ];
 
-function DevAnimationPreviewer() {
+// Combined seasonal background + daily quote screen demo
+function DevSeasonQuoteTester() {
   const C  = useContext(ThemeContext);
   const VW = window.innerWidth || 390;
   const VH = window.innerHeight || 844;
-  // Scale factor: fit the full-screen canvas into a 148×108 preview card
-  const PW = 148, PH = 108;
+  const PW = 148, PH = 112;
   const scale = Math.min(PW / VW, PH / VH);
-
-  const cards = [
-    { key:'spring', label:'🌸 Spring', bg:'#120a0e', useCanvas:false },
-    { key:'summer', label:'🎆 Summer', bg:'#020b18', useCanvas:true  },
-    { key:'autumn', label:'🍁 Autumn', bg:'#0e0802', useCanvas:false },
-    { key:'winter', label:'❄️ Winter', bg:'#080d18', useCanvas:true  },
-  ];
-
-  const iconMap  = { spring:<KizunaIcon />,    summer:<FireworkIcon />,
-                     autumn:<MomijiIcon />,     winter:<SnowflakeIcon /> };
-  const partMap  = { spring:<SakuraPetals />,  autumn:<MomijiParticles /> };
-
-  return (
-    <div style={{ display:'flex', flexWrap:'wrap', gap:10 }}>
-      {cards.map(card => (
-        <div key={card.key} style={{
-          width:PW, borderRadius:BR.card,
-          border:`1px solid ${C.border}`,
-          overflow:'hidden', position:'relative',
-          background:card.bg, flexShrink:0,
-        }}>
-          {/* Canvas animation — scaled down via CSS transform */}
-          {card.useCanvas && (
-            <div style={{
-              position:'absolute', top:0, left:0,
-              width:VW, height:VH,
-              transform:`scale(${scale})`, transformOrigin:'top left',
-              pointerEvents:'none',
-            }}>
-              {card.key === 'summer' ? <HokusaiWaveBackground /> : <WinterSnowBackground />}
-            </div>
-          )}
-
-          {/* Particle animation for spring/autumn — contained */}
-          {!card.useCanvas && (
-            <div style={{ position:'relative', height:PH, overflow:'hidden' }}>
-              {partMap[card.key]}
-            </div>
-          )}
-
-          {/* Spacer for canvas cards */}
-          {card.useCanvas && <div style={{ height:PH }} />}
-
-          {/* Seasonal icon — centred, above canvas */}
-          <div style={{
-            position:'absolute', top:'50%', left:'50%',
-            transform:'translate(-50%,-62%) scale(1.1)',
-            zIndex:2, pointerEvents:'none',
-          }}>
-            {iconMap[card.key]}
-          </div>
-
-          {/* Season label */}
-          <div style={{
-            position:'relative', zIndex:2,
-            textAlign:'center', fontSize:11,
-            color:'rgba(255,255,255,0.85)',
-            fontWeight:700, paddingBottom:7,
-            background:'linear-gradient(transparent,rgba(0,0,0,0.55))',
-          }}>
-            {card.label}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DevQuoteTester() {
-  const C = useContext(ThemeContext);
   const [testQuote, setTestQuote] = useState(null);
+
+  const iconMap = { spring:<KizunaIcon />, summer:<FireworkIcon />,
+                    autumn:<MomijiIcon />, winter:<SnowflakeIcon /> };
+  const partMap = { spring:<SakuraPetals />, autumn:<MomijiParticles /> };
+
   return (
     <>
+      {/* Full-screen quote overlay when a card is tapped */}
       {testQuote && (
-        <DailyQuoteScreen quoteData={testQuote} loading={false} onDismiss={() => setTestQuote(null)} />
+        <DailyQuoteScreen quoteData={testQuote} loading={false}
+          onDismiss={() => setTestQuote(null)} />
       )}
+
+      {/* 4 tappable season preview cards */}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginBottom:14 }}>
+        {SEASON_QUOTES.map(s => (
+          <div key={s.key}
+            onClick={() => setTestQuote(s.quote)}
+            style={{
+              width:PW, borderRadius:BR.card, cursor:'pointer',
+              border:`1.5px solid ${C.border}`, overflow:'hidden',
+              position:'relative', background:s.bg, flexShrink:0,
+              boxShadow:'0 2px 10px rgba(0,0,0,0.4)',
+              transition:'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform='scale(1.03)'; e.currentTarget.style.boxShadow='0 4px 18px rgba(0,0,0,0.6)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform='scale(1)';    e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.4)'; }}>
+
+            {/* Canvas (summer/winter) — scaled to card */}
+            {s.useCanvas && (
+              <div style={{
+                position:'absolute', top:0, left:0,
+                width:VW, height:VH,
+                transform:`scale(${scale})`, transformOrigin:'top left',
+                pointerEvents:'none',
+              }}>
+                {s.key === 'summer' ? <HokusaiWaveBackground /> : <WinterSnowBackground />}
+              </div>
+            )}
+
+            {/* CSS particles (spring/autumn) */}
+            {!s.useCanvas && (
+              <div style={{ position:'relative', height:PH, overflow:'hidden' }}>
+                {partMap[s.key]}
+              </div>
+            )}
+
+            {/* Height spacer for canvas cards */}
+            {s.useCanvas && <div style={{ height:PH }} />}
+
+            {/* Season icon centred */}
+            <div style={{
+              position:'absolute', top:'50%', left:'50%',
+              transform:'translate(-50%,-65%) scale(1.15)',
+              zIndex:2, pointerEvents:'none',
+            }}>
+              {iconMap[s.key]}
+            </div>
+
+            {/* Tap hint + label */}
+            <div style={{
+              position:'relative', zIndex:2,
+              textAlign:'center', paddingBottom:8, paddingTop:2,
+              background:'linear-gradient(transparent,rgba(0,0,0,0.65))',
+            }}>
+              <div style={{ fontSize:11, fontWeight:700,
+                color:'rgba(255,255,255,0.92)' }}>{s.label}</div>
+              <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)',
+                marginTop:1 }}>tap to preview</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Special occasion quote buttons */}
+      <p style={{ margin:'0 0 8px', fontSize:12, color:C.muted }}>
+        Special occasions:
+      </p>
       <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-        {QUOTE_DEMOS.map(({ label, quote }) => (
+        {OCCASION_QUOTES.map(({ label, quote }) => (
           <button key={label} onClick={() => setTestQuote(quote)}
-            style={{ padding:'9px 12px', borderRadius:BR.input,
+            style={{ padding:'8px 12px', borderRadius:BR.input,
               background:C.elevated, border:`1px solid ${C.border}`,
-              color:C.text, fontFamily:'inherit', fontSize:13,
+              color:C.text, fontFamily:'inherit', fontSize:12,
               fontWeight:600, cursor:'pointer' }}>
             {label}
           </button>
@@ -4854,26 +4866,15 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               </div>
             </div>
 
-            {/* ── Daily Quote Demo ── */}
+            {/* ── Seasonal Quote + Background combined ── */}
             <div style={{ marginBottom:16, borderTop:`1px dashed ${C.border}`, paddingTop:14 }}>
               <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
                 💬 Daily Quote Screen
               </p>
-              <p style={{ margin:'0 0 10px', fontSize:12, color:C.muted }}>
-                Preview the quote page for each theme. Tap the screen to dismiss.
-              </p>
-              <DevQuoteTester />
-            </div>
-
-            {/* ── Seasonal Backgrounds Preview ── */}
-            <div style={{ borderTop:`1px dashed ${C.border}`, paddingTop:14, marginBottom:16 }}>
-              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
-                🎨 Seasonal Background Animations
-              </p>
               <p style={{ margin:'0 0 12px', fontSize:12, color:C.muted }}>
-                Live preview of all 4 season backgrounds — Hokusai waves, snow physics, petals, momiji.
+                Tap a season card to preview the full quote screen with its live background animation.
               </p>
-              <DevAnimationPreviewer />
+              <DevSeasonQuoteTester />
             </div>
 
             {/* ── Seasonal Icons Test ── */}
