@@ -2,6 +2,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, useContext, createContext } from "react";
 import { supabase, supabaseConfigured } from './supabase.js';
 import FestiveFireworks, { detectFestiveTheme } from './components/FestiveFireworks.jsx';
+import MomijiOverlay from './components/MomijiOverlay.jsx';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
@@ -2848,46 +2849,24 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
         animation: swiping ? 'quoteSwipeDown 0.35s ease-in forwards' : 'none',
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
-      {isAutumn && <style>{SPLASH_MOMIJI_CSS}</style>}
 
-      {/* Canvas backgrounds for summer (Hokusai) and winter (snow) */}
+      {/* Canvas backgrounds for summer (Hokusai), winter (snow), autumn (MomijiOverlay) */}
       {isSummer && <HokusaiWaveBackground />}
       {isWinter && <WinterSnowBackground />}
+      {isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
-      {/* Seasonal background particles — full screen */}
-      {isAutumn
-        ? SPLASH_MOMIJI.map((p, i) => (
-            <div key={i} style={{
-              position:'absolute', top:0, left:p.left, opacity:0,
-              animationName:p.anim, animationDuration:p.dur,
-              animationDelay:p.delay, animationTimingFunction:'ease-in',
-              animationIterationCount:'infinite', animationFillMode:'both',
-              pointerEvents:'none',
-            }}>
-              <svg width={p.size} height={p.size+3}
-                viewBox="-13 -18 26 22" overflow="visible">
-                <path d={p.path} fill={p.fill}
-                  stroke={p.vein} strokeWidth="0.5" opacity="0.92"/>
-                <line x1="0" y1="2" x2="0" y2="-16"
-                  stroke={p.vein} strokeWidth="0.6"
-                  strokeLinecap="round" opacity="0.5"/>
-              </svg>
-            </div>
-          ))
-        : (isSummer || isWinter)
-        ? null  // canvas handles summer (Hokusai) and winter (snow)
-        : SPLASH_PETALS.map((p, i) => (
-            <div key={i} style={{
-              position:'absolute', top:0, left:p.left,
-              width:p.size, height:p.size,
-              borderRadius:'50% 50% 50% 0', background:p.color, opacity:0,
-              animationName:p.anim, animationDuration:p.dur,
-              animationDelay:p.delay, animationTimingFunction:'ease-in',
-              animationIterationCount:'infinite', animationFillMode:'both',
-              pointerEvents:'none',
-            }} />
-          ))
-      }
+      {/* Spring sakura petals — other seasons handled by canvas/MomijiOverlay */}
+      {(!isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
+        <div key={i} style={{
+          position:'absolute', top:0, left:p.left,
+          width:p.size, height:p.size,
+          borderRadius:'50% 50% 50% 0', background:p.color, opacity:0,
+          animationName:p.anim, animationDuration:p.dur,
+          animationDelay:p.delay, animationTimingFunction:'ease-in',
+          animationIterationCount:'infinite', animationFillMode:'both',
+          pointerEvents:'none',
+        }} />
+      ))}
 
       {/* Kizuna logo */}
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
@@ -4462,7 +4441,7 @@ const SEASON_QUOTES = [
     quote:{ quote:"In the quiet bloom of spring we find ourselves renewed, petal by petal, breath by breath.", label:"Being Present · Today's Reflection", isSpecial:false } },
   { key:'summer', label:'🎆 Summer', bg:'#020b18', useCanvas:true,
     quote:{ quote:"Summer holds our laughter like light holds the sea — boundless, warm, and endlessly free.", label:"Simple Joy · Today's Reflection", isSpecial:false } },
-  { key:'autumn', label:'🍁 Autumn', bg:'#0e0802', useCanvas:false,
+  { key:'autumn', label:'🍁 Autumn', bg:'#0e0802', useCanvas:true,
     quote:{ quote:"Letting go is how the maple becomes most beautiful — releasing what it held all year with grace.", label:"Home & Belonging · Today's Reflection", isSpecial:false } },
   { key:'winter', label:'❄️ Winter', bg:'#080d18', useCanvas:true,
     quote:{ quote:"In stillness we are held. Winter reminds us that rest is not absence — it is the ground of all becoming.", label:"Inner Calm · Today's Reflection", isSpecial:false } },
@@ -4490,7 +4469,7 @@ function DevSeasonQuoteTester() {
 
   const iconMap = { spring:<KizunaIcon />, summer:<FireworkIcon />,
                     autumn:<MomijiIcon />, winter:<SnowflakeIcon /> };
-  const partMap = { spring:<SakuraPetals />, autumn:<MomijiParticles /> };
+  const partMap = { spring:<SakuraPetals />, autumn:<MomijiOverlay isVisible intensity="light" /> };
 
   return (
     <>
@@ -4516,7 +4495,7 @@ function DevSeasonQuoteTester() {
             onMouseEnter={e => { e.currentTarget.style.transform='scale(1.03)'; e.currentTarget.style.boxShadow='0 4px 18px rgba(0,0,0,0.6)'; }}
             onMouseLeave={e => { e.currentTarget.style.transform='scale(1)';    e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.4)'; }}>
 
-            {/* Canvas (summer/winter) — scaled to card */}
+            {/* Canvas (summer/winter/autumn) — scaled to card */}
             {s.useCanvas && (
               <div style={{
                 position:'absolute', top:0, left:0,
@@ -4524,7 +4503,9 @@ function DevSeasonQuoteTester() {
                 transform:`scale(${scale})`, transformOrigin:'top left',
                 pointerEvents:'none',
               }}>
-                {s.key === 'summer' ? <HokusaiWaveBackground /> : <WinterSnowBackground />}
+                {s.key === 'summer' ? <HokusaiWaveBackground />
+                  : s.key === 'autumn' ? <MomijiOverlay isVisible intensity="light" />
+                  : <WinterSnowBackground />}
               </div>
             )}
 
@@ -5831,7 +5812,7 @@ const SnowParticles = () => null;
 const SeasonParticles = () => {
   const season = getSeason();
   if (season === 'summer') return <FireworkParticles />;
-  if (season === 'autumn') return <MomijiParticles />;
+  if (season === 'autumn') return <MomijiOverlay isVisible intensity="light" />;
   if (season === 'winter') return <SnowParticles />;
   return <SakuraPetals />; // spring
 };
