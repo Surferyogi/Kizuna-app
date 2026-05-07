@@ -2784,8 +2784,8 @@ function MomijiOverlay({ isVisible = true, intensity = 'medium' }) {
   );
 }
 
-// ─── HOTARU OVERLAY — simple generic fireflies ───────────────────────────────
-function HotaruOverlay({ isVisible=true, count=20, zIndex=9999 }) {
+// ─── HOTARU OVERLAY — elegant colorful fireflies, no trail ──────────────────
+function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
   const canvasRef = useRef(null);
   useEffect(() => {
     if (!isVisible) return;
@@ -2794,27 +2794,54 @@ function HotaruOverlay({ isVisible=true, count=20, zIndex=9999 }) {
     let VW = window.innerWidth, VH = window.innerHeight;
     let ctx;
     const setup = () => {
-      canvas.width = Math.round(VW*dpr); canvas.height = Math.round(VH*dpr);
-      canvas.style.width = VW+'px'; canvas.style.height = VH+'px';
+      canvas.width  = Math.round(VW*dpr);
+      canvas.height = Math.round(VH*dpr);
+      canvas.style.width  = VW+'px';
+      canvas.style.height = VH+'px';
       ctx = canvas.getContext('2d');
       ctx.setTransform(dpr,0,0,dpr,0,0);
     };
     setup();
-    // Initial dark fill
-    ctx.fillStyle = 'rgba(2,6,20,1)'; ctx.fillRect(0,0,VW,VH);
 
-    const flies = Array.from({length: count}, () => ({
-      x:        Math.random() * VW,
-      y:        Math.random() * VH,
-      vx:       (Math.random()-0.5) * 0.7,
-      vy:       (Math.random()-0.5) * 0.5,
-      phase:    Math.random() * Math.PI * 2,
-      blinkSpd: 0.012 + Math.random() * 0.022,
-      core:     0.8  + Math.random() * 2.0,
-      glowR:    (0.8 + Math.random() * 2.0) * 11,
-    }));
+    // Colour palette — warm yellows, soft greens, teals, pale golds
+    const PALETTES = [
+      { h:[68,95,62],  c:[60,100,96]  },  // classic warm yellow-green
+      { h:[52,90,58],  c:[48,100,94]  },  // golden amber
+      { h:[80,80,55],  c:[75,90,90]   },  // soft lime
+      { h:[160,70,45], c:[155,85,82]  },  // aqua teal
+      { h:[44,95,52],  c:[40,100,90]  },  // deep amber-gold
+      { h:[100,65,50], c:[95,80,85]   },  // yellow-green
+      { h:[190,55,48], c:[185,75,80]  },  // ice blue-green
+    ];
 
-    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); ctx.fillStyle='rgba(2,6,20,1)'; ctx.fillRect(0,0,VW,VH); };
+    const mkFly = () => {
+      const pal   = PALETTES[Math.floor(Math.random() * PALETTES.length)];
+      const core  = 3 + Math.random() * 4;        // 3–7px — bigger, visible
+      const spd   = 0.15 + Math.random() * 0.55;  // slow & elegant
+      const ang   = Math.random() * Math.PI * 2;
+      const isPaused = Math.random() < 0.3;
+      return {
+        x: VW*0.08 + Math.random()*VW*0.84,
+        y: VH*0.08 + Math.random()*VH*0.84,
+        vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+        speed: spd,
+        targetAngle: ang, turnT: 0,
+        paused: isPaused,
+        pauseTimer: isPaused ? 800+Math.random()*2400 : 0,
+        moveTimer:  !isPaused ? 1200+Math.random()*3000 : 0,
+        hoverPhase: Math.random()*Math.PI*2,
+        hoverAmp:   0.12 + Math.random()*0.22,
+        phase:      Math.random()*Math.PI*2,
+        blinkSpd:   0.008 + Math.random()*0.018,
+        pal, core,
+        glowR: core * (8 + Math.random()*5),
+        alpha: 0,
+      };
+    };
+
+    const flies = Array.from({length: count}, mkFly);
+
+    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); };
     window.addEventListener('resize', onResize);
 
     let animId, lastT=null;
@@ -2822,42 +2849,92 @@ function HotaruOverlay({ isVisible=true, count=20, zIndex=9999 }) {
       const dt = lastT ? Math.min(now-lastT,50) : 16; lastT=now;
       const ds = dt/16;
 
-      // Atmospheric accumulation — no clearRect
-      ctx.fillStyle = 'rgba(2,6,20,0.06)'; ctx.fillRect(0,0,VW,VH);
+      // Clean clear — no trail accumulation
+      ctx.clearRect(0, 0, VW, VH);
 
       for (const f of flies) {
+        // Fade in on spawn
+        f.alpha = Math.min(1, f.alpha + 0.012*ds);
+        // Smooth glow pulse — never fully off
         f.phase += f.blinkSpd * ds;
-        const bright = Math.max(0, Math.sin(f.phase));
+        const bright = 0.35 + 0.65 * ((Math.sin(f.phase)+1)/2);
 
-        // Gentle random drift + damping
-        f.vx += (Math.random()-0.5) * 0.05 * ds;
-        f.vy += (Math.random()-0.5) * 0.04 * ds;
-        f.vx *= 0.985; f.vy *= 0.985;
+        if (f.paused) {
+          // Hover: gentle Lissajous oscillation while stationary
+          f.pauseTimer -= dt;
+          f.hoverPhase += 0.022*ds;
+          f.vx += Math.sin(f.hoverPhase)       * f.hoverAmp * 0.012 * ds;
+          f.vy += Math.cos(f.hoverPhase * 0.7) * f.hoverAmp * 0.010 * ds;
+          f.vx *= Math.pow(0.88, ds);
+          f.vy *= Math.pow(0.88, ds);
+          if (f.pauseTimer <= 0) {
+            f.paused = false;
+            f.moveTimer    = 1200 + Math.random()*3000;
+            f.targetAngle  = Math.random()*Math.PI*2;
+            f.turnT = 0;
+            f.speed = 0.15 + Math.random()*0.55;
+          }
+        } else {
+          // Move: ease toward target angle, organic mid-flight nudges
+          f.moveTimer -= dt;
+          f.turnT = Math.min(1, f.turnT + 0.008*ds);
+          const cur = Math.atan2(f.vy, f.vx);
+          const diff = ((f.targetAngle - cur + 3*Math.PI) % (2*Math.PI)) - Math.PI;
+          const blended = cur + diff * Math.min(f.turnT, 0.06);
+          f.vx = Math.cos(blended)*f.speed;
+          f.vy = Math.sin(blended)*f.speed;
+          if (f.moveTimer <= 0) {
+            f.paused = true;
+            f.pauseTimer = 800 + Math.random()*2400;
+          } else if (Math.random() < 0.004*ds) {
+            f.targetAngle += (Math.random()-0.5)*Math.PI*0.8;
+            f.turnT = 0;
+          }
+        }
+
+        // Speed cap
+        const sp = Math.sqrt(f.vx*f.vx + f.vy*f.vy);
+        if (sp > f.speed+0.02) { f.vx*=f.speed/sp; f.vy*=f.speed/sp; }
 
         // Soft boundary nudge
-        if (f.x < 60)      f.vx += 0.025;
-        if (f.x > VW-60)   f.vx -= 0.025;
-        if (f.y < 60)      f.vy += 0.020;
-        if (f.y > VH-60)   f.vy -= 0.020;
+        const mg = 60;
+        if (f.x < mg)      f.vx += 0.018*(mg-f.x)/mg;
+        if (f.x > VW-mg)   f.vx -= 0.018*(f.x-(VW-mg))/mg;
+        if (f.y < mg)      f.vy += 0.014*(mg-f.y)/mg;
+        if (f.y > VH-mg)   f.vy -= 0.014*(f.y-(VH-mg))/mg;
 
-        f.x += f.vx * ds; f.y += f.vy * ds;
-        if (bright < 0.04) continue;
+        f.x += f.vx*ds; f.y += f.vy*ds;
+
+        // ── Draw 3-layer glow ─────────────────────────────────────────
+        const [hH,hS,hL] = f.pal.h;
+        const [cH,cS,cL] = f.pal.c;
+        const ga = (f.alpha * bright).toFixed(3);
 
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
 
-        // Outer glow
+        // Wide diffuse aura
         const og = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,f.glowR);
-        og.addColorStop(0, `rgba(160,255,100,${(bright*0.28).toFixed(3)})`);
-        og.addColorStop(1,  'rgba(80,200,40,0)');
+        og.addColorStop(0,   `hsla(${hH},${hS}%,${hL}%,${+(ga*0.22).toFixed(3)})`);
+        og.addColorStop(0.5, `hsla(${hH},${hS}%,${hL}%,${+(ga*0.08).toFixed(3)})`);
+        og.addColorStop(1,   `hsla(${hH},${hS}%,${hL}%,0)`);
         ctx.fillStyle = og;
         ctx.beginPath(); ctx.arc(f.x,f.y,f.glowR,0,Math.PI*2); ctx.fill();
 
+        // Mid luminous halo
+        const hR = f.core * 3.5;
+        const hg = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,hR);
+        hg.addColorStop(0,   `hsla(${hH},${hS}%,${hL}%,${+(+ga*0.75).toFixed(3)})`);
+        hg.addColorStop(0.6, `hsla(${hH},${hS}%,${hL}%,${+(+ga*0.25).toFixed(3)})`);
+        hg.addColorStop(1,   `hsla(${hH},${hS}%,${hL}%,0)`);
+        ctx.fillStyle = hg;
+        ctx.beginPath(); ctx.arc(f.x,f.y,hR,0,Math.PI*2); ctx.fill();
+
         // Tight bright core
         const cg = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,f.core);
-        cg.addColorStop(0,   `rgba(230,255,190,${(bright*0.95).toFixed(3)})`);
-        cg.addColorStop(0.6, `rgba(150,255,80,${(bright*0.50).toFixed(3)})`);
-        cg.addColorStop(1,   'rgba(100,200,50,0)');
+        cg.addColorStop(0,   `hsla(${cH},${cS}%,${cL}%,${+(+ga*0.98).toFixed(3)})`);
+        cg.addColorStop(0.5, `hsla(${cH},${cS}%,${cL-8}%,${+(+ga*0.65).toFixed(3)})`);
+        cg.addColorStop(1,   `hsla(${cH},${cS}%,${cL-15}%,0)`);
         ctx.fillStyle = cg;
         ctx.beginPath(); ctx.arc(f.x,f.y,f.core,0,Math.PI*2); ctx.fill();
 
@@ -2869,8 +2946,15 @@ function HotaruOverlay({ isVisible=true, count=20, zIndex=9999 }) {
     animId = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
   }, [isVisible, count]);
+
   if (!isVisible) return null;
-  return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',zIndex,pointerEvents:'none',background:'transparent'}} />;
+  return (
+    <canvas ref={canvasRef} style={{
+      position:'fixed', top:0, left:0,
+      width:'100vw', height:'100vh',
+      zIndex, pointerEvents:'none', background:'transparent',
+    }} />
+  );
 }
 
 
