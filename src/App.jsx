@@ -2784,56 +2784,8 @@ function MomijiOverlay({ isVisible = true, intensity = 'medium' }) {
   );
 }
 
-// ─── HOTARU OVERLAY — Studio Ghibli fireflies, flow field, 3-layer parallax ─
-function isHotaruSeason() {
-  const m = new Date().getMonth() + 1, d = new Date().getDate();
-  if (m === 6 && d >= 15) return 'early';
-  if (m === 7 && d <= 20) return 'peak';
-  if (m === 7 && d >= 21) return 'late';
-  if (m === 8 && d <= 5)  return 'late';
-  return null;
-}
-
-const _hRand  = (a, b) => a + Math.random() * (b - a);
-const _hLerp  = (a, b, t) => a + (b - a) * t;
-const _hClamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const _hHypot = (x, y) => Math.sqrt(x * x + y * y);
-const _hEase  = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-const _hLerpAngle = (a, b, t) => {
-  const diff = ((b - a + 3*Math.PI) % (2*Math.PI)) - Math.PI;
-  return a + diff * t;
-};
-
-function _spawnFirefly(W, H, layer) {
-  const LC = [
-    { coreMin:0.8, coreMax:1.5, speedMult:0.45, alphaMax:0.52 },
-    { coreMin:1.2, coreMax:2.2, speedMult:0.72, alphaMax:0.75 },
-    { coreMin:1.8, coreMax:3.2, speedMult:1.00, alphaMax:0.96 },
-  ][layer];
-  const pr = Math.random();
-  const [sMult, aMult, aScale] = pr < 0.35 ? [0.65,0.70,1.40]
-    : pr < 0.65 ? [1.25,1.10,0.88] : [0.90,0.50,1.05];
-  const core = _hRand(LC.coreMin, LC.coreMax);
-  return {
-    x:_hRand(W*0.06,W*0.94), y:_hRand(H*0.08,H*0.92),
-    vx:_hRand(-0.25,0.25), vy:_hRand(-0.18,0.18),
-    maxSpeed:_hRand(0.4,1.2)*LC.speedMult*sMult,
-    agility:_hRand(0.5,1.0)*aMult,
-    coreSize:core,
-    auraR:core*_hRand(10,14)*aScale,
-    haloR:core*_hRand(4.5,6.5),
-    layer, speedMult:LC.speedMult, alphaMax:LC.alphaMax,
-    glowIntensity:0, glowTarget:0,
-    state:'DRIFT', stateTimer:_hRand(800,2500),
-    turnTarget:_hRand(0,Math.PI*2), turnProgress:0,
-    trail:[], oscPhase:_hRand(0,Math.PI*2),
-    oscAmp:_hRand(0.25,0.85), oscFreq:_hRand(0.018,0.055),
-    squeezeX:1, squeezeY:1,
-    blur:layer===0?1.6:layer===1?0.5:0,
-  };
-}
-
-function HotaruOverlay({ isVisible=true, colorScheme='auto', count, zIndex=9999 }) {
+// ─── HOTARU OVERLAY — simple generic fireflies ───────────────────────────────
+function HotaruOverlay({ isVisible=true, count=20, zIndex=9999 }) {
   const canvasRef = useRef(null);
   useEffect(() => {
     if (!isVisible) return;
@@ -2842,203 +2794,85 @@ function HotaruOverlay({ isVisible=true, colorScheme='auto', count, zIndex=9999 
     let VW = window.innerWidth, VH = window.innerHeight;
     let ctx;
     const setup = () => {
-      canvas.width=Math.round(VW*dpr); canvas.height=Math.round(VH*dpr);
-      canvas.style.width=VW+'px'; canvas.style.height=VH+'px';
-      ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+      canvas.width = Math.round(VW*dpr); canvas.height = Math.round(VH*dpr);
+      canvas.style.width = VW+'px'; canvas.style.height = VH+'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
     };
     setup();
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    let isDark = colorScheme==='auto' ? mq.matches : colorScheme==='dark';
-    const schemeH = e => { isDark=e.matches; };
-    mq.addEventListener('change', schemeH);
-    // Initial fill
-    ctx.fillStyle = isDark ? 'rgba(2,5,16,1)' : 'rgba(235,242,225,1)';
-    ctx.fillRect(0,0,VW,VH);
+    // Initial dark fill
+    ctx.fillStyle = 'rgba(2,6,20,1)'; ctx.fillRect(0,0,VW,VH);
 
-    // Firefly pool
-    const season=isHotaruSeason();
-    const def=season==='early'?10:season==='peak'?18:season==='late'?12:18;
-    const target=count??def;
-    const flies=[];
-    const n0=Math.floor(target*0.30), n1=Math.floor(target*0.40), n2=Math.ceil(target*0.30);
-    for(let i=0;i<n0;i++) flies.push(_spawnFirefly(VW,VH,0));
-    for(let i=0;i<n1;i++) flies.push(_spawnFirefly(VW,VH,1));
-    for(let i=0;i<n2;i++) flies.push(_spawnFirefly(VW,VH,2));
+    const flies = Array.from({length: count}, () => ({
+      x:        Math.random() * VW,
+      y:        Math.random() * VH,
+      vx:       (Math.random()-0.5) * 0.7,
+      vy:       (Math.random()-0.5) * 0.5,
+      phase:    Math.random() * Math.PI * 2,
+      blinkSpd: 0.012 + Math.random() * 0.022,
+      core:     0.8  + Math.random() * 2.0,
+      glowR:    (0.8 + Math.random() * 2.0) * 11,
+    }));
 
-    // Sparkles
-    const sparks=[]; const MAX_SP=80;
-    const emit=(f)=>{
-      const n=Math.random()<0.5?1:2;
-      for(let i=0;i<n&&sparks.length<MAX_SP;i++){
-        sparks.push({
-          x:f.x+_hRand(-f.coreSize*2,f.coreSize*2),
-          y:f.y+_hRand(-f.coreSize*2,f.coreSize*2),
-          vx:_hRand(-0.45,0.45), vy:_hRand(-0.75,0.08),
-          alpha:_hRand(0.65,0.95), decay:_hRand(0.006,0.015),
-          size:_hRand(0.35,1.10), hue:_hRand(55,75),
-        });
-      }
-    };
-
-    // Flow field
-    const CELL=52;
-    let fCols=Math.ceil(VW/CELL)+1, fRows=Math.ceil(VH/CELL)+1;
-    let ff=Array.from({length:fCols},()=>new Float32Array(fRows));
-    let flowT=0;
-    const rebuildFF=()=>{
-      fCols=Math.ceil(VW/CELL)+1; fRows=Math.ceil(VH/CELL)+1;
-      ff=Array.from({length:fCols},()=>new Float32Array(fRows));
-    };
-    const sampleFF=(x,y)=>ff[_hClamp(Math.floor(x/CELL),0,fCols-1)][_hClamp(Math.floor(y/CELL),0,fRows-1)];
-
-    const onResize=()=>{
-      VW=window.innerWidth; VH=window.innerHeight; setup(); rebuildFF();
-      ctx.fillStyle=isDark?'rgba(2,5,16,1)':'rgba(235,242,225,1)'; ctx.fillRect(0,0,VW,VH);
-    };
-    window.addEventListener('resize',onResize);
+    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); ctx.fillStyle='rgba(2,6,20,1)'; ctx.fillRect(0,0,VW,VH); };
+    window.addEventListener('resize', onResize);
 
     let animId, lastT=null;
-    const frame=(now)=>{
-      const dt=lastT?Math.min(now-lastT,50):16; lastT=now;
-      const ds=dt/16;
+    const frame = (now) => {
+      const dt = lastT ? Math.min(now-lastT,50) : 16; lastT=now;
+      const ds = dt/16;
 
-      // Flow field update
-      flowT+=0.0006*ds;
-      for(let c=0;c<fCols;c++) for(let r=0;r<fRows;r++)
-        ff[c][r]=Math.sin(c*0.4+r*0.3+flowT)*Math.PI+Math.cos(c*0.2-r*0.5+flowT*0.7)*Math.PI*0.5;
+      // Atmospheric accumulation — no clearRect
+      ctx.fillStyle = 'rgba(2,6,20,0.06)'; ctx.fillRect(0,0,VW,VH);
 
-      // Haze
-      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
-      ctx.fillStyle=isDark?'rgba(3,8,22,0.022)':'rgba(220,235,200,0.016)';
-      ctx.fillRect(0,0,VW,VH);
+      for (const f of flies) {
+        f.phase += f.blinkSpd * ds;
+        const bright = Math.max(0, Math.sin(f.phase));
 
-      // Update flies
-      for(const f of flies){
-        f.stateTimer-=dt;
-        if(f.stateTimer<=0){
-          const r=Math.random();
-          if(f.state==='DRIFT'){
-            f.state=r<0.70?'PAUSE':'TURN';
-            f.stateTimer=f.state==='PAUSE'?_hRand(600,1800):_hRand(700,1500);
-            if(f.state==='TURN'){f.turnTarget=_hRand(0,Math.PI*2);f.turnProgress=0;}
-          } else if(f.state==='PAUSE'){
-            f.state=r<0.80?'FLASH':'DRIFT';
-            f.stateTimer=f.state==='FLASH'?_hRand(350,1100):_hRand(1800,4500);
-          } else if(f.state==='FLASH'){
-            if(r<0.60){f.state='DRIFT';f.stateTimer=_hRand(1800,4500);}
-            else if(r<0.85){f.state='TURN';f.stateTimer=_hRand(700,1500);f.turnTarget=_hRand(0,Math.PI*2);f.turnProgress=0;}
-            else{f.state='ASCEND';f.stateTimer=_hRand(1800,3800);}
-          } else {f.state='DRIFT';f.stateTimer=_hRand(1800,4500);}
-        }
-        // State physics
-        if(f.state==='DRIFT'){
-          const fa=sampleFF(f.x,f.y);
-          f.vx+=(Math.cos(fa)*f.maxSpeed-f.vx)*0.018*f.agility*ds;
-          f.vy+=(Math.sin(fa)*f.maxSpeed-f.vy)*0.018*f.agility*ds;
-          f.glowTarget=_hRand(0.22,0.48);
-        } else if(f.state==='PAUSE'){
-          f.vx*=Math.pow(0.92,ds); f.vy*=Math.pow(0.92,ds);
-          f.oscPhase+=f.oscFreq*ds;
-          f.vx+=Math.sin(f.oscPhase)*f.oscAmp*0.035*ds;
-          f.vy+=Math.cos(f.oscPhase*0.7)*f.oscAmp*0.028*ds;
-          f.glowTarget=_hLerp(f.glowTarget,0.88,0.014*ds);
-        } else if(f.state==='FLASH'){
-          f.vx*=Math.pow(0.97,ds); f.vy*=Math.pow(0.97,ds);
-          f.glowTarget=0.96;
-          if(f.glowIntensity>0.85&&Math.random()<0.14*ds) emit(f);
-        } else if(f.state==='TURN'){
-          f.turnProgress=Math.min(1,f.turnProgress+0.018*ds);
-          const ca=Math.atan2(f.vy,f.vx);
-          const ba=_hLerpAngle(ca,f.turnTarget,_hEase(f.turnProgress));
-          const sp=Math.max(_hHypot(f.vx,f.vy),0.08);
-          f.vx=Math.cos(ba)*sp; f.vy=Math.sin(ba)*sp; f.glowTarget=0.15;
-        } else if(f.state==='ASCEND'){
-          f.vy-=0.007*f.speedMult*ds; f.vx*=Math.pow(0.988,ds); f.glowTarget=0.70;
-        }
-        // Common physics
-        let sp=_hHypot(f.vx,f.vy);
-        if(sp>f.maxSpeed){const inv=f.maxSpeed/sp;f.vx*=inv;f.vy*=inv;sp=f.maxSpeed;}
-        const mg=75;
-        if(f.x<mg)       f.vx+=0.038*(mg-f.x)/mg*ds;
-        if(f.x>VW-mg)    f.vx-=0.038*(f.x-(VW-mg))/mg*ds;
-        if(f.y<mg)       f.vy+=0.028*(mg-f.y)/mg*ds;
-        if(f.y>VH-mg)    f.vy-=0.028*(f.y-(VH-mg))/mg*ds;
-        for(const o of flies){
-          if(o===f||o.layer!==f.layer) continue;
-          const dx=f.x-o.x,dy=f.y-o.y,d=_hHypot(dx,dy);
-          if(d<28&&d>0){const frc=(28-d)/28*0.012;f.vx+=(dx/d)*frc*ds;f.vy+=(dy/d)*frc*ds;}
-        }
-        f.x+=f.vx*ds; f.y+=f.vy*ds;
-        const ns=sp/Math.max(f.maxSpeed,0.01);
-        f.squeezeX=_hLerp(f.squeezeX,1-ns*0.20,0.08);
-        f.squeezeY=_hLerp(f.squeezeY,1+ns*0.16,0.08);
-        f.glowIntensity=_hLerp(f.glowIntensity,f.glowTarget,0.024*ds);
-        f.trail.unshift({x:f.x,y:f.y,alpha:f.glowIntensity});
-        if(f.trail.length>16) f.trail.pop();
+        // Gentle random drift + damping
+        f.vx += (Math.random()-0.5) * 0.05 * ds;
+        f.vy += (Math.random()-0.5) * 0.04 * ds;
+        f.vx *= 0.985; f.vy *= 0.985;
+
+        // Soft boundary nudge
+        if (f.x < 60)      f.vx += 0.025;
+        if (f.x > VW-60)   f.vx -= 0.025;
+        if (f.y < 60)      f.vy += 0.020;
+        if (f.y > VH-60)   f.vy -= 0.020;
+
+        f.x += f.vx * ds; f.y += f.vy * ds;
+        if (bright < 0.04) continue;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+
+        // Outer glow
+        const og = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,f.glowR);
+        og.addColorStop(0, `rgba(160,255,100,${(bright*0.28).toFixed(3)})`);
+        og.addColorStop(1,  'rgba(80,200,40,0)');
+        ctx.fillStyle = og;
+        ctx.beginPath(); ctx.arc(f.x,f.y,f.glowR,0,Math.PI*2); ctx.fill();
+
+        // Tight bright core
+        const cg = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,f.core);
+        cg.addColorStop(0,   `rgba(230,255,190,${(bright*0.95).toFixed(3)})`);
+        cg.addColorStop(0.6, `rgba(150,255,80,${(bright*0.50).toFixed(3)})`);
+        cg.addColorStop(1,   'rgba(100,200,50,0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.arc(f.x,f.y,f.core,0,Math.PI*2); ctx.fill();
+
+        ctx.restore();
       }
-      // Update sparkles
-      for(let i=sparks.length-1;i>=0;i--){
-        const s=sparks[i];
-        s.vy-=0.003*ds; s.vx*=Math.pow(0.975,ds); s.vy*=Math.pow(0.975,ds);
-        s.x+=s.vx*ds; s.y+=s.vy*ds; s.alpha-=s.decay*ds;
-        if(s.alpha<=0) sparks.splice(i,1);
-      }
-      // Render trails
-      for(let layer=0;layer<3;layer++) for(const f of flies){
-        if(f.layer!==layer) continue;
-        for(let i=0;i<f.trail.length;i++){
-          const pos=f.trail[i], ta=pos.alpha*(1-i/16)*0.28;
-          if(ta<0.01) continue;
-          ctx.globalAlpha=ta; ctx.globalCompositeOperation=isDark?'screen':'source-over';
-          ctx.beginPath(); ctx.arc(pos.x,pos.y,Math.max(0.3,f.coreSize*(1-i/16)*0.7),0,Math.PI*2);
-          ctx.fillStyle=isDark?'hsl(70,85%,55%)':'hsl(70,75%,28%)'; ctx.fill();
-        }
-      }
-      // Render glow bodies
-      for(let layer=0;layer<3;layer++) for(const f of flies){
-        if(f.layer!==layer||f.glowIntensity<=0.015) continue;
-        ctx.save(); ctx.translate(f.x,f.y); ctx.scale(f.squeezeX,f.squeezeY);
-        if(f.blur>0) ctx.filter=`blur(${f.blur}px)`;
-        ctx.globalCompositeOperation=isDark?'screen':'source-over';
-        const gi=f.glowIntensity;
-        // Aura
-        const aI=gi*(isDark?0.42:0.26);
-        const aG=ctx.createRadialGradient(0,0,0,0,0,f.auraR);
-        aG.addColorStop(0,isDark?`hsla(80,75%,35%,${aI})`:`hsla(80,70%,22%,${aI})`);
-        aG.addColorStop(1,isDark?`hsla(80,75%,35%,0)`:`hsla(80,70%,22%,0)`);
-        ctx.fillStyle=aG; ctx.beginPath(); ctx.arc(0,0,f.auraR,0,Math.PI*2); ctx.fill();
-        // Halo
-        const hI0=gi*(isDark?0.78:0.62), hI1=gi*(isDark?0.32:0.18);
-        const hG=ctx.createRadialGradient(0,0,0,0,0,f.haloR);
-        hG.addColorStop(0,isDark?`hsla(72,92%,62%,${hI0})`:`hsla(72,90%,35%,${hI0})`);
-        hG.addColorStop(0.5,isDark?`hsla(72,92%,62%,${hI1})`:`hsla(72,90%,35%,${hI1})`);
-        hG.addColorStop(1,isDark?`hsla(72,92%,62%,0)`:`hsla(72,90%,35%,0)`);
-        ctx.fillStyle=hG; ctx.beginPath(); ctx.arc(0,0,f.haloR,0,Math.PI*2); ctx.fill();
-        // Core
-        const cI0=gi*(isDark?0.97:0.94), cI1=gi*(isDark?0.72:0.68);
-        const cG=ctx.createRadialGradient(0,0,0,0,0,f.coreSize);
-        cG.addColorStop(0,isDark?`hsla(65,100%,96%,${cI0})`:`hsla(65,100%,38%,${cI0})`);
-        cG.addColorStop(0.6,isDark?`hsla(65,100%,92%,${cI1})`:`hsla(65,100%,32%,${cI1})`);
-        cG.addColorStop(1,isDark?`hsla(65,100%,80%,0)`:`hsla(65,100%,22%,0)`);
-        ctx.fillStyle=cG; ctx.beginPath(); ctx.arc(0,0,f.coreSize,0,Math.PI*2); ctx.fill();
-        ctx.filter='none'; ctx.restore();
-      }
-      // Sparkles
-      ctx.globalCompositeOperation=isDark?'screen':'source-over';
-      for(const s of sparks){
-        ctx.globalAlpha=s.alpha;
-        ctx.fillStyle=`hsl(${s.hue},95%,${isDark?88:38}%)`;
-        ctx.beginPath(); ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill();
-      }
-      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
-      animId=requestAnimationFrame(frame);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      animId = requestAnimationFrame(frame);
     };
-    animId=requestAnimationFrame(frame);
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);mq.removeEventListener('change',schemeH);};
-  },[isVisible,colorScheme,count]);
-  if(!isVisible) return null;
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, [isVisible, count]);
+  if (!isVisible) return null;
   return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',zIndex,pointerEvents:'none',background:'transparent'}} />;
 }
+
 
 // ─── SUMMER: Hokusai Great Wave background ────────────────────────────────
 function HokusaiWaveBackground() {
