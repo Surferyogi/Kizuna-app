@@ -5752,30 +5752,26 @@ const KizunaIcon = () => {
 
 // ─── SUMMER: Firework burst ───────────────────────────────────────
 const FIREWORK_ICON_CSS = `
-/* Large burst — rays grow outward then fade, staggered per ray */
-@keyframes fwRayL0  { 0%{stroke-dashoffset:12;opacity:0} 8%{opacity:1} 55%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL1  { 0%{stroke-dashoffset:12;opacity:0} 12%{opacity:1} 58%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL2  { 0%{stroke-dashoffset:12;opacity:0} 16%{opacity:1} 62%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL3  { 0%{stroke-dashoffset:12;opacity:0} 20%{opacity:1} 66%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL4  { 0%{stroke-dashoffset:12;opacity:0} 24%{opacity:1} 70%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL5  { 0%{stroke-dashoffset:12;opacity:0} 28%{opacity:1} 74%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL6  { 0%{stroke-dashoffset:12;opacity:0} 32%{opacity:1} 78%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL7  { 0%{stroke-dashoffset:12;opacity:0} 36%{opacity:1} 82%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL8  { 0%{stroke-dashoffset:12;opacity:0} 40%{opacity:1} 86%{stroke-dashoffset:0;opacity:0.95} 100%{stroke-dashoffset:12;opacity:0} }
-@keyframes fwRayL9  { 0%{stroke-dashoffset:12;opacity:0} 44%{opacity:1} 90%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:12;opacity:0} }
-/* Small burst — rays grow outward then fade, staggered per ray */
-@keyframes fwRayS0  { 0%{stroke-dashoffset:8;opacity:0} 10%{opacity:1} 55%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS1  { 0%{stroke-dashoffset:8;opacity:0} 18%{opacity:1} 60%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS2  { 0%{stroke-dashoffset:8;opacity:0} 26%{opacity:1} 65%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS3  { 0%{stroke-dashoffset:8;opacity:0} 34%{opacity:1} 70%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS4  { 0%{stroke-dashoffset:8;opacity:0} 42%{opacity:1} 75%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS5  { 0%{stroke-dashoffset:8;opacity:0} 50%{opacity:1} 80%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS6  { 0%{stroke-dashoffset:8;opacity:0} 58%{opacity:1} 85%{stroke-dashoffset:0;opacity:0.9} 100%{stroke-dashoffset:8;opacity:0} }
-@keyframes fwRayS7  { 0%{stroke-dashoffset:8;opacity:0} 66%{opacity:1} 90%{stroke-dashoffset:0;opacity:0.85} 100%{stroke-dashoffset:8;opacity:0} }
-/* Centre glow pulse */
-@keyframes fwGlowL { 0%,100%{r:1;opacity:0.3} 40%{r:4;opacity:1} 70%{r:3;opacity:0.8} }
-@keyframes fwGlowS { 0%,100%{r:0.8;opacity:0.3} 40%{r:3;opacity:1} 70%{r:2.2;opacity:0.8} }
-/* Background sparkles */
+/* Firefly breathing — large orb, slow 2.8s cycle */
+@keyframes ffBreathL {
+  0%,100% { opacity:0.28; transform:scale(0.82); }
+  50%      { opacity:1.00; transform:scale(1.00); }
+}
+/* Firefly breathing — small orb, faster 1.7s cycle, offset phase */
+@keyframes ffBreathS {
+  0%,100% { opacity:0.22; transform:scale(0.78); }
+  50%      { opacity:0.92; transform:scale(1.00); }
+}
+/* Core hard dot pulse — synced to each orb */
+@keyframes ffCoreL {
+  0%,100% { opacity:0.55; r:2.2; }
+  50%      { opacity:1.00; r:3.4; }
+}
+@keyframes ffCoreS {
+  0%,100% { opacity:0.45; r:1.4; }
+  50%      { opacity:0.95; r:2.2; }
+}
+/* Background sparkles — unchanged */
 @keyframes fwSparkle1 { 0%,100%{opacity:0;transform:scale(0.4)} 30%,70%{opacity:1;transform:scale(1.2)} }
 @keyframes fwSparkle2 { 0%,100%{opacity:0;transform:scale(0.3)} 35%,65%{opacity:0.9;transform:scale(1.1)} }
 @keyframes fwSparkle3 { 0%,100%{opacity:0;transform:scale(0.5)} 25%,75%{opacity:1;transform:scale(1.3)} }
@@ -5784,8 +5780,6 @@ const FIREWORK_ICON_CSS = `
 @keyframes fwSparkle6 { 0%,100%{opacity:0;transform:scale(0.3)} 45%,55%{opacity:0.8;transform:scale(1.15)} }
 `;
 
-const L_COLORS = ['#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4','#FF6B6B','#FFD700','#FF8C42','#C77DFF','#4ECDC4'];
-const S_COLORS = ['#FFD700','#FF6B6B','#4ECDC4','#FF8C42','#C77DFF','#FFD700','#FF6B6B','#4ECDC4'];
 const FW_SPARKLES = [
   { left:'8%',  top:'4%',  anim:'fwSparkle1', dur:'1.4s', delay:'0.0s', color:'#FFD700', size:7 },
   { left:'58%', top:'1%',  anim:'fwSparkle2', dur:'1.8s', delay:'0.5s', color:'#FF6B6B', size:6 },
@@ -5800,7 +5794,7 @@ const FireworkIcon = () => (
     display:'block', flexShrink:0, overflow:'visible' }}>
     <style>{FIREWORK_ICON_CSS}</style>
 
-    {/* ── Background blinking sparkles ── */}
+    {/* ── Background blinking sparkles — unchanged ── */}
     {FW_SPARKLES.map((s, i) => (
       <div key={i} style={{
         position:'absolute', top:s.top, left:s.left,
@@ -5813,42 +5807,48 @@ const FireworkIcon = () => (
       }} />
     ))}
 
-    {/* ── Animated burst SVG — rays draw outward sequentially ── */}
+    {/* ── Two breathing firefly glow orbs ── */}
     <svg width="52" height="42" viewBox="0 0 52 42" fill="none"
-      style={{ position:'absolute', top:0, left:0, zIndex:1 }}
-      className="fw-burst">
+      style={{ position:'absolute', top:0, left:0, zIndex:1, overflow:'visible' }}>
+      <defs>
+        {/* Large orb radial gradient — warm yellow-green */}
+        <radialGradient id="ffGL" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#d4ff70" stopOpacity="0.95" />
+          <stop offset="35%"  stopColor="#a8e840" stopOpacity="0.55" />
+          <stop offset="70%"  stopColor="#78c820" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#50a010" stopOpacity="0"    />
+        </radialGradient>
+        {/* Small orb radial gradient — softer lime-teal tint */}
+        <radialGradient id="ffGS" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#c8ff88" stopOpacity="0.88" />
+          <stop offset="40%"  stopColor="#90e060" stopOpacity="0.42" />
+          <stop offset="100%" stopColor="#60c040" stopOpacity="0"    />
+        </radialGradient>
+      </defs>
 
-      {/* Small burst — upper right, 8 rays, 2s cycle */}
-      {[0,45,90,135,180,225,270,315].map((a,i) => {
-        const rad = a * Math.PI / 180;
-        const x1 = 37, y1 = 13, len = 8;
-        const x2 = x1 + Math.cos(rad)*len;
-        const y2 = y1 + Math.sin(rad)*len;
-        return <line key={i}
-          x1={x1} y1={y1} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
-          stroke={S_COLORS[i]} strokeWidth="1.8" strokeLinecap="round"
-          strokeDasharray="8" strokeDashoffset="8"
-          style={{ animation:`fwRayS${i} 2s ${(i*0.06).toFixed(2)}s infinite ease-out` }} />;
-      })}
-      <circle cx="37" cy="13"
-        style={{ animation:'fwGlowS 2s 0s infinite ease-in-out' }}
-        fill="#FFD700" />
+      {/* ── Large firefly — lower left, slow breath 2.8s ── */}
+      {/* Outer aura */}
+      <circle cx="15" cy="28" r="14"
+        fill="url(#ffGL)"
+        style={{ animation:'ffBreathL 2.8s ease-in-out infinite', transformOrigin:'15px 28px' }} />
+      {/* Mid halo */}
+      <circle cx="15" cy="28" r="7" fill="#b8f040" opacity="0.35"
+        style={{ animation:'ffBreathL 2.8s ease-in-out infinite', transformOrigin:'15px 28px' }} />
+      {/* Bright core */}
+      <circle cx="15" cy="28" r="2.2" fill="#eeffa0"
+        style={{ animation:'ffCoreL 2.8s ease-in-out infinite', transformOrigin:'15px 28px' }} />
 
-      {/* Large burst — lower left, 10 rays, 2.4s cycle */}
-      {[0,36,72,108,144,180,216,252,288,324].map((a,i) => {
-        const rad = a * Math.PI / 180;
-        const x1 = 15, y1 = 28, len = 12;
-        const x2 = x1 + Math.cos(rad)*len;
-        const y2 = y1 + Math.sin(rad)*len;
-        return <line key={i}
-          x1={x1} y1={y1} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
-          stroke={L_COLORS[i]} strokeWidth="2.8" strokeLinecap="round"
-          strokeDasharray="12" strokeDashoffset="12"
-          style={{ animation:`fwRayL${i} 2.4s ${(i*0.05).toFixed(2)}s infinite ease-out` }} />;
-      })}
-      <circle cx="15" cy="28"
-        style={{ animation:'fwGlowL 2.4s 0s infinite ease-in-out' }}
-        fill="#FF6B6B" />
+      {/* ── Small firefly — upper right, faster breath 1.7s, 0.9s offset ── */}
+      {/* Outer aura */}
+      <circle cx="37" cy="13" r="9"
+        fill="url(#ffGS)"
+        style={{ animation:'ffBreathS 1.7s 0.9s ease-in-out infinite', transformOrigin:'37px 13px' }} />
+      {/* Mid halo */}
+      <circle cx="37" cy="13" r="4.5" fill="#a8e860" opacity="0.32"
+        style={{ animation:'ffBreathS 1.7s 0.9s ease-in-out infinite', transformOrigin:'37px 13px' }} />
+      {/* Bright core */}
+      <circle cx="37" cy="13" r="1.4" fill="#e8ffc0"
+        style={{ animation:'ffCoreS 1.7s 0.9s ease-in-out infinite', transformOrigin:'37px 13px' }} />
     </svg>
   </div>
 );
