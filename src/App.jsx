@@ -2486,49 +2486,55 @@ const SPLASH_PETALS = [
   { left:'85%', anim:'splashPetal4', dur:'5.6s', delay:'3.5s', size:8,  color:'#F0C0B4' },
 ];
 
-// ── Autumn momiji splash — 6 keyframes with gravity + wind physics ────────
+// ── Autumn momiji splash — gravity + wind gust physics ────────────────────
 const SPLASH_MOMIJI_CSS = `
 @keyframes momijiSplash1 {
-  0%   { transform: translate(0,-10px) rotate(0deg);    opacity:0; }
-  8%   { opacity:0.85; }
-  30%  { transform: translate(12px,28vh) rotate(60deg); opacity:0.8; }
-  65%  { transform: translate(20px,65vh) rotate(140deg);opacity:0.62; }
-  100% { transform: translate(26px,108vh) rotate(215deg);opacity:0; }
+  0%   { transform:translate(0,-12px) rotate(0deg);    opacity:0; }
+  6%   { opacity:0.88; }
+  25%  { transform:translate(18px,22vh) rotate(55deg); }
+  50%  { transform:translate(8px,48vh) rotate(95deg);  }
+  75%  { transform:translate(28px,72vh) rotate(155deg); opacity:0.7; }
+  100% { transform:translate(20px,108vh) rotate(200deg); opacity:0; }
 }
 @keyframes momijiSplash2 {
-  0%   { transform: translate(0,-8px) rotate(-15deg);   opacity:0; }
-  10%  { opacity:0.8; }
-  35%  { transform: translate(-10px,26vh) rotate(-55deg);opacity:0.74; }
-  70%  { transform: translate(-18px,63vh) rotate(-130deg);opacity:0.58; }
-  100% { transform: translate(-24px,106vh) rotate(-210deg);opacity:0; }
+  0%   { transform:translate(0,-8px) rotate(-20deg);   opacity:0; }
+  8%   { opacity:0.82; }
+  20%  { transform:translate(-22px,18vh) rotate(-60deg); }
+  45%  { transform:translate(-10px,44vh) rotate(-100deg); }
+  70%  { transform:translate(-30px,68vh) rotate(-150deg); opacity:0.65; }
+  100% { transform:translate(-18px,106vh) rotate(-210deg); opacity:0; }
 }
 @keyframes momijiSplash3 {
-  0%   { transform: translate(0,-12px) rotate(10deg);   opacity:0; }
-  9%   { opacity:0.9; }
-  25%  { transform: translate(8px,22vh) rotate(40deg);  opacity:0.82; }
-  60%  { transform: translate(16px,60vh) rotate(115deg);opacity:0.65; }
-  100% { transform: translate(20px,110vh) rotate(195deg);opacity:0; }
+  0%   { transform:translate(0,-14px) rotate(12deg);   opacity:0; }
+  7%   { opacity:0.9; }
+  30%  { transform:translate(30px,26vh) rotate(70deg); }
+  55%  { transform:translate(12px,52vh) rotate(105deg); }
+  80%  { transform:translate(24px,75vh) rotate(160deg); opacity:0.68; }
+  100% { transform:translate(16px,110vh) rotate(215deg); opacity:0; }
 }
 @keyframes momijiSplash4 {
-  0%   { transform: translate(0,-6px) rotate(25deg);    opacity:0; }
-  12%  { opacity:0.78; }
-  40%  { transform: translate(-8px,30vh) rotate(-40deg);opacity:0.72; }
-  72%  { transform: translate(-18px,66vh) rotate(-120deg);opacity:0.54; }
-  100% { transform: translate(-22px,108vh) rotate(-200deg);opacity:0; }
+  0%   { transform:translate(0,-6px) rotate(28deg);    opacity:0; }
+  9%   { opacity:0.78; }
+  22%  { transform:translate(-30px,20vh) rotate(-45deg); }
+  48%  { transform:translate(-15px,45vh) rotate(-90deg); }
+  72%  { transform:translate(-35px,70vh) rotate(-145deg); opacity:0.6; }
+  100% { transform:translate(-22px,107vh) rotate(-200deg); opacity:0; }
 }
 @keyframes momijiSplash5 {
-  0%   { transform: translate(0,-14px) rotate(-8deg);   opacity:0; }
-  8%   { opacity:0.88; }
-  28%  { transform: translate(10px,24vh) rotate(50deg); opacity:0.82; }
-  58%  { transform: translate(18px,58vh) rotate(130deg);opacity:0.64; }
-  100% { transform: translate(24px,112vh) rotate(225deg);opacity:0; }
+  0%   { transform:translate(0,-16px) rotate(-8deg);   opacity:0; }
+  6%   { opacity:0.86; }
+  28%  { transform:translate(25px,24vh) rotate(60deg); }
+  52%  { transform:translate(35px,50vh) rotate(110deg); }
+  78%  { transform:translate(20px,73vh) rotate(170deg); opacity:0.65; }
+  100% { transform:translate(28px,112vh) rotate(225deg); opacity:0; }
 }
 @keyframes momijiSplash6 {
-  0%   { transform: translate(0,-10px) rotate(20deg);   opacity:0; }
-  11%  { opacity:0.75; }
-  38%  { transform: translate(-6px,28vh) rotate(-35deg);opacity:0.7; }
-  68%  { transform: translate(-14px,64vh) rotate(-105deg);opacity:0.53; }
-  100% { transform: translate(-20px,108vh) rotate(-185deg);opacity:0; }
+  0%   { transform:translate(0,-10px) rotate(18deg);   opacity:0; }
+  10%  { opacity:0.75; }
+  25%  { transform:translate(-18px,22vh) rotate(-40deg); }
+  50%  { transform:translate(-28px,46vh) rotate(-95deg); }
+  76%  { transform:translate(-12px,70vh) rotate(-148deg); opacity:0.58; }
+  100% { transform:translate(-20px,108vh) rotate(-195deg); opacity:0; }
 }
 `;
 
@@ -2887,7 +2893,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
         marginBottom:36, position:'relative', zIndex:1 }}>
         <div style={{ transform:'scale(1.6)', marginBottom:14 }}>
-          <SeasonIcon />
+          <SeasonIcon season={season} />
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
@@ -5470,33 +5476,45 @@ const FireworkIcon = () => (
 const MOMIJI_ICON_CSS = `
 @keyframes mLeaf1 {
   0%   { transform:translate(8px,-12px) rotate(0deg);   opacity:0; }
-  8%   { opacity:0.85; }
-  100% { transform:translate(24px,58px) rotate(340deg); opacity:0; }
+  7%   { opacity:0.85; }
+  28%  { transform:translate(20px,20px) rotate(50deg); }
+  58%  { transform:translate(10px,42px) rotate(88deg); }
+  100% { transform:translate(26px,66px) rotate(182deg); opacity:0; }
 }
 @keyframes mLeaf2 {
   0%   { transform:translate(28px,-8px) rotate(20deg);  opacity:0; }
-  12%  { opacity:0.7; }
-  100% { transform:translate(10px,56px) rotate(-300deg); opacity:0; }
+  10%  { opacity:0.7; }
+  26%  { transform:translate(14px,18px) rotate(-32deg); }
+  54%  { transform:translate(6px,40px)  rotate(-80deg); }
+  100% { transform:translate(18px,58px) rotate(-172deg); opacity:0; }
 }
 @keyframes mLeaf3 {
   0%   { transform:translate(48px,-10px) rotate(-10deg); opacity:0; }
-  10%  { opacity:0.75; }
-  100% { transform:translate(36px,60px) rotate(380deg); opacity:0; }
+  8%   { opacity:0.75; }
+  32%  { transform:translate(38px,22px) rotate(58deg); }
+  62%  { transform:translate(50px,44px) rotate(108deg); }
+  100% { transform:translate(42px,64px) rotate(198deg); opacity:0; }
 }
 @keyframes mLeaf4 {
   0%   { transform:translate(16px,-6px) rotate(30deg);  opacity:0; }
-  15%  { opacity:0.65; }
-  100% { transform:translate(2px,54px) rotate(-260deg); opacity:0; }
+  9%   { opacity:0.65; }
+  30%  { transform:translate(4px,20px)  rotate(-42deg); }
+  60%  { transform:translate(12px,42px) rotate(-96deg); }
+  100% { transform:translate(2px,62px)  rotate(-192px); opacity:0; }
 }
 @keyframes mLeaf5 {
   0%   { transform:translate(38px,-14px) rotate(-20deg); opacity:0; }
-  9%   { opacity:0.8; }
-  100% { transform:translate(52px,58px) rotate(300deg); opacity:0; }
+  7%   { opacity:0.8; }
+  30%  { transform:translate(52px,20px) rotate(62deg); }
+  62%  { transform:translate(44px,44px) rotate(116deg); }
+  100% { transform:translate(56px,64px) rotate(208deg); opacity:0; }
 }
 @keyframes mLeaf6 {
   0%   { transform:translate(22px,-8px) rotate(15deg);  opacity:0; }
-  13%  { opacity:0.6; }
-  100% { transform:translate(8px,52px) rotate(-320deg); opacity:0; }
+  11%  { opacity:0.6; }
+  28%  { transform:translate(8px,18px)  rotate(-36deg); }
+  58%  { transform:translate(16px,40px) rotate(-90deg); }
+  100% { transform:translate(6px,60px)  rotate(-184deg); opacity:0; }
 }
 `;
 // Small leaf SVG — simple 5-lobe shape at ~12×14 units
@@ -5634,8 +5652,8 @@ const SnowflakeIcon = () => (
   </div>
 );
 // ─── SEASONAL ICON WRAPPER ────────────────────────────────────────
-const SeasonIcon = () => {
-  const season = getSeason();
+const SeasonIcon = ({ season: seasonProp } = {}) => {
+  const season = seasonProp || getSeason();
   if (season === 'summer') return <FireworkIcon />;
   if (season === 'autumn') return <MomijiIcon />;
   if (season === 'winter') return <SnowflakeIcon />;
