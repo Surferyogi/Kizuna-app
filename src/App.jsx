@@ -2486,6 +2486,323 @@ const SPLASH_PETALS = [
   { left:'85%', anim:'splashPetal4', dur:'5.6s', delay:'3.5s', size:8,  color:'#F0C0B4' },
 ];
 
+// ── Autumn momiji splash — 6 keyframes with gravity + wind physics ────────
+const SPLASH_MOMIJI_CSS = `
+@keyframes momijiSplash1 {
+  0%   { transform: translate(0,-10px) rotate(0deg);    opacity:0; }
+  8%   { opacity:0.85; }
+  30%  { transform: translate(12px,28vh) rotate(60deg); opacity:0.8; }
+  65%  { transform: translate(20px,65vh) rotate(140deg);opacity:0.62; }
+  100% { transform: translate(26px,108vh) rotate(215deg);opacity:0; }
+}
+@keyframes momijiSplash2 {
+  0%   { transform: translate(0,-8px) rotate(-15deg);   opacity:0; }
+  10%  { opacity:0.8; }
+  35%  { transform: translate(-10px,26vh) rotate(-55deg);opacity:0.74; }
+  70%  { transform: translate(-18px,63vh) rotate(-130deg);opacity:0.58; }
+  100% { transform: translate(-24px,106vh) rotate(-210deg);opacity:0; }
+}
+@keyframes momijiSplash3 {
+  0%   { transform: translate(0,-12px) rotate(10deg);   opacity:0; }
+  9%   { opacity:0.9; }
+  25%  { transform: translate(8px,22vh) rotate(40deg);  opacity:0.82; }
+  60%  { transform: translate(16px,60vh) rotate(115deg);opacity:0.65; }
+  100% { transform: translate(20px,110vh) rotate(195deg);opacity:0; }
+}
+@keyframes momijiSplash4 {
+  0%   { transform: translate(0,-6px) rotate(25deg);    opacity:0; }
+  12%  { opacity:0.78; }
+  40%  { transform: translate(-8px,30vh) rotate(-40deg);opacity:0.72; }
+  72%  { transform: translate(-18px,66vh) rotate(-120deg);opacity:0.54; }
+  100% { transform: translate(-22px,108vh) rotate(-200deg);opacity:0; }
+}
+@keyframes momijiSplash5 {
+  0%   { transform: translate(0,-14px) rotate(-8deg);   opacity:0; }
+  8%   { opacity:0.88; }
+  28%  { transform: translate(10px,24vh) rotate(50deg); opacity:0.82; }
+  58%  { transform: translate(18px,58vh) rotate(130deg);opacity:0.64; }
+  100% { transform: translate(24px,112vh) rotate(225deg);opacity:0; }
+}
+@keyframes momijiSplash6 {
+  0%   { transform: translate(0,-10px) rotate(20deg);   opacity:0; }
+  11%  { opacity:0.75; }
+  38%  { transform: translate(-6px,28vh) rotate(-35deg);opacity:0.7; }
+  68%  { transform: translate(-14px,64vh) rotate(-105deg);opacity:0.53; }
+  100% { transform: translate(-20px,108vh) rotate(-185deg);opacity:0; }
+}
+`;
+
+// Realistic maple leaf paths
+const SPLASH_LEAF_7 = "M0,1 C-1,0 -3,0 -5,1 C-8,2 -11,0 -12,-3 C-11,-6 -9,-6 -8,-4 C-9,-7 -9,-11 -7,-14 C-5,-11 -4,-10 -4,-7 C-5,-10 -4,-15 -2,-17 C-1,-13 -0.5,-11 0,-9 C0.5,-11 1,-13 2,-17 C4,-15 5,-10 4,-7 C4,-10 5,-11 7,-14 C9,-11 9,-7 8,-4 C9,-6 11,-6 12,-3 C11,0 8,2 5,1 C3,0 1,0 0,1 Z";
+const SPLASH_LEAF_5 = "M0,2 C-2,1 -5,1 -8,-1 C-11,-3 -12,-7 -10,-10 C-8,-8 -7,-8 -7,-6 C-8,-9 -7,-13 -5,-15 C-3,-12 -2,-10 -2,-8 C-2,-11 -1,-14 0,-15 C1,-14 2,-11 2,-8 C2,-10 3,-12 5,-15 C7,-13 8,-9 7,-6 C7,-8 8,-8 10,-10 C12,-7 11,-3 8,-1 C5,1 2,1 0,2 Z";
+
+// 11 leaves: greens → yellows → oranges → reds
+const SPLASH_MOMIJI = [
+  { left:'6%',  anim:'momijiSplash1', dur:'5.4s', delay:'0.0s', path:SPLASH_LEAF_7, fill:'#4E8C2A', vein:'#2E5A10', size:14 },
+  { left:'18%', anim:'momijiSplash3', dur:'7.0s', delay:'0.7s', path:SPLASH_LEAF_5, fill:'#82B030', vein:'#4E6C18', size:11 },
+  { left:'30%', anim:'momijiSplash2', dur:'6.0s', delay:'1.4s', path:SPLASH_LEAF_7, fill:'#C8B820', vein:'#806E10', size:13 },
+  { left:'44%', anim:'momijiSplash5', dur:'7.3s', delay:'0.4s', path:SPLASH_LEAF_5, fill:'#E09020', vein:'#905810', size:12 },
+  { left:'56%', anim:'momijiSplash4', dur:'6.4s', delay:'1.9s', path:SPLASH_LEAF_7, fill:'#D46420', vein:'#8A3A08', size:14 },
+  { left:'70%', anim:'momijiSplash1', dur:'5.7s', delay:'1.0s', path:SPLASH_LEAF_5, fill:'#C84218', vein:'#802208', size:11 },
+  { left:'82%', anim:'momijiSplash6', dur:'6.8s', delay:'2.2s', path:SPLASH_LEAF_7, fill:'#E03028', vein:'#A01818', size:13 },
+  { left:'92%', anim:'momijiSplash3', dur:'5.9s', delay:'0.5s', path:SPLASH_LEAF_5, fill:'#CC2828', vein:'#880E0E', size:10 },
+  { left:'12%', anim:'momijiSplash4', dur:'7.6s', delay:'3.1s', path:SPLASH_LEAF_7, fill:'#B87020', vein:'#703A08', size:12 },
+  { left:'38%', anim:'momijiSplash2', dur:'6.2s', delay:'2.5s', path:SPLASH_LEAF_5, fill:'#A8C420', vein:'#607010', size:11 },
+  { left:'60%', anim:'momijiSplash6', dur:'8.2s', delay:'0.2s', path:SPLASH_LEAF_7, fill:'#D85020', vein:'#902808', size:13 },
+];
+
+// ── SUMMER: Hokusai Great Wave background ────────────────────────────────
+function HokusaiWaveBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const VW = window.innerWidth, VH = window.innerHeight;
+    canvas.width = VW * dpr; canvas.height = VH * dpr;
+    canvas.style.width = VW + 'px'; canvas.style.height = VH + 'px';
+    ctx.scale(dpr, dpr);
+    let t = 0, animId;
+
+    // Stokes wave: sum of harmonics — realistic ocean wave profile
+    // Higher harmonics create the characteristic steep-face / gentle-back asymmetry
+    const waveY = (x, layer, time) => {
+      const L = [
+        { baseY:VH*0.74, amp:VH*0.025, freq:2.4, spd:0.45, ph:0.0 },
+        { baseY:VH*0.66, amp:VH*0.045, freq:1.7, spd:0.65, ph:1.3 },
+        { baseY:VH*0.56, amp:VH*0.075, freq:1.2, spd:0.85, ph:2.5 },
+        { baseY:VH*0.43, amp:VH*0.115, freq:0.85,spd:1.05, ph:0.7 },
+      ][layer];
+      const k = L.freq * Math.PI * 2 / VW;
+      const θ = k * x - L.spd * time + L.ph;
+      return L.baseY
+        + L.amp * Math.sin(θ)
+        + L.amp * 0.28 * Math.sin(2*θ)   // 2nd harmonic — steepens face
+        + L.amp * 0.07 * Math.sin(3*θ);  // 3rd harmonic — sharper crest
+    };
+
+    const drawSky = () => {
+      const g = ctx.createLinearGradient(0, 0, 0, VH * 0.6);
+      g.addColorStop(0, '#020b18');
+      g.addColorStop(0.45, '#051a3a');
+      g.addColorStop(1, '#0a3870');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+    };
+
+    const drawFuji = () => {
+      // Mt. Fuji — distant, centre-right
+      const fx = VW * 0.67, fy = VH * 0.29, fw = VW * 0.2, fh = VH * 0.27;
+      // Body gradient
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(fx - fw*0.5, fy + fh);
+      ctx.lineTo(fx + fw*0.5, fy + fh);
+      ctx.closePath();
+      const bg = ctx.createLinearGradient(fx, fy, fx, fy + fh);
+      bg.addColorStop(0, '#08121e');
+      bg.addColorStop(0.5, '#0d1e38');
+      bg.addColorStop(1, '#0a2248');
+      ctx.fillStyle = bg; ctx.fill();
+      // Snow cap
+      ctx.beginPath();
+      ctx.moveTo(fx, fy - 1);
+      ctx.lineTo(fx - fw*0.17, fy + fh*0.22);
+      ctx.lineTo(fx + fw*0.17, fy + fh*0.22);
+      ctx.closePath();
+      ctx.fillStyle = '#c5d8ea'; ctx.fill();
+      // Fine ridge lines — Hokusai woodblock style
+      ctx.strokeStyle = '#1a3060'; ctx.lineWidth = 0.8;
+      for (let i = 0; i < 4; i++) {
+        const ox = (i - 1.5) * fw * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(fx + ox*0.3, fy + fh*0.05);
+        ctx.lineTo(fx + ox, fy + fh);
+        ctx.stroke();
+      }
+    };
+
+    const drawWave = (layer) => {
+      const N = 90;
+      const pts = Array.from({ length: N + 1 }, (_, i) => ({
+        x: (i / N) * VW,
+        y: waveY((i / N) * VW, layer, t),
+      }));
+
+      // Wave body — darker at base, brighter at crest
+      ctx.beginPath();
+      ctx.moveTo(0, pts[0].y);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i+1].x) / 2;
+        const my = (pts[i].y + pts[i+1].y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+      }
+      ctx.lineTo(VW, pts[N].y);
+      ctx.lineTo(VW, VH); ctx.lineTo(0, VH); ctx.closePath();
+
+      const cols = [
+        ['#04101e','#07233a','#082040'],
+        ['#07203c','#0a3060','#0d3a70'],
+        ['#0a2a50','#123a78','#1a5090'],
+        ['#0d3878','#1858b0','#2070d0'],
+      ][layer];
+      const wg = ctx.createLinearGradient(0, pts.reduce((m,p)=>Math.min(m,p.y),VH) - 30, 0, VH);
+      wg.addColorStop(0, cols[2]);
+      wg.addColorStop(0.35, cols[1]);
+      wg.addColorStop(1, cols[0]);
+      ctx.fillStyle = wg; ctx.fill();
+
+      // Surface highlight line
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i+1].x) / 2;
+        const my = (pts[i].y + pts[i+1].y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+      }
+      const foamAlpha = [0.35, 0.5, 0.65, 0.85][layer];
+      ctx.strokeStyle = `rgba(200,230,255,${foamAlpha})`;
+      ctx.lineWidth = layer === 3 ? 2 : 1.2;
+      ctx.stroke();
+
+      // Hokusai foam crests on front wave
+      if (layer === 3) {
+        for (let i = 3; i < pts.length - 3; i++) {
+          const isCrest = pts[i].y < pts[i-1].y && pts[i].y < pts[i+1].y
+                       && pts[i].y < pts[i-2].y && pts[i].y < pts[i+2].y;
+          if (!isCrest) continue;
+          const cx = pts[i].x, cy = pts[i].y;
+
+          // Glow
+          const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 14);
+          grd.addColorStop(0, 'rgba(255,255,255,0.9)');
+          grd.addColorStop(0.4, 'rgba(210,240,255,0.55)');
+          grd.addColorStop(1, 'rgba(150,210,255,0)');
+          ctx.beginPath(); ctx.arc(cx, cy - 5, 14, 0, Math.PI*2);
+          ctx.fillStyle = grd; ctx.fill();
+
+          // Characteristic claw/curl strokes — the Hokusai signature
+          ctx.strokeStyle = 'rgba(230,248,255,0.8)';
+          for (let j = -3; j <= 3; j++) {
+            const ox = cx + j * 6;
+            ctx.beginPath();
+            ctx.moveTo(ox, cy + 2);
+            ctx.bezierCurveTo(ox + 5, cy - 10, ox + 12, cy - 6, ox + 10, cy + 8);
+            ctx.lineWidth = 1.3; ctx.stroke();
+          }
+          // Foam dots
+          for (let j = -5; j <= 5; j++) {
+            ctx.beginPath();
+            ctx.arc(cx + j*4 + Math.sin(t*2+j)*2, cy - 4 + Math.cos(t+j)*3, 1.5, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(240,252,255,0.85)'; ctx.fill();
+          }
+        }
+      }
+    };
+
+    const loop = () => {
+      t += 0.016;
+      drawSky();
+      drawFuji();
+      drawWave(0); drawWave(1); drawWave(2); drawWave(3);
+      animId = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+  return <canvas ref={canvasRef} style={{
+    position:'absolute', top:0, left:0,
+    width:'100%', height:'100%', pointerEvents:'none', zIndex:0,
+  }}/>;
+}
+
+// ── WINTER: Snow with gravity + intermittent wind ─────────────────────────
+function WinterSnowBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const VW = window.innerWidth, VH = window.innerHeight;
+    canvas.width = VW * dpr; canvas.height = VH * dpr;
+    canvas.style.width = VW + 'px'; canvas.style.height = VH + 'px';
+    ctx.scale(dpr, dpr);
+
+    // Wind state — changes direction randomly every 3–7s
+    let windX = 0, windTarget = 0;
+    let windTimer = 0, nextWindChange = 3000 + Math.random() * 4000;
+    let lastNow = performance.now();
+
+    // Snowflake particles
+    const FLAKES = Array.from({ length: 90 }, () => ({
+      x:      Math.random() * VW,
+      y:      Math.random() * VH,
+      r:      0.8 + Math.random() * 3.2,       // size 0.8–4 px
+      vy:     0.4 + Math.random() * 1.4,       // gravity fall speed
+      vx:     (Math.random() - 0.5) * 0.4,    // per-flake random drift
+      wobble: Math.random() * Math.PI * 2,     // horizontal pendulum phase
+      wSpeed: 0.018 + Math.random() * 0.025,  // pendulum speed
+      op:     0.45 + Math.random() * 0.55,    // opacity
+    }));
+
+    let animId;
+    const loop = (now) => {
+      const dt = Math.min(now - lastNow, 50);
+      lastNow = now;
+
+      // Wind update
+      windTimer += dt;
+      if (windTimer >= nextWindChange) {
+        // New target: calm (0), gentle (<1), strong gust (1–2.5), opposite
+        const r = Math.random();
+        windTarget = r < 0.25 ? 0
+          : r < 0.55 ? (Math.random() - 0.5) * 1.2
+          : (Math.random() < 0.5 ? 1 : -1) * (1.5 + Math.random() * 1.2);
+        windTimer = 0;
+        nextWindChange = 3000 + Math.random() * 4000;
+      }
+      // Smooth easing toward wind target (inertia)
+      windX += (windTarget - windX) * 0.018;
+
+      ctx.clearRect(0, 0, VW, VH);
+
+      FLAKES.forEach(f => {
+        // Pendulum wobble (horizontal oscillation)
+        f.wobble += f.wSpeed;
+        const pendulum = Math.sin(f.wobble) * 0.5;
+
+        // Apply physics: gravity + wind + per-flake drift + pendulum
+        f.x += windX + f.vx + pendulum;
+        f.y += f.vy;
+
+        // Wrap — exit bottom → re-enter top, exit sides → wrap
+        if (f.y > VH + 10) { f.y = -8; f.x = Math.random() * VW; }
+        if (f.x > VW + 20) f.x = -20;
+        if (f.x < -20)     f.x = VW + 20;
+
+        // Draw: soft white radial dot
+        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 1.8);
+        g.addColorStop(0, `rgba(255,255,255,${f.op})`);
+        g.addColorStop(0.5, `rgba(220,235,255,${f.op * 0.5})`);
+        g.addColorStop(1, 'rgba(180,210,255,0)');
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r * 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+      });
+
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+  return <canvas ref={canvasRef} style={{
+    position:'absolute', top:0, left:0,
+    width:'100%', height:'100%', pointerEvents:'none', zIndex:0,
+  }}/>;
+}
+
 function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
@@ -2505,6 +2822,10 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
   };
 
   const isSpecial = quoteData?.isSpecial;
+  const season    = getSeason();
+  const isAutumn  = season === 'autumn';
+  const isSummer  = season === 'summer';
+  const isWinter  = season === 'winter';
 
   return (
     <div
@@ -2521,19 +2842,46 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
         animation: swiping ? 'quoteSwipeDown 0.35s ease-in forwards' : 'none',
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
+      {isAutumn && <style>{SPLASH_MOMIJI_CSS}</style>}
 
-      {/* Falling sakura petals — full screen */}
-      {SPLASH_PETALS.map((p, i) => (
-        <div key={i} style={{
-          position:'absolute', top:0, left:p.left,
-          width:p.size, height:p.size,
-          borderRadius:'50% 50% 50% 0', background:p.color, opacity:0,
-          animationName:p.anim, animationDuration:p.dur,
-          animationDelay:p.delay, animationTimingFunction:'ease-in',
-          animationIterationCount:'infinite', animationFillMode:'both',
-          pointerEvents:'none',
-        }} />
-      ))}
+      {/* Canvas backgrounds for summer (Hokusai) and winter (snow) */}
+      {isSummer && <HokusaiWaveBackground />}
+      {isWinter && <WinterSnowBackground />}
+
+      {/* Seasonal background particles — full screen */}
+      {isAutumn
+        ? SPLASH_MOMIJI.map((p, i) => (
+            <div key={i} style={{
+              position:'absolute', top:0, left:p.left, opacity:0,
+              animationName:p.anim, animationDuration:p.dur,
+              animationDelay:p.delay, animationTimingFunction:'ease-in',
+              animationIterationCount:'infinite', animationFillMode:'both',
+              pointerEvents:'none',
+            }}>
+              <svg width={p.size} height={p.size+3}
+                viewBox="-13 -18 26 22" overflow="visible">
+                <path d={p.path} fill={p.fill}
+                  stroke={p.vein} strokeWidth="0.5" opacity="0.92"/>
+                <line x1="0" y1="2" x2="0" y2="-16"
+                  stroke={p.vein} strokeWidth="0.6"
+                  strokeLinecap="round" opacity="0.5"/>
+              </svg>
+            </div>
+          ))
+        : (isSummer || isWinter)
+        ? null  // canvas handles summer (Hokusai) and winter (snow)
+        : SPLASH_PETALS.map((p, i) => (
+            <div key={i} style={{
+              position:'absolute', top:0, left:p.left,
+              width:p.size, height:p.size,
+              borderRadius:'50% 50% 50% 0', background:p.color, opacity:0,
+              animationName:p.anim, animationDuration:p.dur,
+              animationDelay:p.delay, animationTimingFunction:'ease-in',
+              animationIterationCount:'infinite', animationFillMode:'both',
+              pointerEvents:'none',
+            }} />
+          ))
+      }
 
       {/* Kizuna logo */}
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
