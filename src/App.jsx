@@ -2,7 +2,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, useContext, createContext } from "react";
 import { supabase, supabaseConfigured } from './supabase.js';
 import FestiveFireworks, { detectFestiveTheme } from './components/FestiveFireworks.jsx';
-import MomijiOverlay from './components/MomijiOverlay.jsx';
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 const p2 = n => String(n).padStart(2, '0');
@@ -2558,7 +2557,234 @@ const SPLASH_MOMIJI = [
   { left:'60%', anim:'momijiSplash6', dur:'8.2s', delay:'0.2s', path:SPLASH_LEAF_7, fill:'#D85020', vein:'#902808', size:13 },
 ];
 
-// ── SUMMER: Hokusai Great Wave background ────────────────────────────────
+// ─── MOMIJI OVERLAY — botanical canvas, 3D tumble, wind physics ──────────────
+const MOMIJI_INTENSITY_MAP = { light: 35, medium: 60, heavy: 90 };
+
+function _mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function _drawMomijiLeaf(ctx, lobes, radius, hue, sat, lit, isGreenToRed) {
+  const cx = radius + 4, cy = radius * 1.1 + 4;
+  const W = (radius + 4) * 2, H = (radius * 1.1 + 4) * 2;
+  ctx.clearRect(0, 0, W, H);
+  let grad;
+  if (isGreenToRed) {
+    grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    grad.addColorStop(0, 'hsl(10,75%,40%)');
+    grad.addColorStop(0.5, 'hsl(38,80%,52%)');
+    grad.addColorStop(1, 'hsl(90,60%,38%)');
+  } else {
+    grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    grad.addColorStop(0, `hsl(${hue},${sat}%,${lit - 10}%)`);
+    grad.addColorStop(0.6, `hsl(${hue},${sat}%,${lit}%)`);
+    grad.addColorStop(1, `hsl(${Math.min(hue + 15, 55)},${sat - 5}%,${lit + 12}%)`);
+  }
+  ctx.beginPath();
+  const totalSpan = lobes === 7 ? 200 : 170;
+  const lobeSpacing = totalSpan / (lobes - 1);
+  const startAngle = -90 - totalSpan / 2;
+  const sinusR = radius * (lobes === 7 ? 0.38 : 0.42);
+  const petioleX = cx, petioleY = cy + radius * 0.45;
+  ctx.moveTo(petioleX, petioleY);
+  for (let i = 0; i < lobes; i++) {
+    const ang = (startAngle + i * lobeSpacing) * (Math.PI / 180);
+    const tipX = cx + Math.cos(ang) * radius;
+    const tipY = cy + Math.sin(ang) * radius;
+    const sinusAng = ang - (lobeSpacing * 0.5 * Math.PI / 180);
+    const sinusX = cx + Math.cos(sinusAng) * sinusR;
+    const sinusY = cy + Math.sin(sinusAng) * sinusR;
+    const leftAng = ang - 0.22, rightAng = ang + 0.22;
+    const cp1x = cx + Math.cos(leftAng) * radius * 0.72;
+    const cp1y = cy + Math.sin(leftAng) * radius * 0.72;
+    const cp2x = cx + Math.cos(rightAng) * radius * 0.72;
+    const cp2y = cy + Math.sin(rightAng) * radius * 0.72;
+    if (i === 0) {
+      ctx.bezierCurveTo(
+        petioleX + Math.cos(sinusAng) * sinusR * 0.6,
+        petioleY + Math.sin(sinusAng) * sinusR * 0.6,
+        cp1x, cp1y, tipX, tipY);
+    } else {
+      ctx.bezierCurveTo(cp2x, cp2y, sinusX, sinusY, sinusX, sinusY);
+      ctx.bezierCurveTo(
+        sinusX + (cp1x - sinusX) * 0.8,
+        sinusY + (cp1y - sinusY) * 0.8,
+        cp1x, cp1y, tipX, tipY);
+    }
+  }
+  const lastAng = (startAngle + (lobes - 1) * lobeSpacing + lobeSpacing * 0.5) * (Math.PI / 180);
+  const lastSinusX = cx + Math.cos(lastAng) * sinusR;
+  const lastSinusY = cy + Math.sin(lastAng) * sinusR;
+  ctx.bezierCurveTo(
+    cx + Math.cos((startAngle + (lobes - 1) * lobeSpacing + 0.22) * Math.PI / 180) * radius * 0.72,
+    cy + Math.sin((startAngle + (lobes - 1) * lobeSpacing + 0.22) * Math.PI / 180) * radius * 0.72,
+    lastSinusX, lastSinusY, lastSinusX, lastSinusY);
+  ctx.bezierCurveTo(
+    lastSinusX * 0.8 + petioleX * 0.2,
+    lastSinusY * 0.8 + petioleY * 0.2,
+    petioleX, petioleY - 2, petioleX, petioleY);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = `hsla(${hue - 5},${sat}%,${lit - 20}%,0.5)`;
+  ctx.lineWidth = 0.6; ctx.stroke();
+  const veinColor = 'rgba(255,248,220,0.55)';
+  ctx.lineWidth = 0.5; ctx.strokeStyle = veinColor;
+  for (let i = 0; i < lobes; i++) {
+    const ang = (startAngle + i * lobeSpacing) * (Math.PI / 180);
+    const tipX = cx + Math.cos(ang) * radius * 0.88;
+    const tipY = cy + Math.sin(ang) * radius * 0.88;
+    const midX = cx + Math.cos(ang) * radius * 0.48;
+    const midY = cy + Math.sin(ang) * radius * 0.48;
+    ctx.beginPath();
+    ctx.moveTo(petioleX, petioleY - 2);
+    ctx.quadraticCurveTo(midX, midY, tipX, tipY); ctx.stroke();
+    if (radius > 38) {
+      ctx.lineWidth = 0.35; ctx.strokeStyle = 'rgba(255,248,220,0.35)';
+      const bx = petioleX + (tipX - petioleX) * 0.55;
+      const by = petioleY + (tipY - petioleY) * 0.55;
+      const side = (i % 2 === 0 ? 1 : -1) * 8;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + side, by - 6); ctx.stroke();
+      ctx.lineWidth = 0.5; ctx.strokeStyle = veinColor;
+    }
+  }
+  ctx.beginPath(); ctx.moveTo(petioleX, petioleY); ctx.lineTo(petioleX, petioleY + radius * 0.28);
+  ctx.lineWidth = 0.8; ctx.strokeStyle = `hsla(${hue},40%,${lit - 15}%,0.7)`; ctx.stroke();
+}
+
+function _buildMomijiTemplates() {
+  const templates = [];
+  const rand = _mulberry32(0xdeadbeef);
+  for (let i = 0; i < 14; i++) {
+    const lobes = i % 3 === 0 ? 7 : 5;
+    const size  = 28 + Math.floor(rand() * 44);
+    const radius = size / 2;
+    const isGreen = rand() < 0.15;
+    const palette = [
+      [rand() * 16, 75 + rand() * 15, 38 + rand() * 12],
+      [20 + rand() * 15, 70 + rand() * 20, 42 + rand() * 15],
+      [38 + rand() * 12, 65 + rand() * 20, 48 + rand() * 17],
+      [5  + rand() * 8,  72 + rand() * 18, 35 + rand() * 14],
+    ];
+    const [hue, sat, lit] = palette[i % 4];
+    const W = (radius + 4) * 2, H = (radius * 1.1 + 4) * 2;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = Math.ceil(W); offscreen.height = Math.ceil(H);
+    _drawMomijiLeaf(offscreen.getContext('2d'), lobes, radius, hue, sat, lit, isGreen);
+    templates.push({ canvas:offscreen, size, W, H, cx:radius+4, cy:radius*1.1+4 });
+  }
+  return templates;
+}
+
+function _spawnMomijiLeaf(W, H, templates, fromSide) {
+  const tmpl = templates[Math.floor(Math.random() * templates.length)];
+  const r = Math.random();
+  let layer, alpha, speedMult;
+  if (r < 0.30)      { layer='fg'; alpha=0.88+Math.random()*0.12; speedMult=1.0; }
+  else if (r < 0.70) { layer='mg'; alpha=0.65+Math.random()*0.17; speedMult=0.65; }
+  else               { layer='bg'; alpha=0.30+Math.random()*0.20; speedMult=0.35; }
+  let x, y, vx;
+  if (fromSide) {
+    const fromLeft = Math.random() < 0.5;
+    x = fromLeft ? -tmpl.W : W + tmpl.W;
+    y = Math.random() * H * 0.7;
+    vx = fromLeft ? (0.4 + Math.random() * 1.2) : -(0.4 + Math.random() * 1.2);
+  } else {
+    x = -tmpl.W + Math.random() * (W + tmpl.W * 2);
+    y = -(tmpl.H + Math.random() * 60);
+    vx = (Math.random() - 0.5) * 0.8;
+  }
+  return {
+    tmpl, x, y, vx,
+    vy:        0.1 + Math.random() * 0.4 * speedMult,
+    gravity:   (0.012 + Math.random() * 0.033) * speedMult,
+    rotation:  Math.random() * Math.PI * 2,
+    rotSpeed:  (Math.random() - 0.5) * 0.035,
+    tiltAngle: Math.random() * Math.PI * 2,
+    tiltSpeed: (0.012 + Math.random() * 0.030) * (Math.random() < 0.5 ? 1 : -1),
+    swayPhase: Math.random() * Math.PI * 2,
+    swayFreq:  0.018 + Math.random() * 0.022,
+    swayAmp:   0.012 + Math.random() * 0.020,
+    speedMult, layer, alpha,
+  };
+}
+
+function MomijiOverlay({ isVisible = true, intensity = 'medium' }) {
+  const fgRef = useRef(null);
+  const bgRef = useRef(null);
+  useEffect(() => {
+    if (!isVisible) return;
+    const fgCanvas = fgRef.current, bgCanvas = bgRef.current;
+    if (!fgCanvas || !bgCanvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    const setup = (c) => {
+      c.width  = Math.round(VW * dpr); c.height = Math.round(VH * dpr);
+      c.style.width = VW + 'px'; c.style.height = VH + 'px';
+      const ctx = c.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return ctx;
+    };
+    let fgCtx = setup(fgCanvas), bgCtx = setup(bgCanvas);
+    const onResize = () => {
+      VW = window.innerWidth; VH = window.innerHeight;
+      fgCtx = setup(fgCanvas); bgCtx = setup(bgCanvas);
+    };
+    window.addEventListener('resize', onResize);
+    const templates = _buildMomijiTemplates();
+    const count  = MOMIJI_INTENSITY_MAP[intensity] ?? 60;
+    const leaves = Array.from({ length: count }, () => {
+      const l = _spawnMomijiLeaf(VW, VH, templates, false);
+      l.y = -l.tmpl.H + Math.random() * (VH + l.tmpl.H); return l;
+    });
+    let t = 0, windGust = 0, gustTimer = 3000 + Math.random() * 3000, lastNow = performance.now(), animId;
+    const loop = (now) => {
+      const dt = Math.min(now - lastNow, 50); lastNow = now; t += dt;
+      const windX = 0.6 * Math.sin(t * 0.0003) + windGust;
+      gustTimer -= dt;
+      if (gustTimer <= 0) {
+        windGust = (Math.random() - 0.5) * 3.0;
+        gustTimer = 3000 + Math.random() * 3000;
+      }
+      windGust *= 0.992;
+      fgCtx.clearRect(0, 0, VW, VH); bgCtx.clearRect(0, 0, VW, VH);
+      for (let i = 0; i < leaves.length; i++) {
+        const l = leaves[i];
+        l.vy += l.gravity; l.swayPhase += l.swayFreq;
+        l.vx += Math.sin(l.swayPhase) * l.swayAmp + windX * l.speedMult * 0.018;
+        l.vx *= 0.98; l.vy *= 0.998;
+        l.x += l.vx; l.y += l.vy;
+        l.rotation += l.rotSpeed; l.tiltAngle += l.tiltSpeed;
+        if (l.y > VH + l.tmpl.H + 20 || l.x < -VW * 0.4 || l.x > VW * 1.4) {
+          leaves[i] = _spawnMomijiLeaf(VW, VH, templates, Math.abs(windX) > 1.2 && Math.random() < 0.25);
+          continue;
+        }
+        const ctx = l.layer === 'bg' ? bgCtx : fgCtx;
+        ctx.save(); ctx.globalAlpha = l.alpha;
+        ctx.translate(l.x, l.y); ctx.rotate(l.rotation);
+        ctx.scale(Math.cos(l.tiltAngle), 1);
+        ctx.drawImage(l.tmpl.canvas, -l.tmpl.cx, -l.tmpl.cy);
+        ctx.restore();
+      }
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, [isVisible, intensity]);
+  if (!isVisible) return null;
+  const s = { position:'fixed', top:0, left:0, width:'100vw', height:'100vh', zIndex:9999, pointerEvents:'none' };
+  return (
+    <>
+      <canvas ref={bgRef} style={{ ...s, filter:'blur(1.5px)', opacity:0.85 }} />
+      <canvas ref={fgRef} style={s} />
+    </>
+  );
+}
+
+// ─── SUMMER: Hokusai Great Wave background ────────────────────────────────
 function HokusaiWaveBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
