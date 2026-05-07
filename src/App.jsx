@@ -2803,7 +2803,7 @@ function WinterSnowBackground() {
   }}/>;
 }
 
-function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
+function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const [swiping,     setSwiping]     = useState(false);
@@ -2822,7 +2822,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss }) {
   };
 
   const isSpecial = quoteData?.isSpecial;
-  const season    = getSeason();
+  const season    = seasonOverride || getSeason();
   const isAutumn  = season === 'autumn';
   const isSummer  = season === 'summer';
   const isWinter  = season === 'winter';
@@ -4479,7 +4479,8 @@ function DevSeasonQuoteTester() {
   const VH = window.innerHeight || 844;
   const PW = 148, PH = 112;
   const scale = Math.min(PW / VW, PH / VH);
-  const [testQuote, setTestQuote] = useState(null);
+  const [testQuote,  setTestQuote]  = useState(null);
+  const [testSeason, setTestSeason] = useState(null);
 
   const iconMap = { spring:<KizunaIcon />, summer:<FireworkIcon />,
                     autumn:<MomijiIcon />, winter:<SnowflakeIcon /> };
@@ -4490,14 +4491,15 @@ function DevSeasonQuoteTester() {
       {/* Full-screen quote overlay when a card is tapped */}
       {testQuote && (
         <DailyQuoteScreen quoteData={testQuote} loading={false}
-          onDismiss={() => setTestQuote(null)} />
+          seasonOverride={testSeason}
+          onDismiss={() => { setTestQuote(null); setTestSeason(null); }} />
       )}
 
       {/* 4 tappable season preview cards */}
       <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginBottom:14 }}>
         {SEASON_QUOTES.map(s => (
           <div key={s.key}
-            onClick={() => setTestQuote(s.quote)}
+            onClick={() => { setTestQuote(s.quote); setTestSeason(s.key); }}
             style={{
               width:PW, borderRadius:BR.card, cursor:'pointer',
               border:`1.5px solid ${C.border}`, overflow:'hidden',
@@ -4560,7 +4562,7 @@ function DevSeasonQuoteTester() {
       </p>
       <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
         {OCCASION_QUOTES.map(({ label, quote }) => (
-          <button key={label} onClick={() => setTestQuote(quote)}
+          <button key={label} onClick={() => { setTestQuote(quote); setTestSeason(null); }}
             style={{ padding:'8px 12px', borderRadius:BR.input,
               background:C.elevated, border:`1px solid ${C.border}`,
               color:C.text, fontFamily:'inherit', fontSize:12,
