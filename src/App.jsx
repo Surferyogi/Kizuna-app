@@ -3204,7 +3204,7 @@ const HOLIDAY_INFO = {
     country:'SG',
     text: "Father's Day was inspired by Mother's Day and first celebrated in 1910 in Washington State. Sonora Smart Dodd wanted to honour her father who raised six children alone after his wife died. The third Sunday of June became the official US date in 1972 — now celebrated across Singapore, Japan, and over 100 countries."
   },
-  "New Year's Day": {
+  "New Year's Day (Japan)": {
     country:'JP',
     text: "O-shōgatsu is Japan's most important holiday — families gather for three days, temples ring their bells 108 times at midnight (joya no kane), and 80 million Japanese mail New Year cards (nengajō) that arrive on January 1st by special postal arrangement."
   },
