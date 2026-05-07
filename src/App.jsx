@@ -4463,6 +4463,81 @@ const QUOTE_DEMOS = [
   { label:"📖 Rumi",        quote:{ quote:"Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi", label:"Trust · Today's Reflection", isSpecial:false } },
 ];
 
+function DevAnimationPreviewer() {
+  const C  = useContext(ThemeContext);
+  const VW = window.innerWidth || 390;
+  const VH = window.innerHeight || 844;
+  // Scale factor: fit the full-screen canvas into a 148×108 preview card
+  const PW = 148, PH = 108;
+  const scale = Math.min(PW / VW, PH / VH);
+
+  const cards = [
+    { key:'spring', label:'🌸 Spring', bg:'#120a0e', useCanvas:false },
+    { key:'summer', label:'🎆 Summer', bg:'#020b18', useCanvas:true  },
+    { key:'autumn', label:'🍁 Autumn', bg:'#0e0802', useCanvas:false },
+    { key:'winter', label:'❄️ Winter', bg:'#080d18', useCanvas:true  },
+  ];
+
+  const iconMap  = { spring:<KizunaIcon />,    summer:<FireworkIcon />,
+                     autumn:<MomijiIcon />,     winter:<SnowflakeIcon /> };
+  const partMap  = { spring:<SakuraPetals />,  autumn:<MomijiParticles /> };
+
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', gap:10 }}>
+      {cards.map(card => (
+        <div key={card.key} style={{
+          width:PW, borderRadius:BR.card,
+          border:`1px solid ${C.border}`,
+          overflow:'hidden', position:'relative',
+          background:card.bg, flexShrink:0,
+        }}>
+          {/* Canvas animation — scaled down via CSS transform */}
+          {card.useCanvas && (
+            <div style={{
+              position:'absolute', top:0, left:0,
+              width:VW, height:VH,
+              transform:`scale(${scale})`, transformOrigin:'top left',
+              pointerEvents:'none',
+            }}>
+              {card.key === 'summer' ? <HokusaiWaveBackground /> : <WinterSnowBackground />}
+            </div>
+          )}
+
+          {/* Particle animation for spring/autumn — contained */}
+          {!card.useCanvas && (
+            <div style={{ position:'relative', height:PH, overflow:'hidden' }}>
+              {partMap[card.key]}
+            </div>
+          )}
+
+          {/* Spacer for canvas cards */}
+          {card.useCanvas && <div style={{ height:PH }} />}
+
+          {/* Seasonal icon — centred, above canvas */}
+          <div style={{
+            position:'absolute', top:'50%', left:'50%',
+            transform:'translate(-50%,-62%) scale(1.1)',
+            zIndex:2, pointerEvents:'none',
+          }}>
+            {iconMap[card.key]}
+          </div>
+
+          {/* Season label */}
+          <div style={{
+            position:'relative', zIndex:2,
+            textAlign:'center', fontSize:11,
+            color:'rgba(255,255,255,0.85)',
+            fontWeight:700, paddingBottom:7,
+            background:'linear-gradient(transparent,rgba(0,0,0,0.55))',
+          }}>
+            {card.label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DevQuoteTester() {
   const C = useContext(ThemeContext);
   const [testQuote, setTestQuote] = useState(null);
@@ -4788,6 +4863,17 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                 Preview the quote page for each theme. Tap the screen to dismiss.
               </p>
               <DevQuoteTester />
+            </div>
+
+            {/* ── Seasonal Backgrounds Preview ── */}
+            <div style={{ borderTop:`1px dashed ${C.border}`, paddingTop:14, marginBottom:16 }}>
+              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
+                🎨 Seasonal Background Animations
+              </p>
+              <p style={{ margin:'0 0 12px', fontSize:12, color:C.muted }}>
+                Live preview of all 4 season backgrounds — Hokusai waves, snow physics, petals, momiji.
+              </p>
+              <DevAnimationPreviewer />
             </div>
 
             {/* ── Seasonal Icons Test ── */}
