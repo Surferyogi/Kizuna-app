@@ -5826,6 +5826,42 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 
 // ─── SETTINGS TAB ────────────────────────────────────────────────
 // ─── Dev Panel sub-components (hooks need proper function components) ──────
+// Dev panel: special occasion background previews
+const OCCASION_DEMOS = [
+  { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
+  { label:"🌸 Mother's Day", quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
+  { label:"👨 Father's Day", quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
+  { label:"🎂 Birthday",    quote:{ quote:"Today we count not just years but all the small brave moments that quietly shaped who we are becoming.", label:"Birthday · Special Quote", isSpecial:true } },
+];
+
+function DevOccasionTester() {
+  const C = useContext(ThemeContext);
+  const [testQuote, setTestQuote] = useState(null);
+  return (
+    <>
+      {testQuote && (
+        <DailyQuoteScreen
+          quoteData={testQuote}
+          loading={false}
+          onDismiss={() => setTestQuote(null)}
+        />
+      )}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+        {OCCASION_DEMOS.map(({ label, quote }) => (
+          <button key={label}
+            onClick={() => setTestQuote(quote)}
+            style={{ padding:'9px 12px', borderRadius:BR.input,
+              background:C.elevated, border:`1px solid ${C.border}`,
+              color:C.text, fontFamily:'inherit', fontSize:13,
+              fontWeight:600, cursor:'pointer' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // Seasonal quote data for the 4 seasons
 const SEASON_QUOTES = [
   { key:'spring', label:'🌸 Spring', bg:'#120a0e', useCanvas:false,
@@ -6219,6 +6255,17 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* ── Special Occasion Backgrounds ── */}
+            <div style={{ marginBottom:16, borderTop:`1px dashed ${C.border}`, paddingTop:14 }}>
+              <p style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:C.text }}>
+                🎊 Special Occasion Screens
+              </p>
+              <p style={{ margin:'0 0 10px', fontSize:12, color:C.muted }}>
+                Preview animated backgrounds for special days. Tap quote screen to dismiss.
+              </p>
+              <DevOccasionTester />
             </div>
 
             {/* ── Seasonal Quote + Background combined ── */}
