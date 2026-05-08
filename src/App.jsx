@@ -2958,6 +2958,205 @@ function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
 }
 
 
+// ─── BIRTHDAY BACKGROUND — balloons, confetti, sparkles ──────────────────────
+function BirthdayBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx;
+    const setup = () => {
+      canvas.width  = Math.round(VW * dpr);
+      canvas.height = Math.round(VH * dpr);
+      canvas.style.width  = VW + 'px';
+      canvas.style.height = VH + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    setup();
+
+    // ── Colour palettes ───────────────────────────────────────────────────────
+    const BALLOON_COLS = [
+      '#FF6B9D','#FF8E53','#FFD166','#06D6A0','#4CC9F0',
+      '#F72585','#7209B7','#3A86FF','#FB5607','#8338EC',
+    ];
+    const CONFETTI_COLS = [
+      '#FF6B9D','#FFD166','#06D6A0','#4CC9F0','#F72585',
+      '#FF8E53','#7209B7','#3A86FF','#FFBE0B','#8338EC',
+    ];
+
+    // ── Balloons ──────────────────────────────────────────────────────────────
+    const mkBalloon = () => {
+      const col = BALLOON_COLS[Math.floor(Math.random() * BALLOON_COLS.length)];
+      const r   = 18 + Math.random() * 22;                // radius 18–40px
+      return {
+        x:   VW * 0.05 + Math.random() * VW * 0.90,
+        y:   VH + r + Math.random() * VH * 0.5,           // start below screen
+        r, col,
+        vy:  -(0.4 + Math.random() * 0.7),                // float upward
+        vx:  (Math.random() - 0.5) * 0.4,
+        swayPhase: Math.random() * Math.PI * 2,
+        swayAmp:   0.25 + Math.random() * 0.35,
+        swayFreq:  0.012 + Math.random() * 0.018,
+        opacity:   0.78 + Math.random() * 0.18,
+        stringLen: r * (2.2 + Math.random() * 1.2),
+      };
+    };
+
+    const balloons = Array.from({ length: 14 }, mkBalloon);
+
+    // ── Confetti ──────────────────────────────────────────────────────────────
+    const mkConfetto = () => ({
+      x:    Math.random() * VW,
+      y:    -20 - Math.random() * VH * 0.3,
+      w:    5  + Math.random() * 9,
+      h:    3  + Math.random() * 5,
+      col:  CONFETTI_COLS[Math.floor(Math.random() * CONFETTI_COLS.length)],
+      vy:   0.8 + Math.random() * 1.4,
+      vx:   (Math.random() - 0.5) * 1.2,
+      rot:  Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.12,
+      opacity: 0.7 + Math.random() * 0.25,
+      shape: Math.random() < 0.4 ? 'circle' : Math.random() < 0.5 ? 'rect' : 'ribbon',
+    });
+
+    const confetti = Array.from({ length: 55 }, mkConfetto);
+
+    // ── Sparkles ──────────────────────────────────────────────────────────────
+    const mkSparkle = () => ({
+      x:     Math.random() * VW,
+      y:     Math.random() * VH,
+      phase: Math.random() * Math.PI * 2,
+      spd:   0.025 + Math.random() * 0.045,
+      r:     2 + Math.random() * 4,
+      col:   BALLOON_COLS[Math.floor(Math.random() * BALLOON_COLS.length)],
+      rays:  4 + Math.floor(Math.random() * 3),  // 4–6 pointed star
+    });
+    const sparkles = Array.from({ length: 22 }, mkSparkle);
+
+    const drawStar = (x, y, r, rays, alpha, col) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      ctx.beginPath();
+      for (let i = 0; i < rays * 2; i++) {
+        const ang = (i * Math.PI) / rays;
+        const rd  = i % 2 === 0 ? r : r * 0.42;
+        i === 0 ? ctx.moveTo(Math.cos(ang)*rd, Math.sin(ang)*rd)
+                : ctx.lineTo(Math.cos(ang)*rd, Math.sin(ang)*rd);
+      }
+      ctx.closePath();
+      ctx.fillStyle = col;
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const onResize = () => { VW = window.innerWidth; VH = window.innerHeight; setup(); };
+    window.addEventListener('resize', onResize);
+
+    let animId, lastT = null;
+    const frame = now => {
+      const dt = lastT ? Math.min(now - lastT, 50) : 16; lastT = now;
+      const ds = dt / 16;
+      ctx.clearRect(0, 0, VW, VH);
+
+      // ── Draw balloons ───────────────────────────────────────────────────
+      for (const b of balloons) {
+        b.swayPhase += b.swayFreq * ds;
+        b.vx = Math.sin(b.swayPhase) * b.swayAmp;
+        b.x += b.vx * ds;
+        b.y += b.vy * ds;
+        if (b.y < -b.r * 2 - b.stringLen) {
+          Object.assign(b, mkBalloon());
+        }
+
+        ctx.save();
+        ctx.globalAlpha = b.opacity;
+
+        // Balloon body
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        const bGrad = ctx.createRadialGradient(
+          b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.05,
+          b.x, b.y, b.r
+        );
+        bGrad.addColorStop(0, 'rgba(255,255,255,0.55)');
+        bGrad.addColorStop(0.35, b.col + 'dd');
+        bGrad.addColorStop(1, b.col + '88');
+        ctx.fillStyle = bGrad; ctx.fill();
+        // Balloon knot
+        ctx.beginPath();
+        ctx.arc(b.x, b.y + b.r, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = b.col; ctx.fill();
+        // String
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y + b.r + 2.5);
+        // Curvy string using quadratic
+        ctx.quadraticCurveTo(
+          b.x + Math.sin(b.swayPhase * 2) * 8,
+          b.y + b.r + b.stringLen * 0.55,
+          b.x + Math.sin(b.swayPhase) * 5,
+          b.y + b.r + b.stringLen
+        );
+        ctx.strokeStyle = b.col + 'aa';
+        ctx.lineWidth = 1.2; ctx.stroke();
+        // Shine
+        ctx.beginPath();
+        ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
+
+        ctx.restore();
+      }
+
+      // ── Draw confetti ───────────────────────────────────────────────────
+      for (const p of confetti) {
+        p.y  += p.vy * ds;
+        p.x  += p.vx * ds;
+        p.rot += p.rotV * ds;
+        p.vx += Math.sin(p.rot * 0.4) * 0.015 * ds;  // gentle lateral drift
+        if (p.y > VH + 20) Object.assign(p, mkConfetto());
+
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.col;
+
+        if (p.shape === 'circle') {
+          ctx.beginPath(); ctx.arc(0, 0, p.w * 0.5, 0, Math.PI * 2); ctx.fill();
+        } else if (p.shape === 'ribbon') {
+          // Thin ribbon — tall and narrow
+          ctx.fillRect(-p.h * 0.5, -p.w, p.h, p.w * 2);
+        } else {
+          ctx.fillRect(-p.w * 0.5, -p.h * 0.5, p.w, p.h);
+        }
+        ctx.restore();
+      }
+
+      // ── Draw sparkles ───────────────────────────────────────────────────
+      for (const s of sparkles) {
+        s.phase += s.spd * ds;
+        const alpha = Math.max(0, Math.sin(s.phase)) * 0.85;
+        if (alpha > 0.04) drawStar(s.x, s.y, s.r * (0.6 + 0.4 * Math.sin(s.phase)), s.rays, alpha, s.col);
+      }
+
+      ctx.globalAlpha = 1;
+      animId = requestAnimationFrame(frame);
+    };
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{
+      position:'absolute', top:0, left:0,
+      width:'100%', height:'100%',
+      pointerEvents:'none', zIndex:0,
+    }} />
+  );
+}
+
 // ─── SUMMER: Hokusai Great Wave background ────────────────────────────────
 function HokusaiWaveBackground() {
   const canvasRef = useRef(null);
@@ -3233,11 +3432,13 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
     setTouchStartY(null);
   };
 
-  const isSpecial = quoteData?.isSpecial;
-  const season    = seasonOverride || getSeason();
-  const isAutumn  = season === 'autumn';
-  const isSummer  = season === 'summer';
-  const isWinter  = season === 'winter';
+  const isSpecial  = quoteData?.isSpecial;
+  const season     = seasonOverride || getSeason();
+  const isAutumn   = season === 'autumn';
+  const isSummer   = season === 'summer';
+  const isWinter   = season === 'winter';
+  // Birthday detected from quote label (both real days and dev panel previews)
+  const isBirthday = !!(quoteData?.label?.toLowerCase().includes('birthday'));
 
   return (
     <div
@@ -3255,13 +3456,14 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
 
-      {/* Canvas backgrounds — summer (Hotaru fireflies), winter (snow), autumn (MomijiOverlay) */}
-      {isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
-      {isWinter && <WinterSnowBackground />}
-      {isAutumn && <MomijiOverlay isVisible intensity="medium" />}
+      {/* Canvas backgrounds — summer (Hotaru fireflies), winter (snow), autumn (MomijiOverlay), birthday */}
+      {isBirthday && <BirthdayBackground />}
+      {!isBirthday && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
+      {!isBirthday && isWinter && <WinterSnowBackground />}
+      {!isBirthday && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
-      {/* Spring sakura petals — other seasons handled by canvas/MomijiOverlay */}
-      {(!isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
+      {/* Spring sakura petals — other seasons handled by canvas/MomijiOverlay; hidden on birthdays */}
+      {(!isBirthday && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
         <div key={i} style={{
           position:'absolute', top:0, left:p.left,
           width:p.size, height:p.size,
