@@ -2958,7 +2958,7 @@ function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
 }
 
 
-// ─── MOTHER'S DAY — carnations, butterflies, soft light orbs ──────────────────
+// ─── MOTHER'S DAY — carnations floating and bouncing ─────────────────────────
 function MothersDayBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -2976,124 +2976,192 @@ function MothersDayBackground() {
     };
     setup();
 
-    const drawCarnation = (x, y, r, col, alpha, rot, variant) => {
-      if (alpha < 0.02) return;
-      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-      const layers = variant === 1 ? 5 : variant === 3 ? 3 : 4;
-      const nP     = variant === 3 ? 7 : 11;
-      for (let l = layers; l >= 0; l--) {
-        const lr = r * (0.38 + l * 0.14);
-        for (let i = 0; i < nP; i++) {
-          const ang = (i / nP) * Math.PI * 2 + l * 0.28;
-          ctx.save(); ctx.rotate(ang);
-          ctx.globalAlpha = alpha * (0.70 + l * 0.05);
+    // ── Realistic carnation — ruffled layered petals ──────────────────────────
+    // A carnation has 20-30 tightly packed petals in concentric layers,
+    // each petal with a serrated/fringed tip characteristic of carnations.
+    const drawCarnation = (x, y, r, col, alpha, rot) => {
+      if (r < 1 || alpha < 0.02) return;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.globalAlpha = alpha;
+
+      // Parse color for gradient shading
+      // We draw 4 layers from outer to inner, each slightly smaller and brighter
+      const LAYERS = [
+        { n:14, rScale:1.00, alphaScale:0.75, lightness:+0  },
+        { n:12, rScale:0.78, alphaScale:0.85, lightness:+6  },
+        { n:10, rScale:0.58, alphaScale:0.90, lightness:+12 },
+        { n: 8, rScale:0.38, alphaScale:1.00, lightness:+20 },
+      ];
+
+      LAYERS.forEach((layer, li) => {
+        const lr = r * layer.rScale;
+        const offsetAngle = li * 0.22; // each layer rotated slightly
+        for (let i = 0; i < layer.n; i++) {
+          const ang = (i / layer.n) * Math.PI * 2 + offsetAngle;
+          ctx.save();
+          ctx.rotate(ang);
+          ctx.globalAlpha = alpha * layer.alphaScale;
+
+          // Petal shape — wide oval with fringed/notched top (carnation characteristic)
+          const pw = lr * 0.42;  // petal width
+          const ph = lr * 0.82;  // petal height
+
           ctx.beginPath();
           ctx.moveTo(0, 0);
-          ctx.bezierCurveTo(-lr*0.18,-lr*0.38,-lr*0.40,-lr*0.72,-lr*0.26,-lr);
-          ctx.bezierCurveTo(-lr*0.08,-lr*1.10, lr*0.08,-lr*1.10, lr*0.26,-lr);
-          ctx.bezierCurveTo( lr*0.40,-lr*0.72, lr*0.18,-lr*0.38, 0, 0);
-          const pC = (variant===2&&i%2===0) ? col+'bb' : col;
-          const pg = ctx.createLinearGradient(0,0,0,-lr);
-          pg.addColorStop(0,'#fff8fa'); pg.addColorStop(0.25,pC+'ff'); pg.addColorStop(1,pC+(variant===1?'cc':'88'));
-          ctx.fillStyle = pg; ctx.fill(); ctx.restore();
+          // Left side
+          ctx.bezierCurveTo(-pw*0.6, -ph*0.3, -pw*0.9, -ph*0.6, -pw*0.7, -ph);
+          // Fringed top — 3 small notches
+          ctx.bezierCurveTo(-pw*0.5, -ph*1.10, -pw*0.3, -ph*1.05, -pw*0.15, -ph);
+          ctx.bezierCurveTo(-pw*0.05,-ph*1.08,  pw*0.05,-ph*1.08,  pw*0.15, -ph);
+          ctx.bezierCurveTo( pw*0.3, -ph*1.05,  pw*0.5, -ph*1.10,  pw*0.7,  -ph);
+          // Right side
+          ctx.bezierCurveTo(pw*0.9, -ph*0.6, pw*0.6, -ph*0.3, 0, 0);
+          ctx.closePath();
+
+          // Gradient: lighter at tip, deeper at base
+          const pg = ctx.createLinearGradient(0, 0, 0, -ph*1.1);
+          pg.addColorStop(0,    col + 'dd');
+          pg.addColorStop(0.35, col + 'ee');
+          pg.addColorStop(0.70, col + 'cc');
+          pg.addColorStop(1,    col + 'aa');
+          ctx.fillStyle = pg;
+          ctx.fill();
+
+          // Subtle edge stroke for definition
+          ctx.strokeStyle = col + '55';
+          ctx.lineWidth = 0.4;
+          ctx.stroke();
+
+          ctx.restore();
         }
-      }
-      ctx.globalAlpha = alpha;
-      ctx.beginPath(); ctx.arc(0,0,r*0.14,0,Math.PI*2);
-      ctx.fillStyle = col; ctx.fill(); ctx.restore();
+      });
+
+      // Dense centre — tight cluster of tiny petals
+      const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.20);
+      cg.addColorStop(0, '#ffffff88');
+      cg.addColorStop(0.5, col + 'cc');
+      cg.addColorStop(1, col + '88');
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
     };
 
-    const drawButterfly = (x, y, size, angle, wo, col, alpha) => {
-      if (wo < 0.08 || alpha < 0.02) return;
-      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x,y); ctx.rotate(angle);
-      for (const side of [-1,1]) {
-        ctx.save(); ctx.scale(side,1);
-        ctx.beginPath();
-        ctx.moveTo(0,0);
-        ctx.bezierCurveTo(size*wo,-size*1.1,size*1.4*wo,-size*0.5,size*wo,size*0.25);
-        ctx.bezierCurveTo(size*0.6*wo,size*0.5,size*0.2*wo,size*0.4,0,0);
-        const wg=ctx.createRadialGradient(size*0.5*wo,-size*0.3,0,size*0.5*wo,-size*0.3,size);
-        wg.addColorStop(0,col+'ff');wg.addColorStop(0.55,col+'cc');wg.addColorStop(1,col+'44');
-        ctx.fillStyle=wg; ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(0,0);ctx.bezierCurveTo(size*0.9*wo,size*0.5,size*0.8*wo,size*0.9,size*0.35*wo,size*0.8);
-        ctx.bezierCurveTo(size*0.1*wo,size*0.75,0,size*0.4,0,0);
-        ctx.fillStyle=col+'99'; ctx.fill(); ctx.restore();
-      }
-      ctx.beginPath(); ctx.ellipse(0,0,size*0.07,size*0.42,0,0,Math.PI*2);
-      ctx.fillStyle='#222'; ctx.fill(); ctx.restore();
+    // ── Color palette: pink, blue, red, yellow, gold, purple ─────────────────
+    const CARNATION_COLS = [
+      '#FF69B4', '#FF1493', '#FFB6C1',   // pinks
+      '#4169E1', '#6495ED', '#87CEEB',   // blues
+      '#DC143C', '#B22222', '#FF6347',   // reds
+      '#FFD700', '#FFA500', '#FFEC8B',   // yellows / gold
+      '#8A2BE2', '#9370DB', '#DDA0DD',   // purples
+    ];
+
+    // ── Carnation particle factory ─────────────────────────────────────────────
+    const mkC = () => {
+      const r    = 14 + Math.random() * 32;          // size 14–46px
+      const col  = CARNATION_COLS[Math.floor(Math.random() * CARNATION_COLS.length)];
+      const ang  = Math.random() * Math.PI * 2;
+      const spd  = 0.4 + Math.random() * 1.4;        // speed variety
+      return {
+        x:    Math.random() * VW,
+        y:    Math.random() * VH,                    // spawn anywhere on screen
+        r, col,
+        vx:   Math.cos(ang) * spd,
+        vy:   Math.sin(ang) * spd,
+        rot:  Math.random() * Math.PI * 2,
+        rotV: (Math.random() - 0.5) * 0.030,
+        // Soft bounce: each carnation has a slight gravity pull
+        gravity: 0.008 + Math.random() * 0.018,
+        alpha: 0.72 + Math.random() * 0.26,
+        // Breathing: petal scale oscillation (carnations sway in breeze)
+        breathPh:  Math.random() * Math.PI * 2,
+        breathSpd: 0.015 + Math.random() * 0.020,
+        breathAmp: 0.04 + Math.random() * 0.06,
+      };
     };
 
-    const COLS=['#e91e63','#f06292','#ff80ab','#c62828','#e53935','#ffffff','#fce4ec','#ad1457','#d81b60','#ff7043','#ffab91'];
-    const BCOLS=['#f48fb1','#ce93d8','#80cbc4','#fff176','#ffcc80'];
-    const VARS=[0,0,1,1,2,3];
+    const COUNT = 28;
+    const carnations = Array.from({ length: COUNT }, mkC);
 
-    const mkF=()=>({
-      x:Math.random()*VW,y:-30-Math.random()*VH*0.5,
-      r:10+Math.random()*16,col:COLS[Math.floor(Math.random()*COLS.length)],
-      variant:VARS[Math.floor(Math.random()*VARS.length)],
-      rot:Math.random()*Math.PI*2,rotV:(Math.random()-0.5)*0.016,
-      vy:0.38+Math.random()*0.7,vx:(Math.random()-0.5)*0.55,
-      sph:Math.random()*Math.PI*2,sfq:0.012+Math.random()*0.016,
-      alpha:0.75+Math.random()*0.22,
-    });
-    const mkB=()=>({
-      x:Math.random()*VW,y:VH+30+Math.random()*VH*0.4,
-      size:14+Math.random()*16,col:BCOLS[Math.floor(Math.random()*BCOLS.length)],
-      vy:-(0.38+Math.random()*0.45),vx:(Math.random()-0.5)*0.5,
-      angle:(Math.random()-0.5)*0.35,
-      wph:Math.random()*Math.PI*2,wsp:0.07+Math.random()*0.07,
-      sph:Math.random()*Math.PI*2,sfq:0.012+Math.random()*0.014,
-      alpha:0.70+Math.random()*0.28,
-    });
-    const mkO=()=>({
-      x:Math.random()*VW,y:Math.random()*VH,r:30+Math.random()*70,
-      col:COLS[Math.floor(Math.random()*COLS.length)],
-      ph:Math.random()*Math.PI*2,sp:0.007+Math.random()*0.010,
-      alpha:0.12+Math.random()*0.14,
-    });
+    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); };
+    window.addEventListener('resize', onResize);
+    let animId, lastT = null;
 
-    const flowers=Array.from({length:30},mkF);
-    const bflies =Array.from({length:7}, mkB);
-    const orbs   =Array.from({length:10},mkO);
+    const frame = now => {
+      const dt = lastT ? Math.min(now-lastT, 50) : 16; lastT = now;
+      const ds = dt / 16;
+      ctx.clearRect(0, 0, VW, VH);
 
-    const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();};
-    window.addEventListener('resize',onResize);
-    let animId,lastT=null;
+      for (const c of carnations) {
+        // Gravity pulls downward
+        c.vy += c.gravity * ds;
 
-    const frame=now=>{
-      const dt=lastT?Math.min(now-lastT,50):16; lastT=now; const ds=dt/16;
-      ctx.clearRect(0,0,VW,VH);
-      for(const o of orbs){
-        o.ph+=o.sp*ds; const p=0.72+0.28*Math.sin(o.ph);
-        ctx.save(); ctx.globalAlpha=o.alpha*p; ctx.globalCompositeOperation='screen';
-        const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*p);
-        g.addColorStop(0,o.col+'ff');g.addColorStop(0.5,o.col+'66');g.addColorStop(1,o.col+'00');
-        ctx.fillStyle=g;ctx.beginPath();ctx.arc(o.x,o.y,o.r*p,0,Math.PI*2);ctx.fill();ctx.restore();
+        // Slight air resistance — velocity damping
+        c.vx *= Math.pow(0.998, ds);
+        c.vy *= Math.pow(0.998, ds);
+
+        // Update position
+        c.x += c.vx * ds;
+        c.y += c.vy * ds;
+        c.rot += c.rotV * ds;
+
+        // Breath oscillation — size pulsing
+        c.breathPh += c.breathSpd * ds;
+        const breathScale = 1 + Math.sin(c.breathPh) * c.breathAmp;
+
+        // ── Bounce off all 4 walls ────────────────────────────────────────────
+        const margin = c.r * 1.2;
+        if (c.x - margin < 0) {
+          c.x = margin;
+          c.vx = Math.abs(c.vx) * (0.70 + Math.random() * 0.20); // slight energy loss
+          c.rotV *= -0.8; // bounce reverses spin a bit
+        }
+        if (c.x + margin > VW) {
+          c.x = VW - margin;
+          c.vx = -Math.abs(c.vx) * (0.70 + Math.random() * 0.20);
+          c.rotV *= -0.8;
+        }
+        if (c.y - margin < 0) {
+          c.y = margin;
+          c.vy = Math.abs(c.vy) * (0.65 + Math.random() * 0.25);
+        }
+        if (c.y + margin > VH) {
+          c.y = VH - margin;
+          c.vy = -Math.abs(c.vy) * (0.65 + Math.random() * 0.25);
+          // Random horizontal nudge on floor bounce
+          c.vx += (Math.random() - 0.5) * 0.5;
+        }
+
+        // Speed floor — prevent carnations from stopping completely
+        const sp = Math.sqrt(c.vx*c.vx + c.vy*c.vy);
+        if (sp < 0.15) {
+          const a = Math.random() * Math.PI * 2;
+          c.vx += Math.cos(a) * 0.25;
+          c.vy += Math.sin(a) * 0.25;
+        }
+        // Speed ceiling
+        if (sp > 3.0) { c.vx *= 3.0/sp; c.vy *= 3.0/sp; }
+
+        drawCarnation(c.x, c.y, c.r * breathScale, c.col, c.alpha, c.rot);
       }
-      for(const f of flowers){
-        f.sph+=f.sfq*ds; f.vx+=Math.sin(f.sph)*0.012*ds; f.vx*=0.98;
-        f.x+=f.vx*ds; f.y+=f.vy*ds; f.rot+=f.rotV*ds;
-        if(f.y>VH+40) Object.assign(f,mkF());
-        drawCarnation(f.x,f.y,f.r,f.col,f.alpha,f.rot,f.variant);
-      }
-      for(const b of bflies){
-        b.wph+=b.wsp*ds; b.sph+=b.sfq*ds;
-        b.vx+=Math.sin(b.sph)*0.018*ds; b.vx*=0.985;
-        b.x+=b.vx*ds; b.y+=b.vy*ds;
-        if(b.y<-b.size*4) Object.assign(b,mkB());
-        const wo=Math.max(0.1,(Math.sin(b.wph)+1)/2);
-        drawButterfly(b.x,b.y,b.size,b.angle,wo,b.col,b.alpha);
-      }
-      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
-      animId=requestAnimationFrame(frame);
+
+      ctx.globalAlpha = 1;
+      animId = requestAnimationFrame(frame);
     };
-    animId=requestAnimationFrame(frame);
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);};
-  },[]);
-  return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none',zIndex:0,background:'transparent'}} />;
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return <canvas ref={canvasRef} style={{
+    position: 'fixed', top: 0, left: 0,
+    width: '100vw', height: '100vh',
+    pointerEvents: 'none', zIndex: 0, background: 'transparent',
+  }} />;
 }
-
 // ─── FATHER'S DAY — paper planes with aerodynamics + physics ──────────────────
 function FathersDayBackground() {
   const canvasRef = useRef(null);
