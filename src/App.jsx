@@ -3154,23 +3154,42 @@ function FathersDayBackground() {
     setup();
 
     // ── Draw a paper plane ────────────────────────────────────────────────────
+    // Paper plane — classic dart silhouette viewed from above
     const drawPlane = (x, y, size, angle, col, alpha) => {
       ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y); ctx.rotate(angle);
-      ctx.beginPath(); // Fuselage + left wing
-      ctx.moveTo(size,0);           // nose
-      ctx.lineTo(-size*0.5, -size*0.55); // left wing tip
-      ctx.lineTo(-size*0.15, 0);    // wing join
+      const s = size;
+      // Top wing (left from viewer, lit side)
+      ctx.beginPath();
+      ctx.moveTo( s,    0);          // nose
+      ctx.lineTo(-s*0.6,-s*0.72);   // outer wing tip
+      ctx.lineTo(-s*0.1,-s*0.10);   // inner wing root
       ctx.closePath();
-      ctx.fillStyle=col+'ee'; ctx.fill();
-      ctx.beginPath(); // Right wing
-      ctx.moveTo(size,0);
-      ctx.lineTo(-size*0.5, size*0.55);
-      ctx.lineTo(-size*0.15,0);
+      const tg = ctx.createLinearGradient(s,0,-s*0.6,-s*0.72);
+      tg.addColorStop(0, '#ffffff');
+      tg.addColorStop(0.35, col+'ff');
+      tg.addColorStop(1, col+'99');
+      ctx.fillStyle = tg; ctx.fill();
+      // Bottom wing (right from viewer, shadow side)
+      ctx.beginPath();
+      ctx.moveTo( s,    0);
+      ctx.lineTo(-s*0.6, s*0.72);
+      ctx.lineTo(-s*0.1, s*0.10);
       ctx.closePath();
-      ctx.fillStyle=col+'cc'; ctx.fill();
-      ctx.beginPath(); // Centre fold line
-      ctx.moveTo(size,0); ctx.lineTo(-size*0.5,0);
-      ctx.strokeStyle=col+'88'; ctx.lineWidth=0.6; ctx.stroke();
+      const bg = ctx.createLinearGradient(s,0,-s*0.6,s*0.72);
+      bg.addColorStop(0, col+'dd');
+      bg.addColorStop(1, col+'55');
+      ctx.fillStyle = bg; ctx.fill();
+      // Fuselage spine
+      ctx.beginPath();
+      ctx.moveTo(s, 0); ctx.lineTo(-s*0.1, 0);
+      ctx.strokeStyle = '#ffffff99'; ctx.lineWidth = s*0.06; ctx.stroke();
+      // Wing fold crease
+      ctx.beginPath();
+      ctx.moveTo(s*0.6, 0); ctx.lineTo(-s*0.6, -s*0.48);
+      ctx.strokeStyle = col+'44'; ctx.lineWidth = 0.5; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s*0.6, 0); ctx.lineTo(-s*0.6,  s*0.48);
+      ctx.strokeStyle = col+'44'; ctx.lineWidth = 0.5; ctx.stroke();
       ctx.restore();
     };
 
@@ -3200,16 +3219,19 @@ function FathersDayBackground() {
     });
 
     const mkPlane = () => {
-      const angle = -Math.PI*0.18 + (Math.random()-0.5)*0.35;
-      const spd   = 0.7 + Math.random()*1.1;
+      // Diverse sizes: tiny scouts (8px) to large leaders (28px)
+      const size  = 8 + Math.random() * 20;
+      // Speed inversely weighted with size (small = fast, big = stately)
+      const spd   = 0.4 + Math.random() * 1.6 + (22 - size) * 0.04;
+      const angle = -Math.PI*0.15 + (Math.random()-0.5)*0.45;
       return {
-        x: -60, y: VH*0.1 + Math.random()*VH*0.75,
-        size: 10+Math.random()*14,
-        col: PLANE_COLS[Math.floor(Math.random()*PLANE_COLS.length)],
+        x: -80, y: VH*0.06 + Math.random()*VH*0.86,
+        size, col: PLANE_COLS[Math.floor(Math.random()*PLANE_COLS.length)],
         angle, vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd,
-        wavePh:Math.random()*Math.PI*2, waveFq:0.018+Math.random()*0.018,
-        waveAmp:0.15+Math.random()*0.25,
-        alpha:0.55+Math.random()*0.35,
+        wavePh:Math.random()*Math.PI*2,
+        waveFq:0.012+Math.random()*0.025,
+        waveAmp:0.08+Math.random()*0.32,   // some cruise straight, others wave a lot
+        alpha:0.50+Math.random()*0.45,
         trail:[],
       };
     };
@@ -3223,7 +3245,7 @@ function FathersDayBackground() {
     });
 
     const stars = Array.from({length:30}, mkStar);
-    const planes= Array.from({length:10}, mkPlane);
+    const planes= Array.from({length:14}, mkPlane);
     const orbs  = Array.from({length:10}, mkOrb);
 
     const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();};
@@ -3301,25 +3323,7 @@ function AnniversaryBackground() {
     };
     setup();
 
-    // ── Rose petal path (single lobe, drawn at origin) ────────────────────────
-    const drawPetal = (x, y, size, angle, col, alpha) => {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      // Elegant elongated petal using bezier
-      ctx.moveTo(0, 0);
-      ctx.bezierCurveTo(-size*0.55, -size*0.6,  -size*0.5, -size*1.4, 0, -size*1.7);
-      ctx.bezierCurveTo( size*0.5,  -size*1.4,   size*0.55, -size*0.6, 0, 0);
-      const pg = ctx.createLinearGradient(0, 0, 0, -size*1.7);
-      pg.addColorStop(0,   col + 'ff');
-      pg.addColorStop(0.4, col + 'ee');
-      pg.addColorStop(1,   col + '88');
-      ctx.fillStyle = pg; ctx.fill();
-      ctx.strokeStyle = col + '55'; ctx.lineWidth = 0.4; ctx.stroke();
-      ctx.restore();
-    };
+
 
     // ── Rose — spiral petals from centre out ───────────────────────────────────
     const drawRose = (x, y, r, rot, col, alpha) => {
@@ -3367,7 +3371,6 @@ function AnniversaryBackground() {
     };
 
     // ── Particle data ─────────────────────────────────────────────────────────
-    const PETAL_COLS = ['#c2185b','#e91e63','#f06292','#ad1457','#d81b60','#ff80ab'];
     const BOKEH_COLS = ['#ffd700','#ffb300','#ffe082','#fff8e1','#f9a825','#fffde7'];
     // Roses: red, yellow, blue (+ tints)
     const ROSE_COLS = [
@@ -3376,23 +3379,7 @@ function AnniversaryBackground() {
       '#1565c0','#1e88e5','#42a5f5',   // blues
     ];
 
-    const mkPetal = () => {
-      const col = PETAL_COLS[Math.floor(Math.random() * PETAL_COLS.length)];
-      const size = 5 + Math.random() * 12;
-      return {
-        x:    -20 + Math.random() * (VW + 40),
-        y:    -30 - Math.random() * VH * 0.4,
-        size, col,
-        rot:  Math.random() * Math.PI * 2,
-        rotV: (Math.random() - 0.5) * 0.025,
-        vx:   (Math.random() - 0.5) * 0.6,
-        vy:   0.5 + Math.random() * 1.0,
-        swayPhase: Math.random() * Math.PI * 2,
-        swayFreq:  0.014 + Math.random() * 0.018,
-        swayAmp:   0.3  + Math.random() * 0.5,
-        alpha: 0.5 + Math.random() * 0.4,
-      };
-    };
+
 
     const mkBokeh = () => {
       const col = BOKEH_COLS[Math.floor(Math.random() * BOKEH_COLS.length)];
@@ -3409,23 +3396,40 @@ function AnniversaryBackground() {
       };
     };
 
+    // Rising roses (from bottom)
     const mkRose = () => ({
       x:    Math.random() * VW,
       y:    VH + 20 + Math.random() * VH * 0.5,
-      r:    12 + Math.random() * 16,        // 12–28px roses — clearly visible
+      r:    8 + Math.random() * 24,         // 8–32px — wide size range
       col:  ROSE_COLS[Math.floor(Math.random() * ROSE_COLS.length)],
-      vy:   -(0.30 + Math.random() * 0.40),
-      vx:   (Math.random() - 0.5) * 0.35,
+      vy:   -(0.22 + Math.random() * 0.55),
+      vx:   (Math.random() - 0.5) * 0.4,
       rot:  Math.random() * Math.PI * 2,
-      rotV: (Math.random() - 0.5) * 0.010, // gentle slow spin
+      rotV: (Math.random() - 0.5) * 0.012,
       phase:    Math.random() * Math.PI * 2,
-      phaseSpd: 0.008 + Math.random() * 0.014,
-      alpha: 0.55 + Math.random() * 0.35,
+      phaseSpd: 0.006 + Math.random() * 0.016,
+      alpha: 0.45 + Math.random() * 0.45,
+      falling: false,
+    });
+    // Falling roses (from top) — same shape, opposite direction
+    const mkFallingRose = () => ({
+      x:    Math.random() * VW,
+      y:    -30 - Math.random() * VH * 0.3,
+      r:    10 + Math.random() * 22,        // 10–32px
+      col:  ROSE_COLS[Math.floor(Math.random() * ROSE_COLS.length)],
+      vy:   0.28 + Math.random() * 0.55,    // falls downward
+      vx:   (Math.random() - 0.5) * 0.4,
+      rot:  Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.010,
+      phase:    Math.random() * Math.PI * 2,
+      phaseSpd: 0.006 + Math.random() * 0.014,
+      alpha: 0.45 + Math.random() * 0.45,
+      falling: true,
     });
 
-    const petals = Array.from({ length: 28 }, mkPetal);
-    const bokeh  = Array.from({ length: 18 }, mkBokeh);
-    const roses  = Array.from({ length: 18 }, mkRose);
+    const bokeh       = Array.from({ length: 18 }, mkBokeh);
+    const roses       = Array.from({ length: 16 }, mkRose);
+    const fallingRoses= Array.from({ length: 16 }, mkFallingRose);
 
     // Floating "24/7" text glyphs — subtle, ghostly
     const mkText = () => ({
@@ -3470,18 +3474,18 @@ function AnniversaryBackground() {
         ctx.restore();
       }
 
-      // ── Rose petals — drifting down ───────────────────────────────────────
-      for (const p of petals) {
-        p.swayPhase += p.swayFreq * ds;
-        p.vx += Math.sin(p.swayPhase) * p.swayAmp * 0.012 * ds;
-        p.vx *= 0.98;
-        p.x += p.vx * ds; p.y += p.vy * ds;
-        p.rot += p.rotV * ds;
-        if (p.y > VH + 30) Object.assign(p, mkPetal());
-        drawPetal(p.x, p.y, p.size, p.rot, p.col, p.alpha);
+      // ── Falling roses — top to bottom ────────────────────────────────────────
+      for (const ro of fallingRoses) {
+        ro.phase += ro.phaseSpd * ds;
+        ro.x += (Math.sin(ro.phase) * 0.3 + ro.vx) * ds;
+        ro.y += ro.vy * ds;
+        ro.rot += ro.rotV * ds;
+        if (ro.y > VH + ro.r * 3) Object.assign(ro, mkFallingRose());
+        const pa = ro.alpha * (0.78 + 0.22 * Math.sin(ro.phase));
+        drawRose(ro.x, ro.y, ro.r, ro.rot, ro.col, pa);
       }
 
-      // ── Floating roses — rising gently ──────────────────────────────────────
+      // ── Rising roses — bottom to top ─────────────────────────────────────────
       for (const ro of roses) {
         ro.phase += ro.phaseSpd * ds;
         ro.x += (Math.sin(ro.phase) * 0.3 + ro.vx) * ds;
