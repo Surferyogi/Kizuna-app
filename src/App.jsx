@@ -2958,6 +2958,185 @@ function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
 }
 
 
+// ─── ANNIVERSARY BACKGROUND — roses, gold bokeh, floating hearts ─────────────
+function AnniversaryBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx;
+    const setup = () => {
+      canvas.width  = Math.round(VW * dpr);
+      canvas.height = Math.round(VH * dpr);
+      canvas.style.width  = VW + 'px';
+      canvas.style.height = VH + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    setup();
+
+    // ── Rose petal path (single lobe, drawn at origin) ────────────────────────
+    const drawPetal = (x, y, size, angle, col, alpha) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      // Elegant elongated petal using bezier
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(-size*0.55, -size*0.6,  -size*0.5, -size*1.4, 0, -size*1.7);
+      ctx.bezierCurveTo( size*0.5,  -size*1.4,   size*0.55, -size*0.6, 0, 0);
+      const pg = ctx.createLinearGradient(0, 0, 0, -size*1.7);
+      pg.addColorStop(0,   col + 'ff');
+      pg.addColorStop(0.4, col + 'ee');
+      pg.addColorStop(1,   col + '88');
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.strokeStyle = col + '55'; ctx.lineWidth = 0.4; ctx.stroke();
+      ctx.restore();
+    };
+
+    // ── Heart shape ───────────────────────────────────────────────────────────
+    const drawHeart = (x, y, size, alpha, col) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      ctx.beginPath();
+      ctx.moveTo(0, size * 0.3);
+      ctx.bezierCurveTo(-size*0.1, -size*0.1, -size*0.7, -size*0.1, -size*0.5, size*0.3);
+      ctx.bezierCurveTo(-size*0.8,  size*0.65, 0,          size*1.1,  0,         size*0.3);
+      ctx.moveTo(0, size * 0.3);
+      ctx.bezierCurveTo( size*0.1, -size*0.1,  size*0.7, -size*0.1,  size*0.5, size*0.3);
+      ctx.bezierCurveTo( size*0.8,  size*0.65, 0,          size*1.1,  0,        size*0.3);
+      ctx.closePath();
+      const hg = ctx.createRadialGradient(0, size*0.4, 0, 0, size*0.4, size*0.9);
+      hg.addColorStop(0, col + 'ff');
+      hg.addColorStop(0.5, col + 'cc');
+      hg.addColorStop(1, col + '44');
+      ctx.fillStyle = hg; ctx.fill();
+      ctx.restore();
+    };
+
+    // ── Particle data ─────────────────────────────────────────────────────────
+    const PETAL_COLS = ['#c2185b','#e91e63','#f06292','#ad1457','#d81b60','#ff80ab'];
+    const BOKEH_COLS = ['#ffd700','#ffb300','#ffe082','#fff8e1','#f9a825','#fffde7'];
+    const HEART_COLS = ['#e91e63','#f50057','#ff4081','#c51162'];
+
+    const mkPetal = () => {
+      const col = PETAL_COLS[Math.floor(Math.random() * PETAL_COLS.length)];
+      const size = 5 + Math.random() * 12;
+      return {
+        x:    -20 + Math.random() * (VW + 40),
+        y:    -30 - Math.random() * VH * 0.4,
+        size, col,
+        rot:  Math.random() * Math.PI * 2,
+        rotV: (Math.random() - 0.5) * 0.025,
+        vx:   (Math.random() - 0.5) * 0.6,
+        vy:   0.5 + Math.random() * 1.0,
+        swayPhase: Math.random() * Math.PI * 2,
+        swayFreq:  0.014 + Math.random() * 0.018,
+        swayAmp:   0.3  + Math.random() * 0.5,
+        alpha: 0.5 + Math.random() * 0.4,
+      };
+    };
+
+    const mkBokeh = () => {
+      const col = BOKEH_COLS[Math.floor(Math.random() * BOKEH_COLS.length)];
+      return {
+        x:    Math.random() * VW,
+        y:    VH + 20 + Math.random() * VH * 0.3,
+        r:    4 + Math.random() * 18,
+        col,
+        vy:   -(0.3 + Math.random() * 0.5),
+        vx:   (Math.random() - 0.5) * 0.3,
+        phase:    Math.random() * Math.PI * 2,
+        phaseSpd: 0.008 + Math.random() * 0.016,
+        alpha: 0.12 + Math.random() * 0.28,
+      };
+    };
+
+    const mkHeart = () => ({
+      x:    Math.random() * VW,
+      y:    VH + 20 + Math.random() * VH * 0.5,
+      size: 4 + Math.random() * 10,
+      col:  HEART_COLS[Math.floor(Math.random() * HEART_COLS.length)],
+      vy:   -(0.35 + Math.random() * 0.45),
+      vx:   (Math.random() - 0.5) * 0.4,
+      phase:    Math.random() * Math.PI * 2,
+      phaseSpd: 0.010 + Math.random() * 0.018,
+      alpha: 0.3 + Math.random() * 0.45,
+    });
+
+    const petals = Array.from({ length: 28 }, mkPetal);
+    const bokeh  = Array.from({ length: 18 }, mkBokeh);
+    const hearts = Array.from({ length: 9  }, mkHeart);
+
+    const onResize = () => { VW = window.innerWidth; VH = window.innerHeight; setup(); };
+    window.addEventListener('resize', onResize);
+
+    let animId, lastT = null;
+    const frame = now => {
+      const dt = lastT ? Math.min(now - lastT, 50) : 16; lastT = now;
+      const ds = dt / 16;
+      ctx.clearRect(0, 0, VW, VH);
+
+      // ── Gold bokeh — floating upward ──────────────────────────────────────
+      for (const b of bokeh) {
+        b.phase += b.phaseSpd * ds;
+        b.x += Math.sin(b.phase) * 0.3 * ds;
+        b.y += b.vy * ds;
+        if (b.y < -b.r * 3) Object.assign(b, mkBokeh());
+        const pulse = 0.75 + 0.25 * Math.sin(b.phase);
+        const rr = b.r * pulse;
+        ctx.save();
+        ctx.globalAlpha = b.alpha * pulse;
+        ctx.globalCompositeOperation = 'screen';
+        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, rr);
+        g.addColorStop(0,   b.col + 'ff');
+        g.addColorStop(0.4, b.col + 'aa');
+        g.addColorStop(1,   b.col + '00');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+
+      // ── Rose petals — drifting down ───────────────────────────────────────
+      for (const p of petals) {
+        p.swayPhase += p.swayFreq * ds;
+        p.vx += Math.sin(p.swayPhase) * p.swayAmp * 0.012 * ds;
+        p.vx *= 0.98;
+        p.x += p.vx * ds; p.y += p.vy * ds;
+        p.rot += p.rotV * ds;
+        if (p.y > VH + 30) Object.assign(p, mkPetal());
+        drawPetal(p.x, p.y, p.size, p.rot, p.col, p.alpha);
+      }
+
+      // ── Floating hearts — rising slowly ───────────────────────────────────
+      for (const h of hearts) {
+        h.phase += h.phaseSpd * ds;
+        h.x += Math.sin(h.phase) * 0.35 * ds;
+        h.y += h.vy * ds;
+        if (h.y < -h.size * 3) Object.assign(h, mkHeart());
+        const pa = h.alpha * (0.7 + 0.3 * Math.sin(h.phase));
+        drawHeart(h.x, h.y - h.size, h.size, pa, h.col);
+      }
+
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      animId = requestAnimationFrame(frame);
+    };
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{
+      position:'absolute', top:0, left:0,
+      width:'100%', height:'100%',
+      pointerEvents:'none', zIndex:0,
+    }} />
+  );
+}
+
 // ─── BIRTHDAY BACKGROUND — balloons, confetti, sparkles ──────────────────────
 function BirthdayBackground() {
   const canvasRef = useRef(null);
@@ -3432,13 +3611,13 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
     setTouchStartY(null);
   };
 
-  const isSpecial  = quoteData?.isSpecial;
-  const season     = seasonOverride || getSeason();
-  const isAutumn   = season === 'autumn';
-  const isSummer   = season === 'summer';
-  const isWinter   = season === 'winter';
-  // Birthday detected from quote label (both real days and dev panel previews)
-  const isBirthday = !!(quoteData?.label?.toLowerCase().includes('birthday'));
+  const isSpecial     = quoteData?.isSpecial;
+  const season        = seasonOverride || getSeason();
+  const isAutumn      = season === 'autumn';
+  const isSummer      = season === 'summer';
+  const isWinter      = season === 'winter';
+  const isBirthday    = !!(quoteData?.label?.toLowerCase().includes('birthday'));
+  const isAnniversary = !!(quoteData?.label?.toLowerCase().includes('anniversary'));
 
   return (
     <div
@@ -3456,14 +3635,16 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
 
-      {/* Canvas backgrounds — summer (Hotaru fireflies), winter (snow), autumn (MomijiOverlay), birthday */}
-      {isBirthday && <BirthdayBackground />}
-      {!isBirthday && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
-      {!isBirthday && isWinter && <WinterSnowBackground />}
-      {!isBirthday && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
+      {/* Special occasion backgrounds */}
+      {isAnniversary && <AnniversaryBackground />}
+      {isBirthday && !isAnniversary && <BirthdayBackground />}
+      {/* Seasonal backgrounds — suppressed on special occasions */}
+      {!isBirthday && !isAnniversary && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
+      {!isBirthday && !isAnniversary && isWinter && <WinterSnowBackground />}
+      {!isBirthday && !isAnniversary && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
-      {/* Spring sakura petals — other seasons handled by canvas/MomijiOverlay; hidden on birthdays */}
-      {(!isBirthday && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
+      {/* Spring sakura petals — suppressed on special occasions and other seasons */}
+      {(!isBirthday && !isAnniversary && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
         <div key={i} style={{
           position:'absolute', top:0, left:p.left,
           width:p.size, height:p.size,
