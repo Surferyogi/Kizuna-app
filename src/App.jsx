@@ -3145,7 +3145,7 @@ function WinterSnowBackground() {
     const FLAKES = Array.from({ length: 90 }, () => ({
       x:      Math.random() * VW,
       y:      Math.random() * VH,
-      r:      0.8 + Math.random() * 3.2,       // size 0.8–4 px
+      r:      1.4 + Math.random() * 3.6,       // size 1.4–5 px
       vy:     0.4 + Math.random() * 1.4,       // gravity fall speed
       vx:     (Math.random() - 0.5) * 0.4,    // per-flake random drift
       wobble: Math.random() * Math.PI * 2,     // horizontal pendulum phase
@@ -3189,10 +3189,15 @@ function WinterSnowBackground() {
         if (f.x < -20)     f.x = VW + 20;
 
         // Draw: soft white radial dot
+        // Light mode: dark slate-blue snow visible on light backgrounds
+        const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const sA = isDarkMode ? f.op : Math.min(0.9, f.op * 1.8);
+        const sc0 = isDarkMode ? `rgba(255,255,255,${sA})` : `rgba(50,70,110,${sA})`;
+        const sc1 = isDarkMode ? `rgba(220,235,255,${sA*0.5})` : `rgba(70,90,130,${sA*0.6})`;
         const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 1.8);
-        g.addColorStop(0, `rgba(255,255,255,${f.op})`);
-        g.addColorStop(0.5, `rgba(220,235,255,${f.op * 0.5})`);
-        g.addColorStop(1, 'rgba(180,210,255,0)');
+        g.addColorStop(0, sc0);
+        g.addColorStop(0.5, sc1);
+        g.addColorStop(1, 'rgba(100,120,160,0)');
         ctx.beginPath();
         ctx.arc(f.x, f.y, f.r * 1.8, 0, Math.PI * 2);
         ctx.fillStyle = g;
@@ -5772,21 +5777,70 @@ const FIREWORK_ICON_CSS = `
   50%      { opacity:0.95; r:2.2; }
 }
 /* Background sparkles — unchanged */
-@keyframes fwSparkle1 { 0%,100%{opacity:0;transform:scale(0.4)} 30%,70%{opacity:1;transform:scale(1.2)} }
-@keyframes fwSparkle2 { 0%,100%{opacity:0;transform:scale(0.3)} 35%,65%{opacity:0.9;transform:scale(1.1)} }
-@keyframes fwSparkle3 { 0%,100%{opacity:0;transform:scale(0.5)} 25%,75%{opacity:1;transform:scale(1.3)} }
-@keyframes fwSparkle4 { 0%,100%{opacity:0;transform:scale(0.3)} 40%,60%{opacity:0.85;transform:scale(1.0)} }
-@keyframes fwSparkle5 { 0%,100%{opacity:0;transform:scale(0.4)} 20%,80%{opacity:1;transform:scale(1.2)} }
-@keyframes fwSparkle6 { 0%,100%{opacity:0;transform:scale(0.3)} 45%,55%{opacity:0.8;transform:scale(1.15)} }
+@keyframes fwFloat1 {
+  0%   { transform:translate(0px, 0px) scale(0.85); opacity:0; }
+  10%  { opacity:1; }
+  30%  { transform:translate(5px,-8px) scale(1.05); }
+  55%  { transform:translate(-4px,-14px) scale(0.95); }
+  80%  { transform:translate(6px,-22px) scale(1.1);  opacity:0.85; }
+  100% { transform:translate(2px,-30px) scale(0.8);  opacity:0; }
+}
+@keyframes fwFloat2 {
+  0%   { transform:translate(0px, 0px) scale(0.9);  opacity:0; }
+  12%  { opacity:0.9; }
+  35%  { transform:translate(-7px,-10px) scale(1.0); }
+  60%  { transform:translate(5px,-18px) scale(1.08); }
+  85%  { transform:translate(-3px,-26px) scale(0.88); opacity:0.75; }
+  100% { transform:translate(1px,-34px) scale(0.75); opacity:0; }
+}
+@keyframes fwFloat3 {
+  0%   { transform:translate(0px, 0px) scale(1.0);  opacity:0; }
+  8%   { opacity:0.95; }
+  25%  { transform:translate(8px,-6px) scale(0.92); }
+  50%  { transform:translate(-5px,-16px) scale(1.1); }
+  78%  { transform:translate(7px,-24px) scale(0.9);  opacity:0.8; }
+  100% { transform:translate(3px,-32px) scale(0.78); opacity:0; }
+}
+@keyframes fwFloat4 {
+  0%   { transform:translate(0px, 0px) scale(0.88); opacity:0; }
+  11%  { opacity:0.85; }
+  40%  { transform:translate(-6px,-9px) scale(1.06); }
+  65%  { transform:translate(4px,-19px) scale(0.94); }
+  88%  { transform:translate(-2px,-28px) scale(1.0);  opacity:0.7; }
+  100% { transform:translate(1px,-36px) scale(0.8);  opacity:0; }
+}
+@keyframes fwFloat5 {
+  0%   { transform:translate(0px, 0px) scale(0.92); opacity:0; }
+  9%   { opacity:0.9; }
+  32%  { transform:translate(6px,-11px) scale(1.08); }
+  58%  { transform:translate(-7px,-20px) scale(0.96); }
+  82%  { transform:translate(5px,-27px) scale(1.05); opacity:0.78; }
+  100% { transform:translate(2px,-35px) scale(0.82); opacity:0; }
+}
+@keyframes fwFloat6 {
+  0%   { transform:translate(0px, 0px) scale(0.95); opacity:0; }
+  13%  { opacity:0.88; }
+  38%  { transform:translate(-4px,-8px) scale(1.02); }
+  62%  { transform:translate(7px,-17px) scale(0.9);  }
+  85%  { transform:translate(-3px,-25px) scale(1.08); opacity:0.72; }
+  100% { transform:translate(2px,-33px) scale(0.8);  opacity:0; }
+}
+/* glow pulse on each dot */
+@keyframes fwGlowPulse {
+  0%,100% { box-shadow: 0 0 4px 2px currentColor; }
+  50%     { box-shadow: 0 0 10px 5px currentColor; }
+}
 `;
 
 const FW_SPARKLES = [
-  { left:'8%',  top:'4%',  anim:'fwSparkle1', dur:'1.4s', delay:'0.0s', color:'#FFD700', size:7 },
-  { left:'58%', top:'1%',  anim:'fwSparkle2', dur:'1.8s', delay:'0.5s', color:'#FF6B6B', size:6 },
-  { left:'82%', top:'22%', anim:'fwSparkle3', dur:'1.2s', delay:'0.9s', color:'#4ECDC4', size:5 },
-  { left:'4%',  top:'58%', anim:'fwSparkle4', dur:'1.6s', delay:'0.3s', color:'#C77DFF', size:6 },
-  { left:'72%', top:'62%', anim:'fwSparkle5', dur:'1.3s', delay:'0.7s', color:'#FF8C42', size:5 },
-  { left:'36%', top:'78%', anim:'fwSparkle6', dur:'1.9s', delay:'1.1s', color:'#FFD700', size:4 },
+  { left:'12%', top:'60%', anim:'fwFloat1', dur:'3.2s', delay:'0.0s', color:'#A8FF60', size:8  },
+  { left:'72%', top:'55%', anim:'fwFloat2', dur:'4.1s', delay:'1.1s', color:'#60FFD0', size:6  },
+  { left:'88%', top:'48%', anim:'fwFloat3', dur:'3.6s', delay:'2.3s', color:'#FFE060', size:7  },
+  { left:'28%', top:'65%', anim:'fwFloat4', dur:'4.8s', delay:'0.5s', color:'#80FF90', size:5  },
+  { left:'55%', top:'60%', anim:'fwFloat5', dur:'3.9s', delay:'1.7s', color:'#BFFF50', size:6  },
+  { left:'40%', top:'70%', anim:'fwFloat6', dur:'4.4s', delay:'0.9s', color:'#60E8FF', size:5  },
+  { left:'6%',  top:'52%', anim:'fwFloat1', dur:'5.0s', delay:'2.8s', color:'#FFD880', size:4  },
+  { left:'62%', top:'68%', anim:'fwFloat3', dur:'3.4s', delay:'3.5s', color:'#A0FF70', size:5  },
 ];
 
 const FireworkIcon = () => (
@@ -5794,16 +5848,18 @@ const FireworkIcon = () => (
     display:'block', flexShrink:0, overflow:'visible' }}>
     <style>{FIREWORK_ICON_CSS}</style>
 
-    {/* ── Background blinking sparkles — unchanged ── */}
+    {/* ── Background floating glowing hues ── */}
     {FW_SPARKLES.map((s, i) => (
       <div key={i} style={{
         position:'absolute', top:s.top, left:s.left,
         width:s.size, height:s.size, borderRadius:'50%',
-        background:s.color, opacity:0, pointerEvents:'none',
-        boxShadow:`0 0 ${s.size}px ${s.color}`,
+        background:`radial-gradient(circle, ${s.color} 0%, ${s.color}88 45%, transparent 100%)`,
+        opacity:0, pointerEvents:'none',
+        boxShadow:`0 0 ${s.size*1.5}px ${s.size*0.8}px ${s.color}66`,
         animationName:s.anim, animationDuration:s.dur, animationDelay:s.delay,
         animationTimingFunction:'ease-in-out',
-        animationIterationCount:'infinite', animationFillMode:'both', zIndex:0,
+        animationIterationCount:'infinite', animationFillMode:'both',
+        zIndex:0, filter:`blur(0.4px)`,
       }} />
     ))}
 
