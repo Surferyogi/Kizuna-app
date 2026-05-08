@@ -2958,6 +2958,303 @@ function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
 }
 
 
+// ─── MOTHER'S DAY — soft blossoms, butterflies, gentle light orbs ─────────────
+function MothersDayBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx;
+    const setup = () => {
+      canvas.width  = Math.round(VW * dpr); canvas.height = Math.round(VH * dpr);
+      canvas.style.width = VW+'px'; canvas.style.height = VH+'px';
+      ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    };
+    setup();
+
+    // ── Draw a sakura-style 5-petal flower ────────────────────────────────────
+    const drawFlower = (x, y, r, col, alpha, rotation) => {
+      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rotation);
+      for (let i = 0; i < 5; i++) {
+        const ang = (i * Math.PI * 2) / 5;
+        ctx.save(); ctx.rotate(ang);
+        ctx.beginPath();
+        ctx.ellipse(0, -r * 0.7, r * 0.38, r * 0.62, 0, 0, Math.PI * 2);
+        const pg = ctx.createRadialGradient(0, -r*0.7, 0, 0, -r*0.7, r*0.62);
+        pg.addColorStop(0, '#fff0f5');
+        pg.addColorStop(0.4, col+'dd');
+        pg.addColorStop(1, col+'66');
+        ctx.fillStyle = pg; ctx.fill();
+        ctx.restore();
+      }
+      // Centre
+      ctx.beginPath(); ctx.arc(0, 0, r*0.18, 0, Math.PI*2);
+      ctx.fillStyle = '#FFD700'; ctx.fill();
+      ctx.restore();
+    };
+
+    // ── Draw a butterfly ──────────────────────────────────────────────────────
+    const drawButterfly = (x, y, size, angle, wingOpen, col, alpha) => {
+      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(angle);
+      const wo = wingOpen; // 0 = closed, 1 = fully open
+      for (const side of [-1, 1]) {
+        ctx.save(); ctx.scale(side, 1);
+        // Upper wing
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(size*wo, -size*1.1, size*1.4*wo, -size*0.5, size*1.0*wo, size*0.25);
+        ctx.bezierCurveTo(size*0.6*wo, size*0.6, size*0.2*wo, size*0.4, 0, 0);
+        const wg = ctx.createRadialGradient(size*0.5*wo, -size*0.3, 0, size*0.5*wo, -size*0.3, size*1.0);
+        wg.addColorStop(0, col+'ff'); wg.addColorStop(0.5, col+'cc'); wg.addColorStop(1, col+'44');
+        ctx.fillStyle = wg; ctx.fill();
+        // Lower wing (smaller)
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(size*0.9*wo, size*0.5, size*0.9*wo, size*1.0, size*0.4*wo, size*0.85);
+        ctx.bezierCurveTo(size*0.1*wo, size*0.8, 0, size*0.5, 0, 0);
+        ctx.fillStyle = col+'aa'; ctx.fill();
+        ctx.restore();
+      }
+      // Body
+      ctx.beginPath(); ctx.ellipse(0, 0, size*0.06, size*0.45, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#333'; ctx.fill();
+      ctx.restore();
+    };
+
+    // ── Particle pools ────────────────────────────────────────────────────────
+    const FLOWER_COLS = ['#ff80ab','#f48fb1','#f06292','#ce93d8','#ef9a9a','#ffb3c6','#ffd6e7'];
+
+    const mkPetal = () => ({
+      x: Math.random()*VW, y: -20 - Math.random()*VH*0.4,
+      r: 7 + Math.random()*11, col: FLOWER_COLS[Math.floor(Math.random()*FLOWER_COLS.length)],
+      rot: Math.random()*Math.PI*2, rotV: (Math.random()-0.5)*0.02,
+      vy: 0.45 + Math.random()*0.85, vx: (Math.random()-0.5)*0.5,
+      swayPh: Math.random()*Math.PI*2, swayFq: 0.013+Math.random()*0.016,
+      alpha: 0.55 + Math.random()*0.35,
+    });
+
+    const mkButterfly = () => {
+      const cols = ['#f48fb1','#ce93d8','#80cbc4','#fff176','#ffb3c6'];
+      return {
+        x: Math.random()*VW, y: VH + 40 + Math.random()*VH*0.4,
+        size: 12 + Math.random()*14,
+        col: cols[Math.floor(Math.random()*cols.length)],
+        vy: -(0.35 + Math.random()*0.4),
+        vx: (Math.random()-0.5)*0.5,
+        angle: (Math.random()-0.5)*0.4,
+        wingPhase: Math.random()*Math.PI*2,
+        wingSpd: 0.06 + Math.random()*0.07,
+        swayPh: Math.random()*Math.PI*2,
+        swayFq: 0.012+Math.random()*0.014,
+        alpha: 0.55 + Math.random()*0.35,
+      };
+    };
+
+    const mkOrb = () => ({
+      x: Math.random()*VW, y: Math.random()*VH,
+      r: 12 + Math.random()*30,
+      col: FLOWER_COLS[Math.floor(Math.random()*FLOWER_COLS.length)],
+      phase: Math.random()*Math.PI*2, spd: 0.006+Math.random()*0.010,
+      alpha: 0.06 + Math.random()*0.10,
+    });
+
+    const flowers     = Array.from({length:22}, mkPetal);
+    const butterflies = Array.from({length:7},  mkButterfly);
+    const orbs        = Array.from({length:12}, mkOrb);
+
+    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); };
+    window.addEventListener('resize', onResize);
+    let animId, lastT=null;
+
+    const frame = now => {
+      const dt = lastT?Math.min(now-lastT,50):16; lastT=now; const ds=dt/16;
+      ctx.clearRect(0,0,VW,VH);
+
+      // Soft background orbs
+      for (const o of orbs) {
+        o.phase += o.spd*ds;
+        const pulse = 0.7 + 0.3*Math.sin(o.phase);
+        ctx.save(); ctx.globalAlpha = o.alpha*pulse; ctx.globalCompositeOperation='screen';
+        const g = ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*pulse);
+        g.addColorStop(0,o.col+'ff'); g.addColorStop(0.5,o.col+'66'); g.addColorStop(1,o.col+'00');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(o.x,o.y,o.r*pulse,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+
+      // Falling flower blossoms
+      for (const p of flowers) {
+        p.swayPh += p.swayFq*ds;
+        p.vx += Math.sin(p.swayPh)*0.012*ds; p.vx*=0.98;
+        p.x+=p.vx*ds; p.y+=p.vy*ds; p.rot+=p.rotV*ds;
+        if(p.y>VH+30) Object.assign(p,mkPetal());
+        drawFlower(p.x,p.y,p.r,p.col,p.alpha,p.rot);
+      }
+
+      // Floating butterflies
+      for (const b of butterflies) {
+        b.wingPhase+=b.wingSpd*ds; b.swayPh+=b.swayFq*ds;
+        b.vx+=Math.sin(b.swayPh)*0.018*ds; b.vx*=0.985;
+        b.x+=b.vx*ds; b.y+=b.vy*ds;
+        if(b.y<-b.size*3) Object.assign(b,mkButterfly());
+        const wingOpen=(Math.sin(b.wingPhase)+1)/2;
+        drawButterfly(b.x,b.y,b.size,b.angle,wingOpen,b.col,b.alpha);
+      }
+
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+      animId=requestAnimationFrame(frame);
+    };
+    animId=requestAnimationFrame(frame);
+    return ()=>{cancelAnimationFrame(animId); window.removeEventListener('resize',onResize);};
+  },[]);
+  return <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0}} />;
+}
+
+// ─── FATHER'S DAY — stars, paper planes, deep blue atmosphere ─────────────────
+function FathersDayBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx;
+    const setup = () => {
+      canvas.width  = Math.round(VW*dpr); canvas.height = Math.round(VH*dpr);
+      canvas.style.width=VW+'px'; canvas.style.height=VH+'px';
+      ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    };
+    setup();
+
+    // ── Draw a paper plane ────────────────────────────────────────────────────
+    const drawPlane = (x, y, size, angle, col, alpha) => {
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y); ctx.rotate(angle);
+      ctx.beginPath(); // Fuselage + left wing
+      ctx.moveTo(size,0);           // nose
+      ctx.lineTo(-size*0.5, -size*0.55); // left wing tip
+      ctx.lineTo(-size*0.15, 0);    // wing join
+      ctx.closePath();
+      ctx.fillStyle=col+'ee'; ctx.fill();
+      ctx.beginPath(); // Right wing
+      ctx.moveTo(size,0);
+      ctx.lineTo(-size*0.5, size*0.55);
+      ctx.lineTo(-size*0.15,0);
+      ctx.closePath();
+      ctx.fillStyle=col+'cc'; ctx.fill();
+      ctx.beginPath(); // Centre fold line
+      ctx.moveTo(size,0); ctx.lineTo(-size*0.5,0);
+      ctx.strokeStyle=col+'88'; ctx.lineWidth=0.6; ctx.stroke();
+      ctx.restore();
+    };
+
+    // ── Draw a 6-pointed star ────────────────────────────────────────────────
+    const drawStar = (x, y, r, col, alpha) => {
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y);
+      ctx.beginPath();
+      for(let i=0;i<12;i++){
+        const ang=(i*Math.PI)/6, rd=i%2===0?r:r*0.42;
+        i===0?ctx.moveTo(Math.cos(ang)*rd,Math.sin(ang)*rd):ctx.lineTo(Math.cos(ang)*rd,Math.sin(ang)*rd);
+      }
+      ctx.closePath(); ctx.fillStyle=col; ctx.fill();
+      ctx.restore();
+    };
+
+    // ── Particle pools ────────────────────────────────────────────────────────
+    const STAR_COLS  = ['#ffd700','#ffe082','#fff8e1','#ffffff','#b3e5fc','#81d4fa'];
+    const PLANE_COLS = ['#0d47a1','#1565c0','#1976d2','#0277bd','#01579b','#ffffff'];
+
+    const mkStar = () => ({
+      x:Math.random()*VW, y:Math.random()*VH,
+      r:2+Math.random()*6,
+      col:STAR_COLS[Math.floor(Math.random()*STAR_COLS.length)],
+      phase:Math.random()*Math.PI*2, spd:0.014+Math.random()*0.025,
+      alpha:0.3+Math.random()*0.55,
+      vy:-(0.04+Math.random()*0.08), vx:(Math.random()-0.5)*0.06,
+    });
+
+    const mkPlane = () => {
+      const angle = -Math.PI*0.18 + (Math.random()-0.5)*0.35;
+      const spd   = 0.7 + Math.random()*1.1;
+      return {
+        x: -60, y: VH*0.1 + Math.random()*VH*0.75,
+        size: 10+Math.random()*14,
+        col: PLANE_COLS[Math.floor(Math.random()*PLANE_COLS.length)],
+        angle, vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd,
+        wavePh:Math.random()*Math.PI*2, waveFq:0.018+Math.random()*0.018,
+        waveAmp:0.15+Math.random()*0.25,
+        alpha:0.55+Math.random()*0.35,
+        trail:[],
+      };
+    };
+
+    const mkOrb = () => ({
+      x:Math.random()*VW, y:Math.random()*VH,
+      r:20+Math.random()*50,
+      col:['#0d47a1','#1565c0','#01579b','#00695c'][Math.floor(Math.random()*4)],
+      phase:Math.random()*Math.PI*2, spd:0.004+Math.random()*0.007,
+      alpha:0.04+Math.random()*0.08,
+    });
+
+    const stars = Array.from({length:30}, mkStar);
+    const planes= Array.from({length:5},  mkPlane);
+    const orbs  = Array.from({length:10}, mkOrb);
+
+    const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();};
+    window.addEventListener('resize',onResize);
+    let animId,lastT=null;
+
+    const frame=now=>{
+      const dt=lastT?Math.min(now-lastT,50):16; lastT=now; const ds=dt/16;
+      ctx.clearRect(0,0,VW,VH);
+
+      // Deep blue atmosphere
+      for(const o of orbs){
+        o.phase+=o.spd*ds;
+        const p=0.75+0.25*Math.sin(o.phase);
+        ctx.save(); ctx.globalAlpha=o.alpha*p; ctx.globalCompositeOperation='screen';
+        const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*p);
+        g.addColorStop(0,o.col+'ff'); g.addColorStop(0.5,o.col+'55'); g.addColorStop(1,o.col+'00');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(o.x,o.y,o.r*p,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+
+      // Drifting stars — rising slowly
+      for(const s of stars){
+        s.phase+=s.spd*ds;
+        s.x+=s.vx*ds; s.y+=s.vy*ds;
+        if(s.y<-s.r*2) Object.assign(s,mkStar());
+        const blink=0.55+0.45*Math.sin(s.phase);
+        drawStar(s.x,s.y,s.r*blink,s.col,s.alpha*blink);
+      }
+
+      // Paper planes with subtle wave path
+      for(const pl of planes){
+        pl.wavePh+=pl.waveFq*ds;
+        const waveOffset=Math.sin(pl.wavePh)*pl.waveAmp;
+        pl.x+=pl.vx*ds; pl.y+=(pl.vy+waveOffset)*ds;
+        pl.trail.unshift({x:pl.x,y:pl.y});
+        if(pl.trail.length>18) pl.trail.pop();
+        if(pl.x>VW+80) Object.assign(pl,mkPlane());
+
+        // Dotted trail
+        for(let i=1;i<pl.trail.length;i++){
+          if(i%2!==0) continue;
+          const ta=pl.alpha*(1-i/pl.trail.length)*0.5;
+          ctx.save(); ctx.globalAlpha=ta;
+          ctx.beginPath(); ctx.arc(pl.trail[i].x,pl.trail[i].y,1.2,0,Math.PI*2);
+          ctx.fillStyle=pl.col+'cc'; ctx.fill(); ctx.restore();
+        }
+        drawPlane(pl.x,pl.y,pl.size,pl.angle,pl.col,pl.alpha);
+      }
+
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+      animId=requestAnimationFrame(frame);
+    };
+    animId=requestAnimationFrame(frame);
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);};
+  },[]);
+  return <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0}} />;
+}
+
 // ─── ANNIVERSARY BACKGROUND — roses, gold bokeh, floating hearts ─────────────
 function AnniversaryBackground() {
   const canvasRef = useRef(null);
@@ -3616,8 +3913,12 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
   const isAutumn      = season === 'autumn';
   const isSummer      = season === 'summer';
   const isWinter      = season === 'winter';
-  const isBirthday    = !!(quoteData?.label?.toLowerCase().includes('birthday'));
-  const isAnniversary = !!(quoteData?.label?.toLowerCase().includes('anniversary'));
+  const label         = quoteData?.label?.toLowerCase() || '';
+  const isBirthday    = label.includes('birthday');
+  const isAnniversary = label.includes('anniversary');
+  const isMothersDay  = label.includes("mother");
+  const isFathersDay  = label.includes("father");
+  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay;
 
   return (
     <div
@@ -3635,16 +3936,18 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       }}>
       <style>{SPLASH_PETAL_CSS}</style>
 
-      {/* Special occasion backgrounds */}
-      {isAnniversary && <AnniversaryBackground />}
-      {isBirthday && !isAnniversary && <BirthdayBackground />}
-      {/* Seasonal backgrounds — suppressed on special occasions */}
-      {!isBirthday && !isAnniversary && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
-      {!isBirthday && !isAnniversary && isWinter && <WinterSnowBackground />}
-      {!isBirthday && !isAnniversary && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
+      {/* Special occasion backgrounds — take priority over seasonal */}
+      {isMothersDay  && <MothersDayBackground />}
+      {isFathersDay  && <FathersDayBackground />}
+      {isAnniversary && !isBirthday && <AnniversaryBackground />}
+      {isBirthday    && !isAnniversary && <BirthdayBackground />}
+      {/* Seasonal backgrounds — only when no special occasion */}
+      {!hasSpecialBg && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
+      {!hasSpecialBg && isWinter && <WinterSnowBackground />}
+      {!hasSpecialBg && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
-      {/* Spring sakura petals — suppressed on special occasions and other seasons */}
-      {(!isBirthday && !isAnniversary && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
+      {/* Spring petals — only when no special occasion and not another season */}
+      {(!hasSpecialBg && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
         <div key={i} style={{
           position:'absolute', top:0, left:p.left,
           width:p.size, height:p.size,
