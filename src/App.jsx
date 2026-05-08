@@ -3619,6 +3619,121 @@ function AnniversaryBackground() {
     pointerEvents:'none', zIndex:0, background:'transparent',
   }} />;
 }
+// ─── CHRISTMAS — falling snow + Christmas tree with blinking lights ────────────
+function ChristmasBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx;
+    const setup = () => {
+      canvas.width  = Math.round(VW * dpr);
+      canvas.height = Math.round(VH * dpr);
+      canvas.style.width  = VW + 'px';
+      canvas.style.height = VH + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    setup();
+    const mkTree = () => ({
+      tw: Math.min(VW * 0.32, 140), th: Math.min(VH * 0.58, 420),
+      tx: Math.min(VW * 0.32, 140) * 0.48, ty: VH,
+    });
+    let T = mkTree();
+    const drawTree = () => {
+      const { tw, th, tx, ty } = T;
+      [[tw*0.22,ty-th,th*0.28],[tw*0.55,ty-th*0.74,th*0.35],[tw*0.90,ty-th*0.42,th*0.42]].forEach(([w,y,h]) => {
+        ctx.beginPath(); ctx.moveTo(tx,y); ctx.lineTo(tx-w,y+h); ctx.lineTo(tx+w,y+h); ctx.closePath();
+        const tg = ctx.createLinearGradient(tx,y,tx,y+h);
+        tg.addColorStop(0,'#1a5c1a'); tg.addColorStop(0.5,'#1e7a1e'); tg.addColorStop(1,'#14491a');
+        ctx.fillStyle=tg; ctx.fill(); ctx.strokeStyle='#0a2a0a'; ctx.lineWidth=1.0; ctx.stroke();
+      });
+      ctx.fillStyle='#5c3317'; ctx.fillRect(tx-tw*0.05,ty-th*0.09,tw*0.10,th*0.09);
+      const sR=tw*0.11; ctx.save(); ctx.translate(tx,ty-th-8); ctx.beginPath();
+      for(let i=0;i<10;i++){const a=(i*Math.PI/5)-Math.PI/2,r=i%2===0?sR:sR*0.42;
+        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
+      ctx.closePath();
+      const sg=ctx.createRadialGradient(0,0,0,0,0,sR);
+      sg.addColorStop(0,'#fffff0');sg.addColorStop(0.5,'#FFD700');sg.addColorStop(1,'#FFA500');
+      ctx.fillStyle=sg;ctx.fill();ctx.restore();
+    };
+    const drawSnowOnTree = () => {
+      const {tw,th,tx,ty}=T;
+      [[tw*0.22,ty-th,th*0.28],[tw*0.55,ty-th*0.74,th*0.35],[tw*0.90,ty-th*0.42,th*0.42]].forEach(([w,y,h])=>{
+        const cH=h*0.12; ctx.beginPath(); ctx.moveTo(tx,y);
+        ctx.lineTo(tx-w*0.7,y+cH*0.8);
+        ctx.bezierCurveTo(tx-w*0.85,y+cH*1.1,tx-w*0.4,y+cH*1.3,tx,y+cH*1.1);
+        ctx.bezierCurveTo(tx+w*0.4,y+cH*1.3,tx+w*0.85,y+cH*1.1,tx+w*0.7,y+cH*0.8);
+        ctx.closePath(); ctx.fillStyle='rgba(235,248,255,0.92)'; ctx.fill();
+      });
+    };
+    const LCOLS=['#FF0000','#00CC00','#FFD700','#0088FF','#FF69B4','#FF8C00','#FFFFFF'];
+    const mkLights=()=>{ const {tw,th,tx,ty}=T,lights=[];
+      for(let row=0;row<14;row++){
+        const frac=(row+1)/14,rowY=ty-th*(1-frac*0.92),rowW=tw*(0.15+frac*0.78),nL=Math.floor(3+frac*6);
+        for(let i=0;i<nL;i++){
+          const xOff=((i/(nL-1||1))-0.5)*2*rowW*0.88;
+          lights.push({x:tx+xOff,y:rowY+(Math.random()-0.5)*(th/14)*0.5,
+            r:2.2+Math.random()*2.0,col:LCOLS[Math.floor(Math.random()*LCOLS.length)],
+            phase:Math.random()*Math.PI*2,speed:0.020+Math.random()*0.060});
+        }
+      } return lights; };
+    let lights=mkLights();
+    const drawLights=(t)=>{
+      for(const l of lights){
+        const blink=0.30+0.70*((Math.sin(l.phase+t*l.speed)+1)/2);
+        if(blink<0.08) continue;
+        const h=Math.round(blink*200).toString(16).padStart(2,'0');
+        const gw=ctx.createRadialGradient(l.x,l.y,0,l.x,l.y,l.r*5);
+        gw.addColorStop(0,l.col+h);gw.addColorStop(0.5,l.col+'44');gw.addColorStop(1,l.col+'00');
+        ctx.beginPath();ctx.arc(l.x,l.y,l.r*5,0,Math.PI*2);ctx.fillStyle=gw;ctx.fill();
+        ctx.beginPath();ctx.arc(l.x,l.y,l.r*blink,0,Math.PI*2);
+        ctx.fillStyle='rgba(255,255,255,'+(blink*0.85)+')';ctx.fill();
+        ctx.beginPath();ctx.arc(l.x,l.y,l.r*0.55*blink,0,Math.PI*2);
+        ctx.fillStyle=l.col;ctx.fill();
+      }
+    };
+    let windX=0,windTarget=0.2,windTimer=0;
+    const mkSnow=()=>({x:Math.random()*VW,y:-8-Math.random()*VH*0.4,
+      r:0.8+Math.random()*3.5,vy:0.5+Math.random()*1.4,vx:(Math.random()-0.5)*0.6,
+      sph:Math.random()*Math.PI*2,sfq:0.016+Math.random()*0.022,
+      samp:0.18+Math.random()*0.28,op:0.55+Math.random()*0.40});
+    const SNOW=Array.from({length:90},mkSnow);
+    SNOW.forEach((s,i)=>{s.y=-s.r+(i/90)*VH*0.95;});
+    const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();T=mkTree();lights=mkLights();};
+    window.addEventListener('resize',onResize);
+    let animId,lastT=null,elapsed=0;
+    const frame=now=>{
+      const dt=lastT?Math.min(now-lastT,50):16;lastT=now;elapsed+=dt;const ds=dt/16;
+      ctx.clearRect(0,0,VW,VH);
+      windTimer+=dt;
+      if(windTimer>4000+Math.random()*5000){windTarget=(Math.random()-0.4)*1.2;windTimer=0;}
+      windX+=(windTarget-windX)*0.010*ds;
+      drawTree();drawSnowOnTree();drawLights(elapsed*0.001);
+      const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+      for(const s of SNOW){
+        s.sph+=s.sfq*ds;s.vx+=Math.sin(s.sph)*s.samp*0.012*ds;
+        s.vx+=windX*0.018*ds;s.vx*=0.98;s.vy+=0.020*ds;
+        if(s.vy>3.0)s.vy=3.0;s.x+=s.vx*ds;s.y+=s.vy*ds;
+        if(s.y>VH+10||s.x<-40||s.x>VW+40)Object.assign(s,mkSnow());
+        const sc=isDark?'rgba(255,255,255,'+s.op+')':'rgba(60,80,120,'+(s.op*0.8)+')';
+        const sc2=isDark?'rgba(220,235,255,'+(s.op*0.5)+')':'rgba(80,100,140,'+(s.op*0.4)+')';
+        const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*1.8);
+        g.addColorStop(0,sc);g.addColorStop(0.5,sc2);g.addColorStop(1,'rgba(180,200,240,0)');
+        ctx.beginPath();ctx.arc(s.x,s.y,s.r*1.8,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+      }
+      ctx.globalAlpha=1;animId=requestAnimationFrame(frame);
+    };
+    animId=requestAnimationFrame(frame);
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);};
+  },[]);
+  return <canvas ref={canvasRef} style={{
+    position:'fixed',top:0,left:0,width:'100vw',height:'100vh',
+    pointerEvents:'none',zIndex:0,background:'transparent',
+  }} />;
+}
+
 // ─── BIRTHDAY BACKGROUND — balloons, confetti, sparkles ──────────────────────
 function BirthdayBackground() {
   const canvasRef = useRef(null);
@@ -5724,15 +5839,6 @@ const SEASON_QUOTES = [
 ];
 
 // Special occasion quotes (non-seasonal)
-const OCCASION_QUOTES = [
-  { label:"🧧 CNY",         quote:{ quote:"A new year opens like a door we have never walked through — full of rooms we have not yet discovered.", label:"Chinese New Year · Special Quote", isSpecial:true } },
-  { label:"🌸 Mother's",    quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
-  { label:"👨 Father's",    quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
-  { label:"🎂 Birthday",    quote:{ quote:"Today we count not just years but all the small brave moments that quietly shaped who we are becoming.", label:"Birthday · Special Quote", isSpecial:true } },
-  { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
-  { label:"📖 Rumi",        quote:{ quote:"Out beyond ideas of wrongdoing and rightdoing there is a field. We will meet you there. — Rumi", label:"Trust · Today's Reflection", isSpecial:false } },
-];
-
 // Combined seasonal background + daily quote screen demo
 function DevSeasonQuoteTester() {
   const C  = useContext(ThemeContext);
@@ -5819,21 +5925,6 @@ function DevSeasonQuoteTester() {
         ))}
       </div>
 
-      {/* Special occasion quote buttons */}
-      <p style={{ margin:'0 0 8px', fontSize:12, color:C.muted }}>
-        Special occasions:
-      </p>
-      <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-        {OCCASION_QUOTES.map(({ label, quote }) => (
-          <button key={label} onClick={() => { setTestQuote(quote); setTestSeason(null); }}
-            style={{ padding:'8px 12px', borderRadius:BR.input,
-              background:C.elevated, border:`1px solid ${C.border}`,
-              color:C.text, fontFamily:'inherit', fontSize:12,
-              fontWeight:600, cursor:'pointer' }}>
-            {label}
-          </button>
-        ))}
-      </div>
     </>
   );
 }
@@ -6116,7 +6207,6 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                   { key:'new-year',     label:'🥂 New Year'   },
                   { key:'cny',          label:'🧧 CNY'        },
                   { key:'national-day', label:'🇸🇬 Natl Day'  },
-                  { key:'deepavali',    label:'🪔 Deepavali'  },
                   { key:'christmas',    label:'🎄 Christmas'  },
                 ].map(({ key, label }) => (
                   <button key={key}
@@ -7888,8 +7978,9 @@ export default function App() {
   return (
     <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
 
-    {/* ── Festive fireworks overlay — renders above everything ── */}
-    {festiveTheme && (
+    {/* ── Festive overlay — Christmas: snow+tree; others: fireworks ── */}
+    {festiveVisible && festiveTheme === 'christmas' && <ChristmasBackground />}
+    {festiveTheme && festiveTheme !== 'christmas' && (
       <FestiveFireworks
         theme={festiveTheme}
         colorScheme={themeMode}
