@@ -2958,7 +2958,7 @@ function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
 }
 
 
-// ─── MOTHER'S DAY — soft blossoms, butterflies, gentle light orbs ─────────────
+// ─── MOTHER'S DAY — carnations, butterflies, soft light orbs ──────────────────
 function MothersDayBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -2967,178 +2967,134 @@ function MothersDayBackground() {
     let VW = window.innerWidth, VH = window.innerHeight;
     let ctx;
     const setup = () => {
-      canvas.width  = Math.round(VW * dpr); canvas.height = Math.round(VH * dpr);
-      canvas.style.width = VW+'px'; canvas.style.height = VH+'px';
-      ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+      canvas.width  = Math.round(VW * dpr);
+      canvas.height = Math.round(VH * dpr);
+      canvas.style.width  = VW + 'px';
+      canvas.style.height = VH + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     setup();
 
-    // ── Draw a carnation — ruffled multi-layer petals ───────────────────────
-    // Carnation variety controlled by 'variant' (0=classic, 1=ruffled, 2=bi-color, 3=spray)
-    const drawFlower = (x, y, r, col, alpha, rotation, variant=0) => {
-      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rotation);
+    const drawCarnation = (x, y, r, col, alpha, rot, variant) => {
+      if (alpha < 0.02) return;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
       const layers = variant === 1 ? 5 : variant === 3 ? 3 : 4;
-      const petals = variant === 3 ? 8 : 12;
+      const nP     = variant === 3 ? 7 : 11;
       for (let l = layers; l >= 0; l--) {
-        const lr = r * (0.35 + l * 0.15);           // outer layers bigger
-        const lAlpha = 0.7 + l * 0.06;
-        for (let i = 0; i < petals; i++) {
-          const ang = (i / petals) * Math.PI * 2 + l * 0.3;
+        const lr = r * (0.38 + l * 0.14);
+        for (let i = 0; i < nP; i++) {
+          const ang = (i / nP) * Math.PI * 2 + l * 0.28;
           ctx.save(); ctx.rotate(ang);
+          ctx.globalAlpha = alpha * (0.70 + l * 0.05);
           ctx.beginPath();
-          // Ruffled petal — narrow base, wide notched tip
           ctx.moveTo(0, 0);
-          ctx.bezierCurveTo(-lr*0.18, -lr*0.35, -lr*0.38, -lr*0.7, -lr*0.28, -lr);
-          ctx.bezierCurveTo(-lr*0.08, -lr*1.08, lr*0.08, -lr*1.08, lr*0.28, -lr);
-          ctx.bezierCurveTo(lr*0.38, -lr*0.7, lr*0.18, -lr*0.35, 0, 0);
-          // Bi-color variant: alternate inner/outer tone
-          const petCol = (variant === 2 && i % 2 === 0) ? col+'aa' : col;
-          const pg = ctx.createLinearGradient(0, 0, 0, -lr);
-          pg.addColorStop(0,   '#fff5f8');
-          pg.addColorStop(0.3, petCol+'ee');
-          pg.addColorStop(1,   petCol+(variant===1?'bb':'77'));
-          ctx.fillStyle = pg; ctx.globalAlpha = alpha * lAlpha;
-          ctx.fill();
-          ctx.strokeStyle = petCol+'44'; ctx.lineWidth = 0.3; ctx.stroke();
-          ctx.restore();
+          ctx.bezierCurveTo(-lr*0.18,-lr*0.38,-lr*0.40,-lr*0.72,-lr*0.26,-lr);
+          ctx.bezierCurveTo(-lr*0.08,-lr*1.10, lr*0.08,-lr*1.10, lr*0.26,-lr);
+          ctx.bezierCurveTo( lr*0.40,-lr*0.72, lr*0.18,-lr*0.38, 0, 0);
+          const pC = (variant===2&&i%2===0) ? col+'bb' : col;
+          const pg = ctx.createLinearGradient(0,0,0,-lr);
+          pg.addColorStop(0,'#fff8fa'); pg.addColorStop(0.25,pC+'ff'); pg.addColorStop(1,pC+(variant===1?'cc':'88'));
+          ctx.fillStyle = pg; ctx.fill(); ctx.restore();
         }
       }
-      // Centre bud
       ctx.globalAlpha = alpha;
-      ctx.beginPath(); ctx.arc(0, 0, r*0.15, 0, Math.PI*2);
-      ctx.fillStyle = col+'ff'; ctx.fill();
-      ctx.restore();
+      ctx.beginPath(); ctx.arc(0,0,r*0.14,0,Math.PI*2);
+      ctx.fillStyle = col; ctx.fill(); ctx.restore();
     };
 
-    // ── Draw a butterfly ──────────────────────────────────────────────────────
-    const drawButterfly = (x, y, size, angle, wingOpen, col, alpha) => {
-      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(angle);
-      const wo = wingOpen; // 0 = closed, 1 = fully open
-      for (const side of [-1, 1]) {
-        ctx.save(); ctx.scale(side, 1);
-        // Upper wing
+    const drawButterfly = (x, y, size, angle, wo, col, alpha) => {
+      if (wo < 0.08 || alpha < 0.02) return;
+      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x,y); ctx.rotate(angle);
+      for (const side of [-1,1]) {
+        ctx.save(); ctx.scale(side,1);
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(size*wo, -size*1.1, size*1.4*wo, -size*0.5, size*1.0*wo, size*0.25);
-        ctx.bezierCurveTo(size*0.6*wo, size*0.6, size*0.2*wo, size*0.4, 0, 0);
-        const wg = ctx.createRadialGradient(size*0.5*wo, -size*0.3, 0, size*0.5*wo, -size*0.3, size*1.0);
-        wg.addColorStop(0, col+'ff'); wg.addColorStop(0.5, col+'cc'); wg.addColorStop(1, col+'44');
-        ctx.fillStyle = wg; ctx.fill();
-        // Lower wing (smaller)
+        ctx.moveTo(0,0);
+        ctx.bezierCurveTo(size*wo,-size*1.1,size*1.4*wo,-size*0.5,size*wo,size*0.25);
+        ctx.bezierCurveTo(size*0.6*wo,size*0.5,size*0.2*wo,size*0.4,0,0);
+        const wg=ctx.createRadialGradient(size*0.5*wo,-size*0.3,0,size*0.5*wo,-size*0.3,size);
+        wg.addColorStop(0,col+'ff');wg.addColorStop(0.55,col+'cc');wg.addColorStop(1,col+'44');
+        ctx.fillStyle=wg; ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(size*0.9*wo, size*0.5, size*0.9*wo, size*1.0, size*0.4*wo, size*0.85);
-        ctx.bezierCurveTo(size*0.1*wo, size*0.8, 0, size*0.5, 0, 0);
-        ctx.fillStyle = col+'aa'; ctx.fill();
-        ctx.restore();
+        ctx.moveTo(0,0);ctx.bezierCurveTo(size*0.9*wo,size*0.5,size*0.8*wo,size*0.9,size*0.35*wo,size*0.8);
+        ctx.bezierCurveTo(size*0.1*wo,size*0.75,0,size*0.4,0,0);
+        ctx.fillStyle=col+'99'; ctx.fill(); ctx.restore();
       }
-      // Body
-      ctx.beginPath(); ctx.ellipse(0, 0, size*0.06, size*0.45, 0, 0, Math.PI*2);
-      ctx.fillStyle = '#333'; ctx.fill();
-      ctx.restore();
+      ctx.beginPath(); ctx.ellipse(0,0,size*0.07,size*0.42,0,0,Math.PI*2);
+      ctx.fillStyle='#222'; ctx.fill(); ctx.restore();
     };
 
-    // ── Particle pools ────────────────────────────────────────────────────────
-    // Carnation palette — pink, red, white, coral, magenta, salmon, bicolor
-    const CARNATION_COLS = [
-      '#e91e63','#f06292','#ff80ab',  // hot pink, pink, light pink
-      '#c62828','#e53935','#ff5252',  // crimson, red, coral-red
-      '#ffffff','#fce4ec','#fff0f5',  // white, blush, snow
-      '#ad1457','#880e4f','#d81b60',  // deep magenta, burgundy, magenta
-      '#ff7043','#ff8a65','#ffab91',  // coral, salmon, peach
-    ];
-    const VARIANTS = [0, 0, 1, 1, 2, 2, 3]; // weight toward classic & ruffled
+    const COLS=['#e91e63','#f06292','#ff80ab','#c62828','#e53935','#ffffff','#fce4ec','#ad1457','#d81b60','#ff7043','#ffab91'];
+    const BCOLS=['#f48fb1','#ce93d8','#80cbc4','#fff176','#ffcc80'];
+    const VARS=[0,0,1,1,2,3];
 
-    const mkPetal = () => {
-      const col = CARNATION_COLS[Math.floor(Math.random()*CARNATION_COLS.length)];
-      const variant = VARIANTS[Math.floor(Math.random()*VARIANTS.length)];
-      return {
-        x: Math.random()*VW, y: -20 - Math.random()*VH*0.4,
-        r: 8 + Math.random()*13, col, variant,
-        rot: Math.random()*Math.PI*2, rotV: (Math.random()-0.5)*0.018,
-        vy: 0.4 + Math.random()*0.75, vx: (Math.random()-0.5)*0.5,
-        swayPh: Math.random()*Math.PI*2, swayFq: 0.012+Math.random()*0.016,
-        alpha: 0.55 + Math.random()*0.35,
-      };
-    };
-
-    const mkButterfly = () => {
-      const cols = ['#f48fb1','#ce93d8','#80cbc4','#fff176','#ffb3c6'];
-      return {
-        x: Math.random()*VW, y: VH + 40 + Math.random()*VH*0.4,
-        size: 12 + Math.random()*14,
-        col: cols[Math.floor(Math.random()*cols.length)],
-        vy: -(0.35 + Math.random()*0.4),
-        vx: (Math.random()-0.5)*0.5,
-        angle: (Math.random()-0.5)*0.4,
-        wingPhase: Math.random()*Math.PI*2,
-        wingSpd: 0.06 + Math.random()*0.07,
-        swayPh: Math.random()*Math.PI*2,
-        swayFq: 0.012+Math.random()*0.014,
-        alpha: 0.55 + Math.random()*0.35,
-      };
-    };
-
-    const mkOrb = () => ({
-      x: Math.random()*VW, y: Math.random()*VH,
-      r: 12 + Math.random()*30,
-      col: CARNATION_COLS[Math.floor(Math.random()*CARNATION_COLS.length)],
-      phase: Math.random()*Math.PI*2, spd: 0.006+Math.random()*0.010,
-      alpha: 0.06 + Math.random()*0.10,
+    const mkF=()=>({
+      x:Math.random()*VW,y:-30-Math.random()*VH*0.5,
+      r:10+Math.random()*16,col:COLS[Math.floor(Math.random()*COLS.length)],
+      variant:VARS[Math.floor(Math.random()*VARS.length)],
+      rot:Math.random()*Math.PI*2,rotV:(Math.random()-0.5)*0.016,
+      vy:0.38+Math.random()*0.7,vx:(Math.random()-0.5)*0.55,
+      sph:Math.random()*Math.PI*2,sfq:0.012+Math.random()*0.016,
+      alpha:0.75+Math.random()*0.22,
+    });
+    const mkB=()=>({
+      x:Math.random()*VW,y:VH+30+Math.random()*VH*0.4,
+      size:14+Math.random()*16,col:BCOLS[Math.floor(Math.random()*BCOLS.length)],
+      vy:-(0.38+Math.random()*0.45),vx:(Math.random()-0.5)*0.5,
+      angle:(Math.random()-0.5)*0.35,
+      wph:Math.random()*Math.PI*2,wsp:0.07+Math.random()*0.07,
+      sph:Math.random()*Math.PI*2,sfq:0.012+Math.random()*0.014,
+      alpha:0.70+Math.random()*0.28,
+    });
+    const mkO=()=>({
+      x:Math.random()*VW,y:Math.random()*VH,r:30+Math.random()*70,
+      col:COLS[Math.floor(Math.random()*COLS.length)],
+      ph:Math.random()*Math.PI*2,sp:0.007+Math.random()*0.010,
+      alpha:0.12+Math.random()*0.14,
     });
 
-    const flowers     = Array.from({length:30}, mkPetal);
-    const butterflies = Array.from({length:7},  mkButterfly);
-    const orbs        = Array.from({length:12}, mkOrb);
+    const flowers=Array.from({length:30},mkF);
+    const bflies =Array.from({length:7}, mkB);
+    const orbs   =Array.from({length:10},mkO);
 
-    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); };
-    window.addEventListener('resize', onResize);
-    let animId, lastT=null;
+    const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();};
+    window.addEventListener('resize',onResize);
+    let animId,lastT=null;
 
-    const frame = now => {
-      const dt = lastT?Math.min(now-lastT,50):16; lastT=now; const ds=dt/16;
+    const frame=now=>{
+      const dt=lastT?Math.min(now-lastT,50):16; lastT=now; const ds=dt/16;
       ctx.clearRect(0,0,VW,VH);
-
-      // Soft background orbs
-      for (const o of orbs) {
-        o.phase += o.spd*ds;
-        const pulse = 0.7 + 0.3*Math.sin(o.phase);
-        ctx.save(); ctx.globalAlpha = o.alpha*pulse; ctx.globalCompositeOperation='screen';
-        const g = ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*pulse);
-        g.addColorStop(0,o.col+'ff'); g.addColorStop(0.5,o.col+'66'); g.addColorStop(1,o.col+'00');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(o.x,o.y,o.r*pulse,0,Math.PI*2); ctx.fill();
-        ctx.restore();
+      for(const o of orbs){
+        o.ph+=o.sp*ds; const p=0.72+0.28*Math.sin(o.ph);
+        ctx.save(); ctx.globalAlpha=o.alpha*p; ctx.globalCompositeOperation='screen';
+        const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*p);
+        g.addColorStop(0,o.col+'ff');g.addColorStop(0.5,o.col+'66');g.addColorStop(1,o.col+'00');
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(o.x,o.y,o.r*p,0,Math.PI*2);ctx.fill();ctx.restore();
       }
-
-      // Falling flower blossoms
-      for (const p of flowers) {
-        p.swayPh += p.swayFq*ds;
-        p.vx += Math.sin(p.swayPh)*0.012*ds; p.vx*=0.98;
-        p.x+=p.vx*ds; p.y+=p.vy*ds; p.rot+=p.rotV*ds;
-        if(p.y>VH+30) Object.assign(p,mkPetal());
-        drawFlower(p.x,p.y,p.r,p.col,p.alpha,p.rot,p.variant);
+      for(const f of flowers){
+        f.sph+=f.sfq*ds; f.vx+=Math.sin(f.sph)*0.012*ds; f.vx*=0.98;
+        f.x+=f.vx*ds; f.y+=f.vy*ds; f.rot+=f.rotV*ds;
+        if(f.y>VH+40) Object.assign(f,mkF());
+        drawCarnation(f.x,f.y,f.r,f.col,f.alpha,f.rot,f.variant);
       }
-
-      // Floating butterflies
-      for (const b of butterflies) {
-        b.wingPhase+=b.wingSpd*ds; b.swayPh+=b.swayFq*ds;
-        b.vx+=Math.sin(b.swayPh)*0.018*ds; b.vx*=0.985;
+      for(const b of bflies){
+        b.wph+=b.wsp*ds; b.sph+=b.sfq*ds;
+        b.vx+=Math.sin(b.sph)*0.018*ds; b.vx*=0.985;
         b.x+=b.vx*ds; b.y+=b.vy*ds;
-        if(b.y<-b.size*3) Object.assign(b,mkButterfly());
-        const wingOpen=(Math.sin(b.wingPhase)+1)/2;
-        drawButterfly(b.x,b.y,b.size,b.angle,wingOpen,b.col,b.alpha);
+        if(b.y<-b.size*4) Object.assign(b,mkB());
+        const wo=Math.max(0.1,(Math.sin(b.wph)+1)/2);
+        drawButterfly(b.x,b.y,b.size,b.angle,wo,b.col,b.alpha);
       }
-
       ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
       animId=requestAnimationFrame(frame);
     };
     animId=requestAnimationFrame(frame);
-    return ()=>{cancelAnimationFrame(animId); window.removeEventListener('resize',onResize);};
+    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);};
   },[]);
-  return <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0}} />;
+  return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none',zIndex:0,background:'transparent'}} />;
 }
 
-// ─── FATHER'S DAY — stars, paper planes, deep blue atmosphere ─────────────────
+// ─── FATHER'S DAY — paper planes with aerodynamics + physics ──────────────────
 function FathersDayBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -3147,106 +3103,113 @@ function FathersDayBackground() {
     let VW = window.innerWidth, VH = window.innerHeight;
     let ctx;
     const setup = () => {
-      canvas.width  = Math.round(VW*dpr); canvas.height = Math.round(VH*dpr);
+      canvas.width=Math.round(VW*dpr); canvas.height=Math.round(VH*dpr);
       canvas.style.width=VW+'px'; canvas.style.height=VH+'px';
       ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
     };
     setup();
 
-    // ── Draw a paper plane ────────────────────────────────────────────────────
-    // Paper plane — classic dart silhouette viewed from above
-    const drawPlane = (x, y, size, angle, col, alpha) => {
-      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y); ctx.rotate(angle);
-      const s = size;
-      // Top wing (left from viewer, lit side)
-      ctx.beginPath();
-      ctx.moveTo( s,    0);          // nose
-      ctx.lineTo(-s*0.6,-s*0.72);   // outer wing tip
-      ctx.lineTo(-s*0.1,-s*0.10);   // inner wing root
-      ctx.closePath();
-      const tg = ctx.createLinearGradient(s,0,-s*0.6,-s*0.72);
-      tg.addColorStop(0, '#ffffff');
-      tg.addColorStop(0.35, col+'ff');
-      tg.addColorStop(1, col+'99');
-      ctx.fillStyle = tg; ctx.fill();
-      // Bottom wing (right from viewer, shadow side)
-      ctx.beginPath();
-      ctx.moveTo( s,    0);
-      ctx.lineTo(-s*0.6, s*0.72);
-      ctx.lineTo(-s*0.1, s*0.10);
-      ctx.closePath();
-      const bg = ctx.createLinearGradient(s,0,-s*0.6,s*0.72);
-      bg.addColorStop(0, col+'dd');
-      bg.addColorStop(1, col+'55');
-      ctx.fillStyle = bg; ctx.fill();
-      // Fuselage spine
-      ctx.beginPath();
-      ctx.moveTo(s, 0); ctx.lineTo(-s*0.1, 0);
-      ctx.strokeStyle = '#ffffff99'; ctx.lineWidth = s*0.06; ctx.stroke();
-      // Wing fold crease
-      ctx.beginPath();
-      ctx.moveTo(s*0.6, 0); ctx.lineTo(-s*0.6, -s*0.48);
-      ctx.strokeStyle = col+'44'; ctx.lineWidth = 0.5; ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(s*0.6, 0); ctx.lineTo(-s*0.6,  s*0.48);
-      ctx.strokeStyle = col+'44'; ctx.lineWidth = 0.5; ctx.stroke();
-      ctx.restore();
-    };
-
-    // ── Draw a 6-pointed star ────────────────────────────────────────────────
-    const drawStar = (x, y, r, col, alpha) => {
-      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y);
-      ctx.beginPath();
-      for(let i=0;i<12;i++){
-        const ang=(i*Math.PI)/6, rd=i%2===0?r:r*0.42;
-        i===0?ctx.moveTo(Math.cos(ang)*rd,Math.sin(ang)*rd):ctx.lineTo(Math.cos(ang)*rd,Math.sin(ang)*rd);
+    // style: 0=dart, 1=delta, 2=boxed, 3=concorde
+    const drawPlane=(x,y,size,heading,tilt,col,alpha,style)=>{
+      if(alpha<0.02) return;
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y); ctx.rotate(heading);
+      ctx.scale(1, 0.82+0.18*Math.cos(tilt));
+      const s=size;
+      if(style===0){
+        ctx.beginPath(); ctx.moveTo(s,0); ctx.lineTo(-s*0.55,-s*0.70); ctx.lineTo(-s*0.1,0); ctx.closePath();
+        const tg=ctx.createLinearGradient(s,0,-s*0.55,-s*0.7);
+        tg.addColorStop(0,'#fff');tg.addColorStop(0.4,col+'ff');tg.addColorStop(1,col+'88');
+        ctx.fillStyle=tg; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(s,0); ctx.lineTo(-s*0.55,s*0.70); ctx.lineTo(-s*0.1,0); ctx.closePath();
+        const bg=ctx.createLinearGradient(s,0,-s*0.55,s*0.7);
+        bg.addColorStop(0,col+'ee');bg.addColorStop(1,col+'55');
+        ctx.fillStyle=bg; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(s,0); ctx.lineTo(-s*0.12,0);
+        ctx.strokeStyle='#fff9'; ctx.lineWidth=s*0.07; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s*0.5,0); ctx.lineTo(-s*0.5,-s*0.42);
+        ctx.strokeStyle=col+'55'; ctx.lineWidth=0.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s*0.5,0); ctx.lineTo(-s*0.5,s*0.42);
+        ctx.strokeStyle=col+'55'; ctx.lineWidth=0.5; ctx.stroke();
+      } else if(style===1){
+        ctx.beginPath(); ctx.moveTo(s*0.9,0); ctx.lineTo(-s*0.6,-s*1.0); ctx.lineTo(-s*0.2,-s*0.12); ctx.lineTo(-s*0.5,0); ctx.closePath();
+        const dg=ctx.createLinearGradient(s*0.9,0,-s*0.6,-s);
+        dg.addColorStop(0,'#fff');dg.addColorStop(0.35,col+'ff');dg.addColorStop(1,col+'77');
+        ctx.fillStyle=dg; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(s*0.9,0); ctx.lineTo(-s*0.6,s*1.0); ctx.lineTo(-s*0.2,s*0.12); ctx.lineTo(-s*0.5,0); ctx.closePath();
+        const dg2=ctx.createLinearGradient(s*0.9,0,-s*0.6,s);
+        dg2.addColorStop(0,col+'dd');dg2.addColorStop(1,col+'44');
+        ctx.fillStyle=dg2; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(s*0.9,0); ctx.lineTo(-s*0.5,0);
+        ctx.strokeStyle='#fff9'; ctx.lineWidth=s*0.08; ctx.stroke();
+      } else if(style===2){
+        ctx.beginPath(); ctx.moveTo(s*0.8,0);ctx.lineTo(s*0.1,-s*0.6);ctx.lineTo(-s*0.55,-s*0.65);ctx.lineTo(-s*0.55,-s*0.1);ctx.lineTo(-s*0.1,0);ctx.closePath();
+        ctx.fillStyle=col+'ee'; ctx.fill(); ctx.strokeStyle='#fff6';ctx.lineWidth=0.6;ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s*0.8,0);ctx.lineTo(s*0.1,s*0.6);ctx.lineTo(-s*0.55,s*0.65);ctx.lineTo(-s*0.55,s*0.1);ctx.lineTo(-s*0.1,0);ctx.closePath();
+        ctx.fillStyle=col+'bb'; ctx.fill(); ctx.strokeStyle='#fff4';ctx.lineWidth=0.6;ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s*0.8,0);ctx.lineTo(-s*0.1,0);
+        ctx.strokeStyle='#fffb';ctx.lineWidth=s*0.09;ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.moveTo(s*1.1,0);
+        ctx.bezierCurveTo(s*0.4,-s*0.12,-s*0.2,-s*0.55,-s*0.65,-s*0.8);
+        ctx.lineTo(-s*0.65,-s*0.08); ctx.closePath();
+        const cg=ctx.createLinearGradient(s*1.1,0,-s*0.65,-s*0.8);
+        cg.addColorStop(0,'#fff');cg.addColorStop(0.4,col+'ff');cg.addColorStop(1,col+'66');
+        ctx.fillStyle=cg; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(s*1.1,0);
+        ctx.bezierCurveTo(s*0.4,s*0.12,-s*0.2,s*0.55,-s*0.65,s*0.8);
+        ctx.lineTo(-s*0.65,s*0.08); ctx.closePath();
+        const cg2=ctx.createLinearGradient(s*1.1,0,-s*0.65,s*0.8);
+        cg2.addColorStop(0,col+'ee');cg2.addColorStop(1,col+'44');
+        ctx.fillStyle=cg2; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(s*1.1,0);ctx.lineTo(-s*0.65,0);
+        ctx.strokeStyle='#fff9';ctx.lineWidth=s*0.06;ctx.stroke();
       }
-      ctx.closePath(); ctx.fillStyle=col; ctx.fill();
       ctx.restore();
     };
 
-    // ── Particle pools ────────────────────────────────────────────────────────
-    const STAR_COLS  = ['#ffd700','#ffe082','#fff8e1','#ffffff','#b3e5fc','#81d4fa'];
-    const PLANE_COLS = ['#0d47a1','#1565c0','#1976d2','#0277bd','#01579b','#ffffff'];
+    const drawStar=(x,y,r,col,alpha)=>{
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.beginPath();
+      for(let i=0;i<12;i++){const ang=(i*Math.PI)/6,rd=i%2===0?r:r*0.42;
+        i===0?ctx.moveTo(Math.cos(ang)*rd,Math.sin(ang)*rd):ctx.lineTo(Math.cos(ang)*rd,Math.sin(ang)*rd);}
+      ctx.closePath();ctx.fillStyle=col;ctx.fill();ctx.restore();
+    };
 
-    const mkStar = () => ({
-      x:Math.random()*VW, y:Math.random()*VH,
-      r:2+Math.random()*6,
-      col:STAR_COLS[Math.floor(Math.random()*STAR_COLS.length)],
-      phase:Math.random()*Math.PI*2, spd:0.014+Math.random()*0.025,
-      alpha:0.3+Math.random()*0.55,
-      vy:-(0.04+Math.random()*0.08), vx:(Math.random()-0.5)*0.06,
-    });
+    let windX=0.4,windTarget=0.4,windTimer=0;
 
-    const mkPlane = () => {
-      // Diverse sizes: tiny scouts (8px) to large leaders (28px)
-      const size  = 8 + Math.random() * 20;
-      // Speed inversely weighted with size (small = fast, big = stately)
-      const spd   = 0.4 + Math.random() * 1.6 + (22 - size) * 0.04;
-      const angle = -Math.PI*0.15 + (Math.random()-0.5)*0.45;
+    const PLANE_COLS=['#0d47a1','#1e88e5','#42a5f5','#ffffff','#f5f5f5','#ff8f00','#ffa000','#1b5e20','#388e3c','#b71c1c','#e53935'];
+
+    const mkPlane=()=>{
+      const style=Math.floor(Math.random()*4);
+      const spdBase=style===3?1.5:style===1?1.1:style===2?0.6:1.0;
+      const size=8+Math.random()*22;
+      const spd=(0.35+Math.random()*1.3)*spdBase;
+      const heading=-Math.PI*0.12+(Math.random()-0.5)*0.5;
       return {
-        x: -80, y: VH*0.06 + Math.random()*VH*0.86,
-        size, col: PLANE_COLS[Math.floor(Math.random()*PLANE_COLS.length)],
-        angle, vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd,
-        wavePh:Math.random()*Math.PI*2,
-        waveFq:0.012+Math.random()*0.025,
-        waveAmp:0.08+Math.random()*0.32,   // some cruise straight, others wave a lot
-        alpha:0.50+Math.random()*0.45,
-        trail:[],
+        x:-size*2, y:VH*0.05+Math.random()*VH*0.88,
+        size,style,col:PLANE_COLS[Math.floor(Math.random()*PLANE_COLS.length)],
+        heading,spd,vx:Math.cos(heading)*spd,vy:Math.sin(heading)*spd,
+        drag:0.012+style*0.004,
+        waveFq:0.012+Math.random()*0.018,wavePh:Math.random()*Math.PI*2,
+        waveAmp:0.06+Math.random()*0.25,
+        tilt:0,alpha:0.60+Math.random()*0.38,trail:[],
       };
     };
-
-    const mkOrb = () => ({
-      x:Math.random()*VW, y:Math.random()*VH,
-      r:20+Math.random()*50,
+    const mkStar=()=>({
+      x:Math.random()*VW,y:Math.random()*VH,r:1.5+Math.random()*5,
+      col:['#ffd700','#ffe082','#ffffff','#b3e5fc'][Math.floor(Math.random()*4)],
+      ph:Math.random()*Math.PI*2,sp:0.012+Math.random()*0.022,
+      alpha:0.25+Math.random()*0.55,vy:-(0.03+Math.random()*0.07),vx:(Math.random()-0.5)*0.05,
+    });
+    const mkOrb=()=>({
+      x:Math.random()*VW,y:Math.random()*VH,r:25+Math.random()*60,
       col:['#0d47a1','#1565c0','#01579b','#00695c'][Math.floor(Math.random()*4)],
-      phase:Math.random()*Math.PI*2, spd:0.004+Math.random()*0.007,
-      alpha:0.04+Math.random()*0.08,
+      ph:Math.random()*Math.PI*2,sp:0.004+Math.random()*0.007,alpha:0.05+Math.random()*0.09,
     });
 
-    const stars = Array.from({length:30}, mkStar);
-    const planes= Array.from({length:14}, mkPlane);
-    const orbs  = Array.from({length:10}, mkOrb);
+    const planes=Array.from({length:14},mkPlane);
+    const stars =Array.from({length:28},mkStar);
+    const orbs  =Array.from({length:10},mkOrb);
+    planes.forEach((pl,i)=>{ pl.x=(i/planes.length)*VW*1.2-VW*0.1; });
 
     const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();};
     window.addEventListener('resize',onResize);
@@ -3256,44 +3219,63 @@ function FathersDayBackground() {
       const dt=lastT?Math.min(now-lastT,50):16; lastT=now; const ds=dt/16;
       ctx.clearRect(0,0,VW,VH);
 
-      // Deep blue atmosphere
+      windTimer+=dt;
+      if(windTimer>4000+Math.random()*4000){
+        windTarget=0.2+Math.random()*0.9;
+        if(Math.random()<0.25) windTarget*=-0.4;
+        windTimer=0;
+      }
+      windX+=(windTarget-windX)*0.015*ds;
+
       for(const o of orbs){
-        o.phase+=o.spd*ds;
-        const p=0.75+0.25*Math.sin(o.phase);
-        ctx.save(); ctx.globalAlpha=o.alpha*p; ctx.globalCompositeOperation='screen';
+        o.ph+=o.sp*ds; const p=0.75+0.25*Math.sin(o.ph);
+        ctx.save();ctx.globalAlpha=o.alpha*p;ctx.globalCompositeOperation='screen';
         const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*p);
-        g.addColorStop(0,o.col+'ff'); g.addColorStop(0.5,o.col+'55'); g.addColorStop(1,o.col+'00');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(o.x,o.y,o.r*p,0,Math.PI*2); ctx.fill();
-        ctx.restore();
+        g.addColorStop(0,o.col+'ff');g.addColorStop(0.5,o.col+'55');g.addColorStop(1,o.col+'00');
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(o.x,o.y,o.r*p,0,Math.PI*2);ctx.fill();ctx.restore();
       }
 
-      // Drifting stars — rising slowly
       for(const s of stars){
-        s.phase+=s.spd*ds;
-        s.x+=s.vx*ds; s.y+=s.vy*ds;
+        s.ph+=s.sp*ds; s.x+=s.vx*ds; s.y+=s.vy*ds;
         if(s.y<-s.r*2) Object.assign(s,mkStar());
-        const blink=0.55+0.45*Math.sin(s.phase);
-        drawStar(s.x,s.y,s.r*blink,s.col,s.alpha*blink);
+        const blink=0.5+0.5*Math.sin(s.ph);
+        drawStar(s.x,s.y,s.r*(0.7+0.3*blink),s.col,s.alpha*blink);
       }
 
-      // Paper planes with subtle wave path
       for(const pl of planes){
         pl.wavePh+=pl.waveFq*ds;
-        const waveOffset=Math.sin(pl.wavePh)*pl.waveAmp;
-        pl.x+=pl.vx*ds; pl.y+=(pl.vy+waveOffset)*ds;
+        const pitchOsc=Math.sin(pl.wavePh)*pl.waveAmp;
+        // Gravity
+        pl.vy+=0.018*ds;
+        // Lift proportional to speed
+        const spd=Math.sqrt(pl.vx*pl.vx+pl.vy*pl.vy);
+        const liftF=spd*0.022*(1-pl.drag*3);
+        pl.vy-=liftF*ds;
+        // Wind
+        pl.vx+=windX*0.012*ds;
+        // Pitch oscillation
+        pl.vy+=pitchOsc*0.018*ds;
+        // Drag
+        pl.vx*=(1-pl.drag*ds*0.5); pl.vy*=(1-pl.drag*ds*0.3);
+        // Speed cap
+        const sp2=Math.sqrt(pl.vx*pl.vx+pl.vy*pl.vy);
+        if(sp2>pl.spd*1.8){pl.vx*=pl.spd*1.8/sp2;pl.vy*=pl.spd*1.8/sp2;}
+        // Heading follows velocity
+        if(sp2>0.05) pl.heading=Math.atan2(pl.vy,pl.vx)*0.08+pl.heading*0.92;
+        pl.tilt=Math.atan2(pl.vy,pl.vx)*0.5;
+        pl.x+=pl.vx*ds; pl.y+=pl.vy*ds;
         pl.trail.unshift({x:pl.x,y:pl.y});
-        if(pl.trail.length>18) pl.trail.pop();
-        if(pl.x>VW+80) Object.assign(pl,mkPlane());
-
-        // Dotted trail
+        if(pl.trail.length>22) pl.trail.pop();
+        if(pl.x>VW+80||pl.y>VH+60||pl.y<-60) Object.assign(pl,mkPlane());
+        // Trail
         for(let i=1;i<pl.trail.length;i++){
           if(i%2!==0) continue;
-          const ta=pl.alpha*(1-i/pl.trail.length)*0.5;
-          ctx.save(); ctx.globalAlpha=ta;
-          ctx.beginPath(); ctx.arc(pl.trail[i].x,pl.trail[i].y,1.2,0,Math.PI*2);
-          ctx.fillStyle=pl.col+'cc'; ctx.fill(); ctx.restore();
+          const ta=pl.alpha*(1-i/pl.trail.length)*0.40;
+          ctx.save();ctx.globalAlpha=ta;
+          ctx.beginPath();ctx.arc(pl.trail[i].x,pl.trail[i].y,1.0,0,Math.PI*2);
+          ctx.fillStyle=pl.col+'dd';ctx.fill();ctx.restore();
         }
-        drawPlane(pl.x,pl.y,pl.size,pl.angle,pl.col,pl.alpha);
+        drawPlane(pl.x,pl.y,pl.size,pl.heading,pl.tilt,pl.col,pl.alpha,pl.style);
       }
 
       ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
@@ -3302,9 +3284,8 @@ function FathersDayBackground() {
     animId=requestAnimationFrame(frame);
     return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);};
   },[]);
-  return <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0}} />;
+  return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none',zIndex:0,background:'transparent'}} />;
 }
-
 // ─── ANNIVERSARY BACKGROUND — roses, gold bokeh, floating hearts ─────────────
 function AnniversaryBackground() {
   const canvasRef = useRef(null);
@@ -3323,212 +3304,253 @@ function AnniversaryBackground() {
     };
     setup();
 
-
-
-    // ── Rose — spiral petals from centre out ───────────────────────────────────
-    const drawRose = (x, y, r, rot, col, alpha) => {
+    // ── Realistic rose petal — cupped, veined, botanically accurate ──────────
+    // A rose petal is asymmetric: broad rounded top, tapering to a narrower base
+    // We draw it centred at origin pointing upward, then transform into place.
+    const drawRosePetal = (x, y, w, h, rot, tiltX, tiltY, hue, sat, lit, alpha) => {
+      if (alpha < 0.01) return;
       ctx.save();
-      ctx.globalAlpha = alpha;
       ctx.translate(x, y);
       ctx.rotate(rot);
-      // Draw petals layer by layer from outer to inner
-      const LAYERS = [
-        { n:8, pr:r*0.95, spread:0.52 },
-        { n:7, pr:r*0.70, spread:0.48 },
-        { n:6, pr:r*0.50, spread:0.44 },
-        { n:5, pr:r*0.32, spread:0.40 },
+      // 3-D perspective: tiltX squeezes width (edge-on = narrow), tiltY curls top
+      ctx.scale(Math.abs(Math.cos(tiltX)), 1 + Math.sin(tiltY) * 0.18);
+
+      // Petal outline — asymmetric rose petal shape
+      ctx.beginPath();
+      // Start at base tip (bottom centre)
+      ctx.moveTo(0, h * 0.42);
+      // Left side — sweeps wide then rounds the top
+      ctx.bezierCurveTo(
+        -w * 0.55,  h * 0.20,
+        -w * 0.72, -h * 0.10,
+        -w * 0.50, -h * 0.38
+      );
+      // Top left lobe — the characteristic rose-petal top bulge
+      ctx.bezierCurveTo(
+        -w * 0.38, -h * 0.52,
+        -w * 0.12, -h * 0.50,
+         0,        -h * 0.48
+      );
+      // Top right lobe (slightly different, petals are asymmetric)
+      ctx.bezierCurveTo(
+         w * 0.14, -h * 0.50,
+         w * 0.42, -h * 0.50,
+         w * 0.52, -h * 0.36
+      );
+      // Right side back to base
+      ctx.bezierCurveTo(
+         w * 0.74, -h * 0.08,
+         w * 0.58,  h * 0.20,
+         0,         h * 0.42
+      );
+      ctx.closePath();
+
+      // Multi-stop gradient: deep red centre, bright mid, translucent edge
+      const ctr = ctx.createRadialGradient(0, -h*0.05, 0, 0, -h*0.05, Math.max(w, h)*0.8);
+      ctr.addColorStop(0,    `hsla(${hue},${sat}%,${lit-12}%,${alpha*0.98})`);
+      ctr.addColorStop(0.25, `hsla(${hue},${sat}%,${lit}%,${alpha*0.96})`);
+      ctr.addColorStop(0.55, `hsla(${hue+4},${sat-5}%,${lit+8}%,${alpha*0.90})`);
+      ctr.addColorStop(0.80, `hsla(${hue+6},${sat-10}%,${lit+18}%,${alpha*0.75})`);
+      ctr.addColorStop(1,    `hsla(${hue+8},${sat-18}%,${lit+28}%,${alpha*0.30})`);
+      ctx.fillStyle = ctr;
+      ctx.fill();
+
+      // Soft inner highlight — the silky sheen of a real petal
+      const shine = ctx.createRadialGradient(-w*0.18, -h*0.28, 0, -w*0.18, -h*0.28, w*0.38);
+      shine.addColorStop(0,   `rgba(255,230,230,${alpha*0.30})`);
+      shine.addColorStop(0.5, `rgba(255,210,210,${alpha*0.12})`);
+      shine.addColorStop(1,   'rgba(255,200,200,0)');
+      ctx.fillStyle = shine;
+      ctx.fill();
+
+      // Veins — main central vein + 4 side veins
+      ctx.strokeStyle = `hsla(${hue-5},${sat+5}%,${lit-22}%,${alpha*0.28})`;
+      ctx.lineWidth = 0.7;
+      ctx.lineCap = 'round';
+      // Central vein
+      ctx.beginPath();
+      ctx.moveTo(0, h*0.38); ctx.bezierCurveTo(0, h*0.10, 0, -h*0.18, 0, -h*0.44);
+      ctx.stroke();
+      // Side veins — fan outward from mid-vein
+      ctx.lineWidth = 0.45;
+      const veins = [
+        [-0.08,-0.10, -0.38,-0.28], [-0.06, 0.05, -0.40,-0.05],
+        [-0.06, 0.18, -0.36, 0.12], [ 0.08,-0.10,  0.36,-0.28],
+        [ 0.06, 0.05,  0.38,-0.05], [ 0.06, 0.18,  0.34, 0.12],
       ];
-      LAYERS.forEach((layer, li) => {
-        const offset = li * 0.38;
-        for (let i = 0; i < layer.n; i++) {
-          const ang = (i / layer.n) * Math.PI * 2 + offset;
-          const px = Math.cos(ang) * layer.pr * 0.42;
-          const py = Math.sin(ang) * layer.pr * 0.42;
-          ctx.save();
-          ctx.translate(px, py);
-          ctx.rotate(ang + Math.PI * 0.5);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, layer.pr * layer.spread, layer.pr * 0.68, 0, 0, Math.PI * 2);
-          const pg = ctx.createRadialGradient(0, -layer.pr*0.2, 0, 0, 0, layer.pr * layer.spread);
-          const lighter = col.replace('#','');
-          pg.addColorStop(0,   '#fff5f5');
-          pg.addColorStop(0.3, col + 'ee');
-          pg.addColorStop(1,   col + (li < 2 ? '99' : 'cc'));
-          ctx.fillStyle = pg;
-          ctx.globalAlpha = alpha * (0.72 + li * 0.08);
-          ctx.fill();
-          ctx.restore();
-        }
-      });
-      // Centre bud
-      ctx.globalAlpha = alpha;
-      const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.18);
-      cg.addColorStop(0, '#fff0f0');
-      cg.addColorStop(1, col + 'dd');
-      ctx.fillStyle = cg;
-      ctx.beginPath(); ctx.arc(0, 0, r * 0.18, 0, Math.PI * 2); ctx.fill();
+      for (const [x1,y1,x2,y2] of veins) {
+        ctx.beginPath();
+        ctx.moveTo(x1*w, y1*h);
+        ctx.quadraticCurveTo((x1+x2)*0.5*w*1.1, (y1+y2)*0.5*h, x2*w, y2*h);
+        ctx.stroke();
+      }
+
+      // Subtle edge darkening (depth of fold)
+      ctx.strokeStyle = `hsla(${hue-8},${sat}%,${lit-28}%,${alpha*0.18})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, h*0.42);
+      ctx.bezierCurveTo(-w*0.55, h*0.20, -w*0.72,-h*0.10, -w*0.50,-h*0.38);
+      ctx.bezierCurveTo(-w*0.38,-h*0.52, -w*0.12,-h*0.50, 0,-h*0.48);
+      ctx.bezierCurveTo(w*0.14,-h*0.50, w*0.42,-h*0.50, w*0.52,-h*0.36);
+      ctx.bezierCurveTo(w*0.74,-h*0.08, w*0.58, h*0.20, 0, h*0.42);
+      ctx.stroke();
+
       ctx.restore();
     };
 
-    // ── Particle data ─────────────────────────────────────────────────────────
-    const BOKEH_COLS = ['#ffd700','#ffb300','#ffe082','#fff8e1','#f9a825','#fffde7'];
-    // Roses: red, yellow, blue (+ tints)
-    const ROSE_COLS = [
-      '#c62828','#e53935','#ff5252',   // reds
-      '#f9a825','#ffca28','#ffd54f',   // yellows
-      '#1565c0','#1e88e5','#42a5f5',   // blues
-    ];
+    // ── Gold bokeh background orbs ────────────────────────────────────────────
+    const BOKEH_COLS = ['#ffd700','#ffb300','#ffe082','#fff8e1','#f9a825'];
+    const mkBokeh = () => ({
+      x: Math.random()*VW, y: VH + 20 + Math.random()*VH*0.3,
+      r: 6 + Math.random()*22,
+      col: BOKEH_COLS[Math.floor(Math.random()*BOKEH_COLS.length)],
+      vy: -(0.28+Math.random()*0.45), vx: (Math.random()-0.5)*0.25,
+      ph: Math.random()*Math.PI*2, sp: 0.007+Math.random()*0.014,
+      alpha: 0.10+Math.random()*0.22,
+    });
 
+    // ── "24 / 7" floating text ────────────────────────────────────────────────
+    const mkText = () => ({
+      x: VW*0.05 + Math.random()*VW*0.90,
+      y: VH + 20 + Math.random()*VH*0.6,
+      vy: -(0.16+Math.random()*0.26), vx: (Math.random()-0.5)*0.14,
+      alpha: 0.055+Math.random()*0.09,
+      size: 26+Math.random()*34,
+      rot: (Math.random()-0.5)*0.28,
+      ph: Math.random()*Math.PI*2, sp: 0.005+Math.random()*0.010,
+    });
 
-
-    const mkBokeh = () => {
-      const col = BOKEH_COLS[Math.floor(Math.random() * BOKEH_COLS.length)];
+    // ── Petal physics ─────────────────────────────────────────────────────────
+    // Red rose palette: hue 0–12, sat 70–90, lit 28–50
+    const mkPetal = () => {
+      const w = 18 + Math.random() * 30;          // width 18–48px
+      const h = w * (0.7 + Math.random() * 0.5);  // height ~0.7–1.2× width
+      const hue = 2  + Math.random() * 10;         // crimson–red
+      const sat = 72 + Math.random() * 18;
+      const lit = 30 + Math.random() * 20;
       return {
-        x:    Math.random() * VW,
-        y:    VH + 20 + Math.random() * VH * 0.3,
-        r:    4 + Math.random() * 18,
-        col,
-        vy:   -(0.3 + Math.random() * 0.5),
-        vx:   (Math.random() - 0.5) * 0.3,
-        phase:    Math.random() * Math.PI * 2,
-        phaseSpd: 0.008 + Math.random() * 0.016,
-        alpha: 0.12 + Math.random() * 0.28,
+        x:  Math.random() * VW,
+        y: -h - Math.random() * VH * 0.5,          // spawn above screen
+        w, h, hue, sat, lit,
+        rot:  Math.random() * Math.PI * 2,
+        // Spin axes — tiltX creates edge-on flip, tiltY creates cup curl
+        tiltX:  Math.random() * Math.PI * 2,
+        tiltY:  (Math.random()-0.5) * 0.6,
+        tiltXv: (Math.random()-0.5) * 0.032,        // tumble speed
+        tiltYv: (Math.random()-0.5) * 0.012,
+        rotV:   (Math.random()-0.5) * 0.020,        // rotation in 2D
+        // Fall physics
+        vx:   (Math.random()-0.5) * 0.8,
+        vy:   0.6 + Math.random() * 1.2,            // gravity driven
+        mass: 0.6 + Math.random() * 0.6,            // affects drag
+        // Pendulum sway
+        sph:  Math.random() * Math.PI * 2,
+        sfq:  0.018 + Math.random() * 0.022,
+        samp: 0.020 + Math.random() * 0.045,
+        alpha: 0.72 + Math.random() * 0.26,
       };
     };
 
-    // Rising roses (from bottom)
-    const mkRose = () => ({
-      x:    Math.random() * VW,
-      y:    VH + 20 + Math.random() * VH * 0.5,
-      r:    8 + Math.random() * 24,         // 8–32px — wide size range
-      col:  ROSE_COLS[Math.floor(Math.random() * ROSE_COLS.length)],
-      vy:   -(0.22 + Math.random() * 0.55),
-      vx:   (Math.random() - 0.5) * 0.4,
-      rot:  Math.random() * Math.PI * 2,
-      rotV: (Math.random() - 0.5) * 0.012,
-      phase:    Math.random() * Math.PI * 2,
-      phaseSpd: 0.006 + Math.random() * 0.016,
-      alpha: 0.45 + Math.random() * 0.45,
-      falling: false,
-    });
-    // Falling roses (from top) — same shape, opposite direction
-    const mkFallingRose = () => ({
-      x:    Math.random() * VW,
-      y:    -30 - Math.random() * VH * 0.3,
-      r:    10 + Math.random() * 22,        // 10–32px
-      col:  ROSE_COLS[Math.floor(Math.random() * ROSE_COLS.length)],
-      vy:   0.28 + Math.random() * 0.55,    // falls downward
-      vx:   (Math.random() - 0.5) * 0.4,
-      rot:  Math.random() * Math.PI * 2,
-      rotV: (Math.random() - 0.5) * 0.010,
-      phase:    Math.random() * Math.PI * 2,
-      phaseSpd: 0.006 + Math.random() * 0.014,
-      alpha: 0.45 + Math.random() * 0.45,
-      falling: true,
-    });
+    // Wind state
+    let windX = 0, windTarget = 0.3, windTimer = 0;
 
-    const bokeh       = Array.from({ length: 18 }, mkBokeh);
-    const roses       = Array.from({ length: 16 }, mkRose);
-    const fallingRoses= Array.from({ length: 16 }, mkFallingRose);
+    const petals = Array.from({length: 38}, mkPetal);
+    // Stagger initial y positions
+    petals.forEach((p, i) => { p.y = -p.h + (i/38) * VH * 0.9; });
 
-    // Floating "24/7" text glyphs — subtle, ghostly
-    const mkText = () => ({
-      x:   VW * 0.05 + Math.random() * VW * 0.90,
-      y:   VH + 20 + Math.random() * VH * 0.6,
-      vy: -(0.18 + Math.random() * 0.28),
-      vx:  (Math.random() - 0.5) * 0.15,
-      alpha: 0.06 + Math.random() * 0.10,  // very subtle
-      size: 28 + Math.random() * 32,
-      rot:  (Math.random() - 0.5) * 0.3,
-      phase: Math.random() * Math.PI * 2,
-      spd:  0.006 + Math.random() * 0.010,
-    });
-    const texts = Array.from({ length: 8 }, mkText);
+    const bokeh = Array.from({length: 16}, mkBokeh);
+    const texts = Array.from({length: 8},  mkText);
 
-    const onResize = () => { VW = window.innerWidth; VH = window.innerHeight; setup(); };
+    const onResize = () => { VW=window.innerWidth; VH=window.innerHeight; setup(); };
     window.addEventListener('resize', onResize);
-
     let animId, lastT = null;
+
     const frame = now => {
-      const dt = lastT ? Math.min(now - lastT, 50) : 16; lastT = now;
-      const ds = dt / 16;
+      const dt = lastT ? Math.min(now-lastT,50) : 16; lastT=now; const ds=dt/16;
       ctx.clearRect(0, 0, VW, VH);
 
-      // ── Gold bokeh — floating upward ──────────────────────────────────────
+      // Wind evolution
+      windTimer += dt;
+      if (windTimer > 3500 + Math.random()*4000) {
+        windTarget = (Math.random()-0.45)*1.8;
+        windTimer = 0;
+      }
+      windX += (windTarget-windX) * 0.012 * ds;
+
+      // Gold bokeh — soft, rising
       for (const b of bokeh) {
-        b.phase += b.phaseSpd * ds;
-        b.x += Math.sin(b.phase) * 0.3 * ds;
-        b.y += b.vy * ds;
-        if (b.y < -b.r * 3) Object.assign(b, mkBokeh());
-        const pulse = 0.75 + 0.25 * Math.sin(b.phase);
-        const rr = b.r * pulse;
-        ctx.save();
-        ctx.globalAlpha = b.alpha * pulse;
-        ctx.globalCompositeOperation = 'screen';
-        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, rr);
-        g.addColorStop(0,   b.col + 'ff');
-        g.addColorStop(0.4, b.col + 'aa');
-        g.addColorStop(1,   b.col + '00');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, Math.PI*2); ctx.fill();
+        b.ph += b.sp*ds; b.x += Math.sin(b.ph)*0.25*ds; b.y += b.vy*ds;
+        if (b.y < -b.r*3) Object.assign(b, mkBokeh());
+        const p = 0.72+0.28*Math.sin(b.ph);
+        ctx.save(); ctx.globalAlpha=b.alpha*p; ctx.globalCompositeOperation='screen';
+        const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*p);
+        g.addColorStop(0,b.col+'ff');g.addColorStop(0.5,b.col+'88');g.addColorStop(1,b.col+'00');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*p,0,Math.PI*2); ctx.fill();
         ctx.restore();
       }
 
-      // ── Falling roses — top to bottom ────────────────────────────────────────
-      for (const ro of fallingRoses) {
-        ro.phase += ro.phaseSpd * ds;
-        ro.x += (Math.sin(ro.phase) * 0.3 + ro.vx) * ds;
-        ro.y += ro.vy * ds;
-        ro.rot += ro.rotV * ds;
-        if (ro.y > VH + ro.r * 3) Object.assign(ro, mkFallingRose());
-        const pa = ro.alpha * (0.78 + 0.22 * Math.sin(ro.phase));
-        drawRose(ro.x, ro.y, ro.r, ro.rot, ro.col, pa);
+      // Update + draw each petal
+      for (const p of petals) {
+        // Wind force scaled by petal size (larger petals catch more wind)
+        p.vx += windX * 0.014 * (p.w/30) * ds;
+        // Pendulum lateral sway (air turbulence)
+        p.sph += p.sfq * ds;
+        p.vx += Math.sin(p.sph) * p.samp * ds;
+        // Air drag — opposes velocity, varies with tilt (edge-on = less drag)
+        const dragFactor = 0.015 + 0.010 * Math.abs(Math.cos(p.tiltX));
+        p.vx *= (1 - dragFactor * ds);
+        p.vy *= (1 - dragFactor * 0.5 * ds);
+        // Gravity (lighter petals fall slower)
+        p.vy += (0.028 / p.mass) * ds;
+        // Terminal velocity
+        if (p.vy > 3.2) p.vy = 3.2;
+        p.x += p.vx * ds;
+        p.y += p.vy * ds;
+        // Tumble — tiltX flips edge-on (slows falling speed), tiltY curls
+        p.tiltX += p.tiltXv * ds;
+        p.tiltY += p.tiltYv * ds;
+        p.rot   += p.rotV * ds;
+        // Clamp tiltY so petals don't invert
+        p.tiltY = Math.max(-0.7, Math.min(0.7, p.tiltY));
+        // Respawn
+        if (p.y > VH + p.h + 20 || p.x < -VW*0.3 || p.x > VW*1.3) {
+          Object.assign(p, mkPetal());
+        }
+        // Alpha pulses very slightly with tiltX (edge-on = more transparent)
+        const tiltAlpha = 0.55 + 0.45 * Math.abs(Math.cos(p.tiltX));
+        drawRosePetal(p.x, p.y, p.w, p.h, p.rot, p.tiltX, p.tiltY,
+                      p.hue, p.sat, p.lit, p.alpha * tiltAlpha);
       }
 
-      // ── Rising roses — bottom to top ─────────────────────────────────────────
-      for (const ro of roses) {
-        ro.phase += ro.phaseSpd * ds;
-        ro.x += (Math.sin(ro.phase) * 0.3 + ro.vx) * ds;
-        ro.y += ro.vy * ds;
-        ro.rot += ro.rotV * ds;
-        if (ro.y < -ro.r * 3) Object.assign(ro, mkRose());
-        const pa = ro.alpha * (0.78 + 0.22 * Math.sin(ro.phase));
-        drawRose(ro.x, ro.y, ro.r, ro.rot, ro.col, pa);
-      }
-
-      // ── Floating "24/7" text ────────────────────────────────────────────
+      // "24 / 7" floating text
       ctx.globalCompositeOperation = 'source-over';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (const tx of texts) {
-        tx.phase += tx.spd * ds;
-        tx.x += tx.vx * ds; tx.y += tx.vy * ds;
-        if (tx.y < -tx.size * 2) Object.assign(tx, mkText());
-        const pulse = 0.6 + 0.4 * Math.sin(tx.phase);
-        ctx.save();
-        ctx.globalAlpha = tx.alpha * pulse;
+        tx.ph += tx.sp*ds; tx.x += tx.vx*ds; tx.y += tx.vy*ds;
+        if (tx.y < -tx.size*2) Object.assign(tx, mkText());
+        const pulse = 0.55+0.45*Math.sin(tx.ph);
+        ctx.save(); ctx.globalAlpha=tx.alpha*pulse;
         ctx.translate(tx.x, tx.y); ctx.rotate(tx.rot);
         ctx.font = `100 ${tx.size}px Georgia, serif`;
-        ctx.fillStyle = '#c2185b';
+        ctx.fillStyle = '#8b0000';
         ctx.fillText('24 / 7', 0, 0);
         ctx.restore();
       }
 
-      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
       animId = requestAnimationFrame(frame);
     };
     animId = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
   }, []);
 
-  return (
-    <canvas ref={canvasRef} style={{
-      position:'absolute', top:0, left:0,
-      width:'100%', height:'100%',
-      pointerEvents:'none', zIndex:0,
-    }} />
-  );
+  return <canvas ref={canvasRef} style={{
+    position:'fixed', top:0, left:0,
+    width:'100vw', height:'100vh',
+    pointerEvents:'none', zIndex:0, background:'transparent',
+  }} />;
 }
-
 // ─── BIRTHDAY BACKGROUND — balloons, confetti, sparkles ──────────────────────
 function BirthdayBackground() {
   const canvasRef = useRef(null);
