@@ -3082,7 +3082,7 @@ function MothersDayBackground() {
     const mkOrb = () => ({
       x: Math.random()*VW, y: Math.random()*VH,
       r: 12 + Math.random()*30,
-      col: FLOWER_COLS[Math.floor(Math.random()*FLOWER_COLS.length)],
+      col: CARNATION_COLS[Math.floor(Math.random()*CARNATION_COLS.length)],
       phase: Math.random()*Math.PI*2, spd: 0.006+Math.random()*0.010,
       alpha: 0.06 + Math.random()*0.10,
     });
@@ -3321,31 +3321,60 @@ function AnniversaryBackground() {
       ctx.restore();
     };
 
-    // ── Heart shape ───────────────────────────────────────────────────────────
-    const drawHeart = (x, y, size, alpha, col) => {
+    // ── Rose — spiral petals from centre out ───────────────────────────────────
+    const drawRose = (x, y, r, rot, col, alpha) => {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.translate(x, y);
-      ctx.beginPath();
-      ctx.moveTo(0, size * 0.3);
-      ctx.bezierCurveTo(-size*0.1, -size*0.1, -size*0.7, -size*0.1, -size*0.5, size*0.3);
-      ctx.bezierCurveTo(-size*0.8,  size*0.65, 0,          size*1.1,  0,         size*0.3);
-      ctx.moveTo(0, size * 0.3);
-      ctx.bezierCurveTo( size*0.1, -size*0.1,  size*0.7, -size*0.1,  size*0.5, size*0.3);
-      ctx.bezierCurveTo( size*0.8,  size*0.65, 0,          size*1.1,  0,        size*0.3);
-      ctx.closePath();
-      const hg = ctx.createRadialGradient(0, size*0.4, 0, 0, size*0.4, size*0.9);
-      hg.addColorStop(0, col + 'ff');
-      hg.addColorStop(0.5, col + 'cc');
-      hg.addColorStop(1, col + '44');
-      ctx.fillStyle = hg; ctx.fill();
+      ctx.rotate(rot);
+      // Draw petals layer by layer from outer to inner
+      const LAYERS = [
+        { n:8, pr:r*0.95, spread:0.52 },
+        { n:7, pr:r*0.70, spread:0.48 },
+        { n:6, pr:r*0.50, spread:0.44 },
+        { n:5, pr:r*0.32, spread:0.40 },
+      ];
+      LAYERS.forEach((layer, li) => {
+        const offset = li * 0.38;
+        for (let i = 0; i < layer.n; i++) {
+          const ang = (i / layer.n) * Math.PI * 2 + offset;
+          const px = Math.cos(ang) * layer.pr * 0.42;
+          const py = Math.sin(ang) * layer.pr * 0.42;
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(ang + Math.PI * 0.5);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, layer.pr * layer.spread, layer.pr * 0.68, 0, 0, Math.PI * 2);
+          const pg = ctx.createRadialGradient(0, -layer.pr*0.2, 0, 0, 0, layer.pr * layer.spread);
+          const lighter = col.replace('#','');
+          pg.addColorStop(0,   '#fff5f5');
+          pg.addColorStop(0.3, col + 'ee');
+          pg.addColorStop(1,   col + (li < 2 ? '99' : 'cc'));
+          ctx.fillStyle = pg;
+          ctx.globalAlpha = alpha * (0.72 + li * 0.08);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+      // Centre bud
+      ctx.globalAlpha = alpha;
+      const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.18);
+      cg.addColorStop(0, '#fff0f0');
+      cg.addColorStop(1, col + 'dd');
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.18, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     };
 
     // ── Particle data ─────────────────────────────────────────────────────────
     const PETAL_COLS = ['#c2185b','#e91e63','#f06292','#ad1457','#d81b60','#ff80ab'];
     const BOKEH_COLS = ['#ffd700','#ffb300','#ffe082','#fff8e1','#f9a825','#fffde7'];
-    const HEART_COLS = ['#e91e63','#f50057','#ff4081','#c51162'];
+    // Roses: red, yellow, blue (+ tints)
+    const ROSE_COLS = [
+      '#c62828','#e53935','#ff5252',   // reds
+      '#f9a825','#ffca28','#ffd54f',   // yellows
+      '#1565c0','#1e88e5','#42a5f5',   // blues
+    ];
 
     const mkPetal = () => {
       const col = PETAL_COLS[Math.floor(Math.random() * PETAL_COLS.length)];
@@ -3380,21 +3409,23 @@ function AnniversaryBackground() {
       };
     };
 
-    const mkHeart = () => ({
+    const mkRose = () => ({
       x:    Math.random() * VW,
       y:    VH + 20 + Math.random() * VH * 0.5,
-      size: 4 + Math.random() * 10,
-      col:  HEART_COLS[Math.floor(Math.random() * HEART_COLS.length)],
-      vy:   -(0.35 + Math.random() * 0.45),
-      vx:   (Math.random() - 0.5) * 0.4,
+      r:    12 + Math.random() * 16,        // 12–28px roses — clearly visible
+      col:  ROSE_COLS[Math.floor(Math.random() * ROSE_COLS.length)],
+      vy:   -(0.30 + Math.random() * 0.40),
+      vx:   (Math.random() - 0.5) * 0.35,
+      rot:  Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.010, // gentle slow spin
       phase:    Math.random() * Math.PI * 2,
-      phaseSpd: 0.010 + Math.random() * 0.018,
-      alpha: 0.3 + Math.random() * 0.45,
+      phaseSpd: 0.008 + Math.random() * 0.014,
+      alpha: 0.55 + Math.random() * 0.35,
     });
 
     const petals = Array.from({ length: 28 }, mkPetal);
     const bokeh  = Array.from({ length: 18 }, mkBokeh);
-    const hearts = Array.from({ length: 18 }, mkHeart);
+    const roses  = Array.from({ length: 18 }, mkRose);
 
     // Floating "24/7" text glyphs — subtle, ghostly
     const mkText = () => ({
@@ -3450,14 +3481,15 @@ function AnniversaryBackground() {
         drawPetal(p.x, p.y, p.size, p.rot, p.col, p.alpha);
       }
 
-      // ── Floating hearts — rising slowly ───────────────────────────────────
-      for (const h of hearts) {
-        h.phase += h.phaseSpd * ds;
-        h.x += Math.sin(h.phase) * 0.35 * ds;
-        h.y += h.vy * ds;
-        if (h.y < -h.size * 3) Object.assign(h, mkHeart());
-        const pa = h.alpha * (0.7 + 0.3 * Math.sin(h.phase));
-        drawHeart(h.x, h.y - h.size, h.size, pa, h.col);
+      // ── Floating roses — rising gently ──────────────────────────────────────
+      for (const ro of roses) {
+        ro.phase += ro.phaseSpd * ds;
+        ro.x += (Math.sin(ro.phase) * 0.3 + ro.vx) * ds;
+        ro.y += ro.vy * ds;
+        ro.rot += ro.rotV * ds;
+        if (ro.y < -ro.r * 3) Object.assign(ro, mkRose());
+        const pa = ro.alpha * (0.78 + 0.22 * Math.sin(ro.phase));
+        drawRose(ro.x, ro.y, ro.r, ro.rot, ro.col, pa);
       }
 
       // ── Floating "24/7" text ────────────────────────────────────────────
