@@ -2973,24 +2973,40 @@ function MothersDayBackground() {
     };
     setup();
 
-    // ── Draw a sakura-style 5-petal flower ────────────────────────────────────
-    const drawFlower = (x, y, r, col, alpha, rotation) => {
+    // ── Draw a carnation — ruffled multi-layer petals ───────────────────────
+    // Carnation variety controlled by 'variant' (0=classic, 1=ruffled, 2=bi-color, 3=spray)
+    const drawFlower = (x, y, r, col, alpha, rotation, variant=0) => {
       ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rotation);
-      for (let i = 0; i < 5; i++) {
-        const ang = (i * Math.PI * 2) / 5;
-        ctx.save(); ctx.rotate(ang);
-        ctx.beginPath();
-        ctx.ellipse(0, -r * 0.7, r * 0.38, r * 0.62, 0, 0, Math.PI * 2);
-        const pg = ctx.createRadialGradient(0, -r*0.7, 0, 0, -r*0.7, r*0.62);
-        pg.addColorStop(0, '#fff0f5');
-        pg.addColorStop(0.4, col+'dd');
-        pg.addColorStop(1, col+'66');
-        ctx.fillStyle = pg; ctx.fill();
-        ctx.restore();
+      const layers = variant === 1 ? 5 : variant === 3 ? 3 : 4;
+      const petals = variant === 3 ? 8 : 12;
+      for (let l = layers; l >= 0; l--) {
+        const lr = r * (0.35 + l * 0.15);           // outer layers bigger
+        const lAlpha = 0.7 + l * 0.06;
+        for (let i = 0; i < petals; i++) {
+          const ang = (i / petals) * Math.PI * 2 + l * 0.3;
+          ctx.save(); ctx.rotate(ang);
+          ctx.beginPath();
+          // Ruffled petal — narrow base, wide notched tip
+          ctx.moveTo(0, 0);
+          ctx.bezierCurveTo(-lr*0.18, -lr*0.35, -lr*0.38, -lr*0.7, -lr*0.28, -lr);
+          ctx.bezierCurveTo(-lr*0.08, -lr*1.08, lr*0.08, -lr*1.08, lr*0.28, -lr);
+          ctx.bezierCurveTo(lr*0.38, -lr*0.7, lr*0.18, -lr*0.35, 0, 0);
+          // Bi-color variant: alternate inner/outer tone
+          const petCol = (variant === 2 && i % 2 === 0) ? col+'aa' : col;
+          const pg = ctx.createLinearGradient(0, 0, 0, -lr);
+          pg.addColorStop(0,   '#fff5f8');
+          pg.addColorStop(0.3, petCol+'ee');
+          pg.addColorStop(1,   petCol+(variant===1?'bb':'77'));
+          ctx.fillStyle = pg; ctx.globalAlpha = alpha * lAlpha;
+          ctx.fill();
+          ctx.strokeStyle = petCol+'44'; ctx.lineWidth = 0.3; ctx.stroke();
+          ctx.restore();
+        }
       }
-      // Centre
-      ctx.beginPath(); ctx.arc(0, 0, r*0.18, 0, Math.PI*2);
-      ctx.fillStyle = '#FFD700'; ctx.fill();
+      // Centre bud
+      ctx.globalAlpha = alpha;
+      ctx.beginPath(); ctx.arc(0, 0, r*0.15, 0, Math.PI*2);
+      ctx.fillStyle = col+'ff'; ctx.fill();
       ctx.restore();
     };
 
@@ -3023,16 +3039,28 @@ function MothersDayBackground() {
     };
 
     // ── Particle pools ────────────────────────────────────────────────────────
-    const FLOWER_COLS = ['#ff80ab','#f48fb1','#f06292','#ce93d8','#ef9a9a','#ffb3c6','#ffd6e7'];
+    // Carnation palette — pink, red, white, coral, magenta, salmon, bicolor
+    const CARNATION_COLS = [
+      '#e91e63','#f06292','#ff80ab',  // hot pink, pink, light pink
+      '#c62828','#e53935','#ff5252',  // crimson, red, coral-red
+      '#ffffff','#fce4ec','#fff0f5',  // white, blush, snow
+      '#ad1457','#880e4f','#d81b60',  // deep magenta, burgundy, magenta
+      '#ff7043','#ff8a65','#ffab91',  // coral, salmon, peach
+    ];
+    const VARIANTS = [0, 0, 1, 1, 2, 2, 3]; // weight toward classic & ruffled
 
-    const mkPetal = () => ({
-      x: Math.random()*VW, y: -20 - Math.random()*VH*0.4,
-      r: 7 + Math.random()*11, col: FLOWER_COLS[Math.floor(Math.random()*FLOWER_COLS.length)],
-      rot: Math.random()*Math.PI*2, rotV: (Math.random()-0.5)*0.02,
-      vy: 0.45 + Math.random()*0.85, vx: (Math.random()-0.5)*0.5,
-      swayPh: Math.random()*Math.PI*2, swayFq: 0.013+Math.random()*0.016,
-      alpha: 0.55 + Math.random()*0.35,
-    });
+    const mkPetal = () => {
+      const col = CARNATION_COLS[Math.floor(Math.random()*CARNATION_COLS.length)];
+      const variant = VARIANTS[Math.floor(Math.random()*VARIANTS.length)];
+      return {
+        x: Math.random()*VW, y: -20 - Math.random()*VH*0.4,
+        r: 8 + Math.random()*13, col, variant,
+        rot: Math.random()*Math.PI*2, rotV: (Math.random()-0.5)*0.018,
+        vy: 0.4 + Math.random()*0.75, vx: (Math.random()-0.5)*0.5,
+        swayPh: Math.random()*Math.PI*2, swayFq: 0.012+Math.random()*0.016,
+        alpha: 0.55 + Math.random()*0.35,
+      };
+    };
 
     const mkButterfly = () => {
       const cols = ['#f48fb1','#ce93d8','#80cbc4','#fff176','#ffb3c6'];
@@ -3059,7 +3087,7 @@ function MothersDayBackground() {
       alpha: 0.06 + Math.random()*0.10,
     });
 
-    const flowers     = Array.from({length:22}, mkPetal);
+    const flowers     = Array.from({length:30}, mkPetal);
     const butterflies = Array.from({length:7},  mkButterfly);
     const orbs        = Array.from({length:12}, mkOrb);
 
@@ -3088,7 +3116,7 @@ function MothersDayBackground() {
         p.vx += Math.sin(p.swayPh)*0.012*ds; p.vx*=0.98;
         p.x+=p.vx*ds; p.y+=p.vy*ds; p.rot+=p.rotV*ds;
         if(p.y>VH+30) Object.assign(p,mkPetal());
-        drawFlower(p.x,p.y,p.r,p.col,p.alpha,p.rot);
+        drawFlower(p.x,p.y,p.r,p.col,p.alpha,p.rot,p.variant);
       }
 
       // Floating butterflies
@@ -3195,7 +3223,7 @@ function FathersDayBackground() {
     });
 
     const stars = Array.from({length:30}, mkStar);
-    const planes= Array.from({length:5},  mkPlane);
+    const planes= Array.from({length:10}, mkPlane);
     const orbs  = Array.from({length:10}, mkOrb);
 
     const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();};
@@ -3366,7 +3394,21 @@ function AnniversaryBackground() {
 
     const petals = Array.from({ length: 28 }, mkPetal);
     const bokeh  = Array.from({ length: 18 }, mkBokeh);
-    const hearts = Array.from({ length: 9  }, mkHeart);
+    const hearts = Array.from({ length: 18 }, mkHeart);
+
+    // Floating "24/7" text glyphs — subtle, ghostly
+    const mkText = () => ({
+      x:   VW * 0.05 + Math.random() * VW * 0.90,
+      y:   VH + 20 + Math.random() * VH * 0.6,
+      vy: -(0.18 + Math.random() * 0.28),
+      vx:  (Math.random() - 0.5) * 0.15,
+      alpha: 0.06 + Math.random() * 0.10,  // very subtle
+      size: 28 + Math.random() * 32,
+      rot:  (Math.random() - 0.5) * 0.3,
+      phase: Math.random() * Math.PI * 2,
+      spd:  0.006 + Math.random() * 0.010,
+    });
+    const texts = Array.from({ length: 8 }, mkText);
 
     const onResize = () => { VW = window.innerWidth; VH = window.innerHeight; setup(); };
     window.addEventListener('resize', onResize);
@@ -3416,6 +3458,23 @@ function AnniversaryBackground() {
         if (h.y < -h.size * 3) Object.assign(h, mkHeart());
         const pa = h.alpha * (0.7 + 0.3 * Math.sin(h.phase));
         drawHeart(h.x, h.y - h.size, h.size, pa, h.col);
+      }
+
+      // ── Floating "24/7" text ────────────────────────────────────────────
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const tx of texts) {
+        tx.phase += tx.spd * ds;
+        tx.x += tx.vx * ds; tx.y += tx.vy * ds;
+        if (tx.y < -tx.size * 2) Object.assign(tx, mkText());
+        const pulse = 0.6 + 0.4 * Math.sin(tx.phase);
+        ctx.save();
+        ctx.globalAlpha = tx.alpha * pulse;
+        ctx.translate(tx.x, tx.y); ctx.rotate(tx.rot);
+        ctx.font = `100 ${tx.size}px Georgia, serif`;
+        ctx.fillStyle = '#c2185b';
+        ctx.fillText('24 / 7', 0, 0);
+        ctx.restore();
       }
 
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
