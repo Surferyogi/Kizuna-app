@@ -3619,6 +3619,393 @@ function AnniversaryBackground() {
     pointerEvents:'none', zIndex:0, background:'transparent',
   }} />;
 }
+
+// ─── OTSUKIMI — Mid-Autumn Festival canvas scene ─────────────────────────────
+function OtsukimiBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = window.innerWidth || 390, H = window.innerHeight || 844;
+    let ctx, T = 0, lastNow = null, animId;
+
+    const setup = () => {
+      W = window.innerWidth || 390; H = window.innerHeight || 844;
+      canvas.width  = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    setup();
+
+    // ── Deterministic hash ───────────────────────────────────────────────────
+    const hash = n => { const s = Math.sin(n) * 43758.5453; return s - Math.floor(s); };
+
+    // ── Stars ────────────────────────────────────────────────────────────────
+    const STARS = Array.from({ length: 210 }, (_, i) => ({
+      x:        hash(i * 13.7)  * W,
+      y:        hash(i * 7.31)  * H * 0.78,
+      r:        0.18 + hash(i * 19.3) * 1.0,
+      hz:       0.45 + hash(i * 3.77) * 1.90,
+      phase:    hash(i * 5.53)  * Math.PI * 2,
+      minAlpha: 0.22 + hash(i * 11.9) * 0.38,
+    }));
+
+    // ── Susuki grass ─────────────────────────────────────────────────────────
+    const bladeCount = Math.max(36, Math.min(58, Math.floor(W / 14)));
+    const smoothNoise = x => {
+      const i = Math.floor(x), f = x - i;
+      const sf = f * f * (3 - 2 * f);
+      return hash(i * 127.1 + 311.7) * (1 - sf) + hash((i + 1) * 127.1 + 311.7) * sf;
+    };
+    const BLADES = Array.from({ length: bladeCount }, (_, i) => {
+      const layer = Math.floor(hash(i * 17.3) * 3);
+      const ds    = 0.55 + layer * 0.225;
+      const len   = (78 + hash(i * 23.1) * 118) * ds;
+      const bi    = i;
+      // Pre-compute 16 plume hairs per blade
+      const hairs = Array.from({ length: 16 }, (_, h) => ({
+        angle:  (hash(bi * 31.1 + h * 7.3) - 0.5) * Math.PI * 1.5,
+        length: (11 + hash(bi * 41.7 + h * 11.3) * 27) * ds,
+      }));
+      return {
+        x:         hash(i * 29.9) * (W + 60) - 30,
+        baseY:     H - hash(i * 37.1) * 22,
+        layer,
+        len,
+        lean:      (hash(i * 43.3) - 0.5) * 0.40,
+        stiffness: 0.30 + hash(i * 61.7) * 0.38,
+        freq:      0.52 + hash(i * 53.3) * 0.68,
+        phase:     hash(i * 71.9) * Math.PI * 2,
+        width:     (0.85 + hash(i * 83.1) * 1.5),
+        hasPlume:  hash(i * 97.3) < 0.80,
+        hairs,
+        alpha:     0.35 + (layer / 2) * 0.40,
+      };
+    }).sort((a, b) => a.layer - b.layer);
+
+    // ── Ambient motes ────────────────────────────────────────────────────────
+    const MOTES = Array.from({ length: 22 }, (_, i) => ({
+      x:     hash(i * 13.1) * W,
+      y:     hash(i * 17.3) * H,
+      r:     0.25 + hash(i * 23.7) * 1.35,
+      vy:    0.055 + hash(i * 31.1) * 0.130,
+      vx:    (hash(i * 41.3) - 0.5) * 0.164,
+      phase: hash(i * 53.7) * Math.PI * 2,
+      op:    0.28 + hash(i * 67.1) * 0.40,
+    }));
+
+    // ── Rabbit state machine ──────────────────────────────────────────────────
+    const RABBIT_CYCLE = [
+      { state: 'wait',     dur: 3.5 },
+      { state: 'fade-in',  dur: 5.5 },
+      { state: 'hold',     dur: 8.5 },
+      { state: 'fade-out', dur: 5.0 },
+      { state: 'pause',    dur: 12.0 },
+    ];
+    let rabbitPhaseIdx = 0, rabbitPhaseT = 0;
+
+    // ── Draw moon ────────────────────────────────────────────────────────────
+    const drawMoon = () => {
+      const MX = W * 0.5, MY = H * 0.17;
+      const MR = Math.min(W, H) * 0.208;
+      const R  = MR * (1 + 0.004 * Math.sin(T * 0.11));
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(MX, MY, R, 0, Math.PI * 2);
+      ctx.clip();
+
+      // 1. Radial gradient base — silvery watercolour surface
+      const base = ctx.createRadialGradient(MX - R*0.23, MY - R*0.23, 0, MX, MY, R);
+      base.addColorStop(0,    '#eeeeed');
+      base.addColorStop(0.26, '#dcdcdb');
+      base.addColorStop(0.60, '#c4c9d2');
+      base.addColorStop(0.85, '#adb4c4');
+      base.addColorStop(1,    '#8a93a7');
+      ctx.fillStyle = base;
+      ctx.fillRect(MX - R, MY - R, R * 2, R * 2);
+
+      // 2. Dark maria
+      const MARIA = [
+        { cx:-0.17, cy:-0.25, rx:0.31, ry:0.24, a:0.175 },
+        { cx: 0.23, cy:-0.13, rx:0.20, ry:0.27, a:0.145 },
+        { cx:-0.09, cy: 0.11, rx:0.23, ry:0.17, a:0.115 },
+        { cx: 0.07, cy: 0.31, rx:0.34, ry:0.22, a:0.155 },
+        { cx:-0.31, cy: 0.17, rx:0.18, ry:0.22, a:0.092 },
+        { cx: 0.33, cy: 0.13, rx:0.12, ry:0.14, a:0.082 },
+        { cx:-0.07, cy:-0.44, rx:0.14, ry:0.10, a:0.070 },
+      ];
+      for (const m of MARIA) {
+        const bx = MX + R * m.cx, by = MY + R * m.cy;
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.scale(R * m.rx, R * m.ry);
+        const mg = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        mg.addColorStop(0,    `rgba(62,76,97,${m.a})`);
+        mg.addColorStop(0.58, `rgba(62,76,97,${m.a * 0.5})`);
+        mg.addColorStop(1,    'rgba(62,76,97,0)');
+        ctx.fillStyle = mg;
+        ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. Highland patches
+      const HIGHLANDS = [
+        { cx: 0.13, cy:-0.07, rx:0.25, ry:0.20, a:0.072 },
+        { cx:-0.23, cy: 0.35, rx:0.20, ry:0.17, a:0.062 },
+        { cx: 0.35, cy:-0.27, rx:0.16, ry:0.14, a:0.052 },
+        { cx:-0.38, cy:-0.10, rx:0.12, ry:0.16, a:0.044 },
+      ];
+      for (const h of HIGHLANDS) {
+        const bx = MX + R * h.cx, by = MY + R * h.cy;
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.scale(R * h.rx, R * h.ry);
+        const hg = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        hg.addColorStop(0,    `rgba(255,255,252,${h.a})`);
+        hg.addColorStop(0.58, `rgba(255,255,252,${h.a * 0.5})`);
+        hg.addColorStop(1,    'rgba(255,255,252,0)');
+        ctx.fillStyle = hg;
+        ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // 4. Crater speckles — deterministic
+      for (let i = 0; i < 30; i++) {
+        const ang  = hash(i * 7.13) * Math.PI * 2;
+        const dist = hash(i * 13.77) * R * 0.88;
+        const cr   = 1.4 + hash(i * 19.31) * 8.5;
+        const ca   = 0.028 + hash(i * 29.07) * 0.055;
+        ctx.beginPath();
+        ctx.arc(MX + Math.cos(ang)*dist, MY + Math.sin(ang)*dist, cr, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,250,${ca})`;
+        ctx.fill();
+      }
+
+      // 5. Limb darkening vignette
+      const vig = ctx.createRadialGradient(MX, MY, R * 0.58, MX, MY, R);
+      vig.addColorStop(0, 'rgba(10,16,32,0)');
+      vig.addColorStop(1, 'rgba(10,16,32,0.62)');
+      ctx.fillStyle = vig;
+      ctx.beginPath(); ctx.arc(MX, MY, R, 0, Math.PI * 2); ctx.fill();
+
+      ctx.restore();
+      return { MX, MY, MR };
+    };
+
+    // ── Draw rabbit ───────────────────────────────────────────────────────────
+    const drawRabbit = (MX, MY, MR, opacity) => {
+      if (opacity <= 0.005) return;
+      const shimmer = 1 + 0.038 * Math.sin(T * 9.5);
+      const phase   = RABBIT_CYCLE[rabbitPhaseIdx].state;
+      const baseAlpha = opacity * 0.27 * (
+        (phase === 'fade-in' || phase === 'fade-out') ? shimmer : 1
+      );
+      if (baseAlpha < 0.005) return;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(MX, MY, MR, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.globalAlpha = baseAlpha;
+
+      const s  = MR * 0.36;
+      const ox = MX - MR * 0.04;
+      const oy = MY + MR * 0.06;
+      ctx.fillStyle   = 'rgba(48,60,78,1)';
+      ctx.strokeStyle = 'rgba(48,60,78,1)';
+      ctx.lineWidth   = s * 0.025;
+
+      const ellipse = (ex, ey, rx, ry, rot) => {
+        ctx.save();
+        ctx.translate(ox + ex, oy + ey);
+        ctx.rotate(rot || 0);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      ellipse(0, 0, s*0.30, s*0.41, 0);                                 // body
+      ellipse(s*0.075, -s*0.445, s*0.185, s*0.175, 0.17);               // head
+      ellipse(-s*0.010, -s*0.765, s*0.060, s*0.238, -0.13);             // left ear
+      ellipse( s*0.172, -s*0.748, s*0.060, s*0.228,  0.19);             // right ear
+      ellipse( s*0.185, -s*0.095, s*0.115, s*0.073,  0.33);             // paws
+
+      // Kine pestle
+      ctx.save(); ctx.translate(ox, oy);
+      ctx.lineWidth = s * 0.050;
+      ctx.beginPath();
+      ctx.moveTo( s*0.265,  s*0.075);
+      ctx.lineTo( s*0.305, -s*0.385);
+      ctx.stroke();
+      ctx.restore();
+      ellipse(s*0.315, -s*0.425, s*0.058, s*0.037, 0.44);               // pestle knob
+
+      // Tail
+      ctx.save(); ctx.translate(ox - s*0.285, oy + s*0.095);
+      ctx.beginPath(); ctx.arc(0, 0, s*0.063, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      ctx.restore();
+    };
+
+    // ── Draw susuki grass ────────────────────────────────────────────────────
+    const drawGrass = () => {
+      for (const b of BLADES) {
+        const wind =
+          (0.75 * Math.sin(T * 0.32 + b.phase) +
+           0.23 * Math.sin(T * 1.08 * b.freq + b.phase * 1.42) +
+           smoothNoise(T * 0.11 + b.phase * 0.52) * 0.40 - 0.20
+          ) * (1 - b.stiffness);
+        const angle = b.lean + wind;
+        const d = b.layer / 2;
+
+        const r = Math.round(66  + d * 65);
+        const g = Math.round(60  + d * 55);
+        const bv= Math.round(36  + d * 25);
+
+        const cpx = b.x + Math.sin(angle * 0.5) * b.len * 0.52;
+        const cpy = b.baseY - b.len * 0.52 * Math.cos(Math.abs(angle * 0.5) * 0.72 + 0.07);
+        const tx  = b.x  + Math.sin(angle)       * b.len;
+        const ty  = b.baseY - b.len * Math.cos(Math.abs(angle) * 0.72 + 0.07);
+
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.baseY);
+        ctx.quadraticCurveTo(cpx, cpy, tx, ty);
+        ctx.strokeStyle = `rgba(${r},${g},${bv},${b.alpha})`;
+        ctx.lineWidth   = b.width * (1 + (2 - b.layer) * 0.28);
+        ctx.lineCap     = 'round';
+        ctx.stroke();
+
+        // Susuki plume hairs — pre-computed at init, drawn per frame
+        if (b.hasPlume) {
+          const bladeAngle = Math.atan2(ty - cpy, tx - cpx);
+          ctx.strokeStyle = `rgba(205,190,122,${b.alpha * 0.50})`;
+          ctx.lineWidth   = 0.62;
+          for (const hr of b.hairs) {
+            const ha = bladeAngle + hr.angle;
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(tx + Math.cos(ha) * hr.length, ty + Math.sin(ha) * hr.length);
+            ctx.stroke();
+          }
+        }
+      }
+    };
+
+    // ── Main loop ─────────────────────────────────────────────────────────────
+    const frame = now => {
+      const dt = lastNow ? Math.min(now - lastNow, 50) / 1000 : 0.016;
+      lastNow = now;
+      T += dt;
+
+      // Advance rabbit state machine
+      rabbitPhaseT += dt;
+      const curPhase = RABBIT_CYCLE[rabbitPhaseIdx];
+      if (rabbitPhaseT >= curPhase.dur) {
+        rabbitPhaseT -= curPhase.dur;
+        rabbitPhaseIdx = (rabbitPhaseIdx + 1) % RABBIT_CYCLE.length;
+      }
+      const nextState = RABBIT_CYCLE[rabbitPhaseIdx].state;
+      let rabbitOpacity = 0;
+      if (nextState === 'hold') {
+        rabbitOpacity = 1;
+      } else if (nextState === 'fade-in') {
+        rabbitOpacity = rabbitPhaseT / RABBIT_CYCLE[rabbitPhaseIdx].dur;
+      } else if (nextState === 'fade-out') {
+        rabbitOpacity = 1 - rabbitPhaseT / RABBIT_CYCLE[rabbitPhaseIdx].dur;
+      }
+
+      // 1. Sky
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0,    '#010407');
+      sky.addColorStop(0.35, '#030918');
+      sky.addColorStop(0.70, '#0a1025');
+      sky.addColorStop(1,    '#16101c');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // 2. Stars
+      ctx.fillStyle = '#fffef5';
+      for (const s of STARS) {
+        const a = s.minAlpha + (1 - s.minAlpha) * 0.5 * (1 + Math.sin(T * s.hz + s.phase));
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // 3. Moon + rabbit
+      const { MX, MY, MR } = drawMoon();
+      drawRabbit(MX, MY, MR, rabbitOpacity);
+
+      // 4. Ground mist
+      const mist = ctx.createLinearGradient(0, H * 0.76 - 70, 0, H * 0.76 + 70);
+      mist.addColorStop(0,    'rgba(130,118,90,0)');
+      mist.addColorStop(0.42, 'rgba(130,118,90,0.038)');
+      mist.addColorStop(1,    'rgba(130,118,90,0)');
+      ctx.fillStyle = mist;
+      ctx.fillRect(0, H * 0.76 - 70, W, 140);
+
+      // 5. Ambient motes
+      for (const m of MOTES) {
+        m.x += m.vx; m.y -= m.vy;
+        if (m.y < -5 || m.x < -5 || m.x > W + 5) {
+          m.x = Math.random() * W; m.y = H + 5;
+        }
+        const ma = m.op * (0.52 + 0.48 * Math.sin(T * 0.62 + m.phase));
+        ctx.globalAlpha = ma;
+        ctx.fillStyle   = 'rgba(196,184,148,1)';
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // 6. Susuki grass (on top)
+      drawGrass();
+
+      animId = requestAnimationFrame(frame);
+    };
+
+    const onResize = () => { setup(); };
+    window.addEventListener('resize', onResize);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return (
+    <>
+      <canvas ref={canvasRef} style={{
+        position:'fixed', top:0, left:0,
+        width:'100vw', height:'100vh',
+        pointerEvents:'none', zIndex:0, background:'transparent',
+      }} />
+      {/* Text overlay — お月見 */}
+      <div style={{
+        position:'fixed', top:'75%', left:0, width:'100%',
+        textAlign:'center', pointerEvents:'none', userSelect:'none',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:'6px',
+        zIndex:1,
+      }}>
+        <div style={{
+          fontSize:'2.625rem', letterSpacing:'0.55em',
+          fontFamily:"'Hiragino Mincho ProN','Yu Mincho','MS Mincho',serif",
+          fontWeight:300, color:'rgba(255,230,0,0.92)',
+        }}>お月見</div>
+        <div style={{
+          fontSize:'1.285rem', letterSpacing:'0.42em',
+          fontFamily:"'Georgia',serif",
+          fontWeight:300, color:'rgba(255,230,0,0.65)',
+          textTransform:'uppercase',
+        }}>MID-AUTUMN · OTSUKIMI</div>
+      </div>
+    </>
+  );
+}
+
 // ─── CHRISTMAS — falling snow + Christmas tree with blinking lights ────────────
 function ChristmasBackground() {
   const canvasRef = useRef(null);
@@ -4219,6 +4606,8 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
   const isMothersDay  = label.includes("mother");
   const isFathersDay  = label.includes("father");
   const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay;
+  // Otsukimi: label contains "otsukimi" or "mid-autumn" (dev panel preview) — or Oct daily quote
+  const isOtsukimi    = label.includes('otsukimi') || label.includes('mid-autumn');
 
   return (
     <div
@@ -4237,14 +4626,15 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       <style>{SPLASH_PETAL_CSS}</style>
 
       {/* Special occasion backgrounds — take priority over seasonal */}
-      {isMothersDay  && <MothersDayBackground />}
-      {isFathersDay  && <FathersDayBackground />}
-      {isAnniversary && !isBirthday && <AnniversaryBackground />}
-      {isBirthday    && !isAnniversary && <BirthdayBackground />}
+      {isOtsukimi    && <OtsukimiBackground />}
+      {!isOtsukimi && isMothersDay  && <MothersDayBackground />}
+      {!isOtsukimi && isFathersDay  && <FathersDayBackground />}
+      {!isOtsukimi && isAnniversary && !isBirthday && <AnniversaryBackground />}
+      {!isOtsukimi && isBirthday    && !isAnniversary && <BirthdayBackground />}
       {/* Seasonal backgrounds — only when no special occasion */}
-      {!hasSpecialBg && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
-      {!hasSpecialBg && isWinter && <WinterSnowBackground />}
-      {!hasSpecialBg && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
+      {!hasSpecialBg && !isOtsukimi && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
+      {!hasSpecialBg && !isOtsukimi && isWinter && <WinterSnowBackground />}
+      {!hasSpecialBg && !isOtsukimi && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
       {/* Spring petals — only when no special occasion and not another season */}
       {(!hasSpecialBg && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
@@ -5828,6 +6218,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 // ─── Dev Panel sub-components (hooks need proper function components) ──────
 // Dev panel: special occasion background previews
 const OCCASION_DEMOS = [
+  { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
   { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
   { label:"🌸 Mother's Day", quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
   { label:"👨 Father's Day", quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
@@ -8026,7 +8417,21 @@ export default function App() {
     <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
 
     {/* ── Festive overlay — Christmas: snow+tree; others: fireworks ── */}
-    {festiveVisible && festiveTheme === 'christmas' && <ChristmasBackground />}
+    {festiveVisible && festiveTheme === 'christmas' && (
+      <div style={{ position:'fixed', top:0, left:0, width:'100vw', height:'100vh', zIndex:9999, pointerEvents:'none' }}>
+        <ChristmasBackground />
+        <button
+          onClick={() => setFestiveVisible(false)}
+          style={{ position:'absolute', bottom:52, left:'50%', transform:'translateX(-50%)',
+            pointerEvents:'all', cursor:'pointer', padding:'14px 38px',
+            borderRadius:50, background:'linear-gradient(135deg,#c62828,#1565c0)',
+            border:'2px solid #ffffff55', color:'#fff', fontFamily:"'Georgia',serif",
+            fontSize:16, fontWeight:700, letterSpacing:'0.1em', whiteSpace:'nowrap',
+            boxShadow:'0 4px 24px rgba(0,0,0,0.6)' }}>
+          ❄️ Merry Christmas 🎄
+        </button>
+      </div>
+    )}
     {festiveTheme && festiveTheme !== 'christmas' && (
       <FestiveFireworks
         theme={festiveTheme}
