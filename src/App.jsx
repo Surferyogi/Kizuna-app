@@ -3718,12 +3718,12 @@ function OtsukimiBackground() {
       ctx.arc(MX, MY, R, 0, Math.PI * 2);
       ctx.clip();
 
-      // 1. Radial gradient base — silvery watercolour surface
+      // 1. Radial gradient base — silvery watercolour surface, bright zone fills full disc
       const base = ctx.createRadialGradient(MX - R*0.23, MY - R*0.23, 0, MX, MY, R);
       base.addColorStop(0,    '#eeeeed');
-      base.addColorStop(0.26, '#dcdcdb');
-      base.addColorStop(0.60, '#c4c9d2');
-      base.addColorStop(0.85, '#adb4c4');
+      base.addColorStop(0.55, '#e0e2e8');
+      base.addColorStop(0.78, '#c4c9d2');
+      base.addColorStop(0.92, '#adb4c4');
       base.addColorStop(1,    '#8a93a7');
       ctx.fillStyle = base;
       ctx.fillRect(MX - R, MY - R, R * 2, R * 2);
