@@ -3707,7 +3707,7 @@ function OtsukimiBackground() {
     ];
     let rabbitPhaseIdx = 0, rabbitPhaseT = 0;
 
-    // ── Draw moon — watercolour-derived, 5-layer rendering ────────────────────
+    // ── Draw moon ────────────────────────────────────────────────────────────
     const drawMoon = () => {
       const MX = W * 0.5, MY = H * 0.17;
       const MR = Math.min(W, H) * 0.208;
@@ -3718,81 +3718,76 @@ function OtsukimiBackground() {
       ctx.arc(MX, MY, R, 0, Math.PI * 2);
       ctx.clip();
 
-      // 1. Base gradient — silvery-white centre, cool blue-grey edge
-      const bg = ctx.createRadialGradient(
-        MX - R*0.20, MY - R*0.18, 0,
-        MX,          MY,          R
-      );
-      bg.addColorStop(0.00, '#d8dadf');
-      bg.addColorStop(0.28, '#c2c6d2');
-      bg.addColorStop(0.58, '#b0b5c4');
-      bg.addColorStop(0.82, '#9198aa');
-      bg.addColorStop(1.00, '#828899');
-      ctx.fillStyle = bg;
+      // 1. Radial gradient base — silvery watercolour surface
+      const base = ctx.createRadialGradient(MX - R*0.23, MY - R*0.23, 0, MX, MY, R);
+      base.addColorStop(0,    '#eeeeed');
+      base.addColorStop(0.26, '#dcdcdb');
+      base.addColorStop(0.60, '#c4c9d2');
+      base.addColorStop(0.85, '#adb4c4');
+      base.addColorStop(1,    '#8a93a7');
+      ctx.fillStyle = base;
       ctx.fillRect(MX - R, MY - R, R * 2, R * 2);
 
-      // 2. Maria — 8 dark lunar seas
+      // 2. Dark maria — 7 soft elliptical blobs
       const MARIA = [
-        { cx: -0.22, cy: -0.30, rx: 0.28, ry: 0.20, a: 0.20 },
-        { cx:  0.28, cy: -0.18, rx: 0.22, ry: 0.28, a: 0.19 },
-        { cx: -0.32, cy:  0.08, rx: 0.16, ry: 0.25, a: 0.14 },
-        { cx:  0.30, cy:  0.10, rx: 0.14, ry: 0.18, a: 0.13 },
-        { cx:  0.18, cy:  0.35, rx: 0.20, ry: 0.16, a: 0.12 },
-        { cx: -0.08, cy: -0.42, rx: 0.12, ry: 0.09, a: 0.10 },
-        { cx:  0.38, cy: -0.28, rx: 0.09, ry: 0.08, a: 0.09 },
-        { cx: -0.18, cy:  0.28, rx: 0.18, ry: 0.14, a: 0.10 },
+        { cx:-0.17, cy:-0.25, rx:0.31, ry:0.24, a:0.175 },
+        { cx: 0.23, cy:-0.13, rx:0.20, ry:0.27, a:0.145 },
+        { cx:-0.09, cy: 0.11, rx:0.23, ry:0.17, a:0.115 },
+        { cx: 0.07, cy: 0.31, rx:0.34, ry:0.22, a:0.155 },
+        { cx:-0.31, cy: 0.17, rx:0.18, ry:0.22, a:0.092 },
+        { cx: 0.33, cy: 0.13, rx:0.12, ry:0.14, a:0.082 },
+        { cx:-0.07, cy:-0.44, rx:0.14, ry:0.10, a:0.070 },
       ];
       for (const m of MARIA) {
         ctx.save();
         ctx.translate(MX + R * m.cx, MY + R * m.cy);
         ctx.scale(R * m.rx, R * m.ry);
         const mg = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-        mg.addColorStop(0.00, `rgba(52,64,88,${m.a})`);
-        mg.addColorStop(0.55, `rgba(52,64,88,${m.a * 0.48})`);
-        mg.addColorStop(1.00, 'rgba(52,64,88,0)');
+        mg.addColorStop(0,    `rgba(62,76,97,${m.a})`);
+        mg.addColorStop(0.58, `rgba(62,76,97,${m.a * 0.5})`);
+        mg.addColorStop(1,    'rgba(62,76,97,0)');
         ctx.fillStyle = mg;
         ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
 
-      // 3. Highlands — 5 bright patches (centre splash + lower fan dominant)
+      // 3. Highland patches — 4 bright regions
       const HIGHLANDS = [
-        { cx:  0.05, cy:  0.04, rx: 0.30, ry: 0.25, a: 0.18 },
-        { cx:  0.02, cy:  0.28, rx: 0.28, ry: 0.20, a: 0.22 },
-        { cx: -0.02, cy: -0.15, rx: 0.18, ry: 0.14, a: 0.10 },
-        { cx: -0.20, cy:  0.10, rx: 0.12, ry: 0.16, a: 0.08 },
-        { cx:  0.15, cy: -0.32, rx: 0.10, ry: 0.08, a: 0.07 },
+        { cx: 0.13, cy:-0.07, rx:0.25, ry:0.20, a:0.072 },
+        { cx:-0.23, cy: 0.35, rx:0.20, ry:0.17, a:0.062 },
+        { cx: 0.35, cy:-0.27, rx:0.16, ry:0.14, a:0.052 },
+        { cx:-0.38, cy:-0.10, rx:0.12, ry:0.16, a:0.044 },
       ];
       for (const h of HIGHLANDS) {
         ctx.save();
         ctx.translate(MX + R * h.cx, MY + R * h.cy);
         ctx.scale(R * h.rx, R * h.ry);
         const hg = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-        hg.addColorStop(0.00, `rgba(255,255,252,${h.a})`);
-        hg.addColorStop(0.60, `rgba(255,255,252,${h.a * 0.40})`);
-        hg.addColorStop(1.00, 'rgba(255,255,252,0)');
+        hg.addColorStop(0,    `rgba(255,255,252,${h.a})`);
+        hg.addColorStop(0.58, `rgba(255,255,252,${h.a * 0.5})`);
+        hg.addColorStop(1,    'rgba(255,255,252,0)');
         ctx.fillStyle = hg;
         ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
 
-      // 4. Speckle texture — 45 deterministic crater rays / highlights
-      for (let i = 0; i < 45; i++) {
+      // 4. Crater speckles — 30 deterministic dots
+      for (let i = 0; i < 30; i++) {
         const ang  = hash(i * 7.13)  * Math.PI * 2;
-        const dist = hash(i * 13.77) * R * 0.91;
-        const rad  = 0.8 + hash(i * 19.31) * 3.2;
-        const alp  = 0.30 + hash(i * 29.07) * 0.35;
+        const dist = hash(i * 13.77) * R * 0.88;
+        const cr   = 1.4 + hash(i * 19.31) * 8.5;
+        const ca   = 0.028 + hash(i * 29.07) * 0.055;
         ctx.beginPath();
-        ctx.arc(MX + Math.cos(ang)*dist, MY + Math.sin(ang)*dist, rad, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,252,${alp})`;
+        ctx.arc(MX + Math.cos(ang)*dist, MY + Math.sin(ang)*dist, cr, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,250,${ca})`;
         ctx.fill();
       }
 
-      // 5. Limb darkening — deep blue-grey vignette at edge
-      const ld = ctx.createRadialGradient(MX, MY, R * 0.55, MX, MY, R);
-      ld.addColorStop(0, 'rgba(20,26,46,0)');
-      ld.addColorStop(1, 'rgba(20,26,46,0.58)');
-      ctx.fillStyle = ld;
+      // 5. Limb darkening vignette
+      const vig = ctx.createRadialGradient(MX, MY, R * 0.58, MX, MY, R);
+      vig.addColorStop(0, 'rgba(10,16,32,0)');
+      vig.addColorStop(1, 'rgba(10,16,32,0.62)');
+      ctx.fillStyle = vig;
       ctx.beginPath(); ctx.arc(MX, MY, R, 0, Math.PI * 2); ctx.fill();
 
       ctx.restore();
