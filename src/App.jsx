@@ -4603,8 +4603,9 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
   const isAnniversary = label.includes('anniversary');
   const isMothersDay  = label.includes("mother");
   const isFathersDay  = label.includes("father");
-  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay;
-  // Otsukimi: label contains "otsukimi" or "mid-autumn" (dev panel preview) — or Oct daily quote
+  const isChristmas   = label.includes('christmas')
+    || (new Date().getMonth() === 11 && new Date().getDate() === 25);
+  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay || isChristmas;
   const isOtsukimi    = label.includes('otsukimi') || label.includes('mid-autumn');
 
   return (
@@ -4625,10 +4626,11 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
 
       {/* Special occasion backgrounds — take priority over seasonal */}
       {isOtsukimi    && <OtsukimiBackground />}
-      {!isOtsukimi && isMothersDay  && <MothersDayBackground />}
-      {!isOtsukimi && isFathersDay  && <FathersDayBackground />}
-      {!isOtsukimi && isAnniversary && !isBirthday && <AnniversaryBackground />}
-      {!isOtsukimi && isBirthday    && !isAnniversary && <BirthdayBackground />}
+      {isChristmas   && <ChristmasBackground />}
+      {!isOtsukimi && !isChristmas && isMothersDay  && <MothersDayBackground />}
+      {!isOtsukimi && !isChristmas && isFathersDay  && <FathersDayBackground />}
+      {!isOtsukimi && !isChristmas && isAnniversary && !isBirthday && <AnniversaryBackground />}
+      {!isOtsukimi && !isChristmas && isBirthday    && !isAnniversary && <BirthdayBackground />}
       {/* Seasonal backgrounds — only when no special occasion */}
       {!hasSpecialBg && !isOtsukimi && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
       {!hasSpecialBg && !isOtsukimi && isWinter && <WinterSnowBackground />}
@@ -6217,6 +6219,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 // Dev panel: special occasion background previews
 const OCCASION_DEMOS = [
   { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
+  { label:"🎄 Christmas",   quote:{ quote:"Christmas is not a time nor a season, but a state of mind. To cherish peace and goodwill, to be plenteous in mercy, is to have the real spirit of Christmas.", label:"Christmas Day · Special Quote", isSpecial:true } },
   { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
   { label:"🌸 Mother's Day", quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
   { label:"👨 Father's Day", quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
@@ -8414,43 +8417,7 @@ export default function App() {
   return (
     <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
 
-    {/* ── Festive overlay — Christmas: snow+tree; others: fireworks ── */}
-    {festiveVisible && festiveTheme === 'christmas' && (
-      <div style={{ position:'fixed', top:0, left:0, width:'100vw', height:'100vh', zIndex:9999, pointerEvents:'none' }}>
-        <ChristmasBackground />
-        {/* Greeting — same position as FestiveFireworks */}
-        <div style={{
-          position:'absolute', top:'10%', left:'50%',
-          transform:'translateX(-50%)',
-          fontSize:'clamp(20px,5.5vw,28px)',
-          fontWeight:800, letterSpacing:'0.04em',
-          color:'#FFE870',
-          textShadow:'0 0 24px #FFD70099, 0 2px 8px rgba(0,0,0,0.9)',
-          whiteSpace:'nowrap',
-          fontFamily:"'Georgia',serif",
-          pointerEvents:'none',
-        }}>🎄 Merry Christmas!</div>
-        {/* Stop button — tap to dismiss, matches FestiveFireworks style */}
-        <button
-          onClick={() => setFestiveVisible(false)}
-          style={{
-            position:'absolute', bottom:52, left:'50%',
-            transform:'translateX(-50%)',
-            pointerEvents:'all', cursor:'pointer',
-            padding:'14px 38px', borderRadius:50,
-            background:'linear-gradient(135deg,#c62828,#1b5e20)',
-            border:'2px solid #ffffff55',
-            color:'#fff', fontFamily:"'Georgia',serif",
-            fontSize:16, fontWeight:700,
-            letterSpacing:'0.1em', whiteSpace:'nowrap',
-            boxShadow:'0 0 0 7px rgba(198,40,40,0.25), 0 0 28px rgba(198,40,40,0.5), 0 4px 16px rgba(0,0,0,0.7)',
-            backdropFilter:'blur(10px)',
-            WebkitBackdropFilter:'blur(10px)',
-          }}>
-          Shush 🤫 the Snow
-        </button>
-      </div>
-    )}
+    {/* ── Festive fireworks overlay (non-christmas only) ── */}
     {festiveTheme && festiveTheme !== 'christmas' && (
       <FestiveFireworks
         theme={festiveTheme}
