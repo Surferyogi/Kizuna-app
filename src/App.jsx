@@ -6219,7 +6219,6 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 // Dev panel: special occasion background previews
 const OCCASION_DEMOS = [
   { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
-  { label:"🎄 Christmas",   quote:{ quote:"Christmas is not a time nor a season, but a state of mind. To cherish peace and goodwill, to be plenteous in mercy, is to have the real spirit of Christmas.", label:"Christmas Day · Special Quote", isSpecial:true } },
   { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
   { label:"🌸 Mother's Day", quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
   { label:"👨 Father's Day", quote:{ quote:"He taught us not by what he said but by how he stayed — steady as earth beneath every storm.", label:"Father's Day · Special Quote", isSpecial:true } },
@@ -6635,7 +6634,6 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
                   { key:'new-year',     label:'🥂 New Year'   },
                   { key:'cny',          label:'🧧 CNY'        },
                   { key:'national-day', label:'🇸🇬 Natl Day'  },
-                  { key:'christmas',    label:'🎄 Christmas'  },
                 ].map(({ key, label }) => (
                   <button key={key}
                     onClick={() => { setFestiveTheme(key); setFestiveVisible(true); }}
