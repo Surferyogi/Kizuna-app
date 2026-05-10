@@ -3710,7 +3710,7 @@ function OtsukimiBackground() {
     // ── Draw moon ────────────────────────────────────────────────────────────
     const drawMoon = () => {
       const MX = W * 0.5, MY = H * 0.17;
-      const MR = Math.min(W, H) * 0.416;
+      const MR = Math.min(W, H) * 0.333;
       const R  = MR * (1 + 0.004 * Math.sin(T * 0.11));
 
       ctx.save();
@@ -4634,8 +4634,8 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       {!hasSpecialBg && !isOtsukimi && isWinter && <WinterSnowBackground />}
       {!hasSpecialBg && !isOtsukimi && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
-      {/* Spring petals — only when no special occasion and not another season */}
-      {(!hasSpecialBg && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
+      {/* Spring petals — suppressed on special occasions, other seasons, and Otsukimi */}
+      {(!hasSpecialBg && !isOtsukimi && !isAutumn && !isSummer && !isWinter) && SPLASH_PETALS.map((p, i) => (
         <div key={i} style={{
           position:'absolute', top:0, left:p.left,
           width:p.size, height:p.size,
@@ -8418,15 +8418,36 @@ export default function App() {
     {festiveVisible && festiveTheme === 'christmas' && (
       <div style={{ position:'fixed', top:0, left:0, width:'100vw', height:'100vh', zIndex:9999, pointerEvents:'none' }}>
         <ChristmasBackground />
+        {/* Greeting — same position as FestiveFireworks */}
+        <div style={{
+          position:'absolute', top:'10%', left:'50%',
+          transform:'translateX(-50%)',
+          fontSize:'clamp(20px,5.5vw,28px)',
+          fontWeight:800, letterSpacing:'0.04em',
+          color:'#FFE870',
+          textShadow:'0 0 24px #FFD70099, 0 2px 8px rgba(0,0,0,0.9)',
+          whiteSpace:'nowrap',
+          fontFamily:"'Georgia',serif",
+          pointerEvents:'none',
+        }}>🎄 Merry Christmas!</div>
+        {/* Stop button — tap to dismiss, matches FestiveFireworks style */}
         <button
           onClick={() => setFestiveVisible(false)}
-          style={{ position:'absolute', bottom:52, left:'50%', transform:'translateX(-50%)',
-            pointerEvents:'all', cursor:'pointer', padding:'14px 38px',
-            borderRadius:50, background:'linear-gradient(135deg,#c62828,#1565c0)',
-            border:'2px solid #ffffff55', color:'#fff', fontFamily:"'Georgia',serif",
-            fontSize:16, fontWeight:700, letterSpacing:'0.1em', whiteSpace:'nowrap',
-            boxShadow:'0 4px 24px rgba(0,0,0,0.6)' }}>
-          ❄️ Merry Christmas 🎄
+          style={{
+            position:'absolute', bottom:52, left:'50%',
+            transform:'translateX(-50%)',
+            pointerEvents:'all', cursor:'pointer',
+            padding:'14px 38px', borderRadius:50,
+            background:'linear-gradient(135deg,#c62828,#1b5e20)',
+            border:'2px solid #ffffff55',
+            color:'#fff', fontFamily:"'Georgia',serif",
+            fontSize:16, fontWeight:700,
+            letterSpacing:'0.1em', whiteSpace:'nowrap',
+            boxShadow:'0 0 0 7px rgba(198,40,40,0.25), 0 0 28px rgba(198,40,40,0.5), 0 4px 16px rgba(0,0,0,0.7)',
+            backdropFilter:'blur(10px)',
+            WebkitBackdropFilter:'blur(10px)',
+          }}>
+          Shush 🤫 the Snow
         </button>
       </div>
     )}
