@@ -3710,7 +3710,7 @@ function OtsukimiBackground() {
     // ── Draw moon ────────────────────────────────────────────────────────────
     const drawMoon = () => {
       const MX = W * 0.5, MY = H * 0.17;
-      const MR = Math.min(W, H) * 0.208;
+      const MR = Math.min(W, H) * 0.416;
       const R  = MR * (1 + 0.004 * Math.sin(T * 0.11));
 
       ctx.save();
