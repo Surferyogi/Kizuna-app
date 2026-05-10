@@ -7,13 +7,6 @@ const CNY_DATES = {
   2034: '02-19', 2035: '02-08',
 };
 
-// Deepavali (Singapore official dates)
-const DEEPAVALI_DATES = {
-  2026: '10-20', 2027: '11-08', 2028: '10-27', 2029: '10-17',
-  2030: '11-05', 2031: '10-25', 2032: '10-13', 2033: '11-01',
-  2034: '10-21', 2035: '10-10',
-};
-
 const rand    = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 const pick    = arr   => arr[randInt(0, arr.length - 1)];
@@ -63,28 +56,6 @@ const THEMES = {
     stopGrad:   ['#2E0808','#0A0A1E'], stopBorder: '#DD2222',
     stopGlow:   '#FF4444', stopText: '#FFD0D0',
   },
-  // ── Deepavali ────────────────────────────────────────────────────────
-  'deepavali': {
-    darkHues:   [280,290,300,38,45,52,18,25,32],  // purple + gold + orange
-    lightHues:  [280,290,300,38,45,52,18,25,32],
-    trailDark:  'hsl(45,95%,65%)', trailLight: 'hsl(280,80%,35%)',
-    burstMin: 180, burstMax: 350,
-    burstTypes: ['chrysanthemum','ring','radial'],
-    label:      '🪔 Happy Deepavali!',
-    stopGrad:   ['#1E0A2E','#0A0510'], stopBorder: '#9933CC',
-    stopGlow:   '#CC66FF', stopText: '#E8D0FF',
-  },
-  // ── Christmas (Dec 25) ───────────────────────────────────────────────
-  'christmas': {
-    darkHues:   [0,5,355,120,130,140,0,0,0],  // red + green + white
-    lightHues:  [0,5,355,120,130,140,0,0,0],
-    trailDark:  'hsl(5,90%,65%)', trailLight: 'hsl(120,70%,28%)',
-    burstMin: 240, burstMax: 420,
-    burstTypes: ['willow','radial','ring'],
-    label:      '🎄 Merry Christmas!',
-    stopGrad:   ['#1E0808','#081E08'], stopBorder: '#CC2222',
-    stopGlow:   '#FF4444', stopText: '#FFD0D0',
-  },
 };
 
 function makeParticle(x, y, hue, isDark, overrides = {}) {
@@ -115,9 +86,8 @@ function buildBurst(type, x, y, themeKey, isDark) {
   const hues = isDark ? cfg.darkHues : cfg.lightHues;
   const particles = [];
 
-  // NYE, National Day and Christmas use the same radial/willow/ring builder as New Year
-  // Deepavali uses the same chrysanthemum/peony/gold-shimmer builder as CNY
-  const builderKey = (themeKey === 'cny' || themeKey === 'deepavali') ? 'cny' : 'new-year';
+  // NYE and National Day use the same radial/willow/ring builder as New Year
+  const builderKey = themeKey === 'cny' ? 'cny' : 'new-year';
 
   const ringBurst = (count, sMin, sMax, hue, extra = {}) => {
     for (let i = 0; i < count; i++) {
@@ -461,8 +431,6 @@ export function detectFestiveTheme() {
   if (month === 12 && day === 31) return 'nye';
   // New Year's Day
   if (month === 1  && day === 1)  return 'new-year';
-  // Christmas
-  if (month === 12 && day === 25) return 'christmas';
   // Singapore National Day
   if (month === 8  && day === 9)  return 'national-day';
 
@@ -471,13 +439,6 @@ export function detectFestiveTheme() {
   if (cnyStr) {
     const [cm, cd] = cnyStr.split('-').map(Number);
     if (month === cm && day === cd) return 'cny';
-  }
-
-  // Deepavali (Singapore official dates)
-  const deeStr = DEEPAVALI_DATES[year];
-  if (deeStr) {
-    const [dm, dd] = deeStr.split('-').map(Number);
-    if (month === dm && day === dd) return 'deepavali';
   }
 
   return null;
