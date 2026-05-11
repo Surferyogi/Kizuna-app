@@ -1144,13 +1144,13 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
     [entries, todayStr]);
 
   const topTasks = useMemo(() =>
-    entries.filter(e => e.type==='task' && !e.done)
+    entries.filter(e => e.type==='task' && !e.done && !e.cancelled)
            .sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'))
            .slice(0,3),
     [entries]);
 
   const openTasks = useMemo(() =>
-    entries.filter(e => e.type==='task' && !e.done).length,
+    entries.filter(e => e.type==='task' && !e.done && !e.cancelled).length,
     [entries]);
 
   const next48 = useMemo(() => {
@@ -5123,7 +5123,7 @@ const QUICK_FILTERS = (() => {
     { k:'flights',  l:'Upcoming Flights',   icon:'✈️', impliedType:'flight',  isStatus:false,
       f: e => e.type === 'flight' && e.date >= todayStr() },
     { k:'reminders',l:'Upcoming Reminders', icon:'⏰', impliedType:'reminder',isStatus:false,
-      f: e => e.type === 'reminder' && e.date >= todayStr() && !e.done },
+      f: e => e.type === 'reminder' && e.date >= todayStr() && !e.done && !e.cancelled },
     { k:'birthdays',l:'Upcoming Birthdays', icon:'🎂', impliedType:'birthday',isStatus:false,
       f: e => e.type === 'birthday' && e.date >= todayStr() },
     { k:'pending',  l:'Pending Tasks',      icon:'✓',  impliedType:'task',    isStatus:false,
@@ -6736,7 +6736,7 @@ function Row2({ children }) {
   return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>;
 }
 const mkBlank = () => ({
-  type:'',title:'',date:fd(new Date()),time:'',endTime:'',location:'',attendees:'',notes:'',
+  type:'',title:'',date:'',time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
@@ -7066,7 +7066,11 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
               </p>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 {['meeting','task','flight','reminder','event','birthday'].map(t => (
-                  <button key={t} onClick={() => { setForm({...mkBlank(), ...(initialDate?{date:initialDate}:{}), type:t}); setStep(1); }}
+                  <button key={t} onClick={() => {
+                    const needsDate = t !== 'task' && t !== 'reminder';
+                    setForm({...mkBlank(), ...(initialDate ? { date:initialDate } : needsDate ? { date:fd(new Date()) } : {}), type:t});
+                    setStep(1);
+                  }}
                     style={{ background:(TC[t]||C.rose)+'15', border:`1px solid ${(TC[t]||C.rose)}35`,
                       borderRadius:BR.card, padding:'18px 14px', cursor:'pointer', textAlign:'left',
                       display:'flex', flexDirection:'column', gap:6,
