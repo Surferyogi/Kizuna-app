@@ -329,6 +329,7 @@ const TL  = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Rem
 
 // DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
 // Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
+// DTC — type accent colours (light mode). Use getDTC(C) in components for theme safety.
 const DTC = {
   meeting:  '#1C4878',
   flight:   '#0A4268',
@@ -337,6 +338,15 @@ const DTC = {
   event:    '#38186A',
   birthday: '#7A2A5A',
 };
+// Theme-aware DTC: dark mode uses lighter accents from C_DARK palette
+const getDTC = (c) => c === C_DARK ? {
+  meeting:  c.M,          // #6AAAD8 — passes AA
+  flight:   c.F,          // #7ACAED — passes AA
+  task:     c.T,          // #6A9ADA — passes AA
+  reminder: c.R,          // #C49458 — passes AA
+  event:    c.E,          // #A890CC — passes AA
+  birthday: '#D87EB0',    // lighter rose — passes AA
+} : DTC;
 
 const PC = { low:DTC.task, medium:'#6B4E10', high:'#8A3A08', critical:'#6A2408' };
 const AL = { created:'Created', completed:'Completed', reopened:'Reopened', deleted:'Deleted', updated:'Updated' };
@@ -599,7 +609,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
   const TC = getTC(C);
   const isReadOnly = readOnly || e._virtual === true;
   const col  = TC[e.type];
-  const dcol = DTC[e.type] || col;
+  const dcol = getDTC(C)[e.type] || col;
   const [open,       setOpen]       = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
@@ -818,7 +828,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               <span style={{ fontSize:12, color:C.muted, background:C.elevated, borderRadius:BR.pill, padding:'2px 8px', border:`1px solid ${C.border}` }}>🔒 Private</span>
             )}
             {e.visibility==='shared' && !isOwn && (
-              <span style={{ fontSize:12, color:DTC.meeting, background:C.M+'18',
+              <span style={{ fontSize:12, color:getDTC(C).meeting, background:C.M+'18',
                 borderRadius:BR.pill, padding:'2px 8px' }}>
                 👤 {e.userName || 'Team member'}
               </span>
@@ -862,7 +872,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
             <button onClick={ev => { ev.stopPropagation(); setOpen(false); canEdit && onCancel && onCancel(e.id, isAdmin); }}
               style={isCancelled
-                ? pill(C.T+'18', DTC.task, C.T+'50')
+                ? pill(C.T+'18', getDTC(C).task, C.T+'50')
                 : pill('#C46A1415', WARN, '#C46A1450')}>
               {isCancelled ? '↩ Uncancel' : '❌ Cancel'}
             </button>
@@ -942,7 +952,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
                     style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
                   <button onClick={ev => { ev.stopPropagation(); setShowDetail(false); canEdit && onCancel && onCancel(e.id, isAdmin); }}
                     style={isCancelled
-                      ? pill(C.T+'18', DTC.task, C.T+'50')
+                      ? pill(C.T+'18', getDTC(C).task, C.T+'50')
                       : pill('#C46A1415', WARN, '#C46A1450')}>
                     {isCancelled ? '↩ Uncancel' : '❌ Cancel'}
                   </button>
@@ -980,7 +990,7 @@ function FlightHeroCard({ flight, todayStr }) {
 
       {/* Airline + flight number + live status badge */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-        <p style={{ fontSize:14, color:DTC.flight, fontWeight:700, margin:0,
+        <p style={{ fontSize:14, color:getDTC(C).flight, fontWeight:700, margin:0,
           textTransform:'uppercase', letterSpacing:'0.1em' }}>
           {flight.airline} · {flight.flightNum}
         </p>
@@ -1019,9 +1029,9 @@ function FlightHeroCard({ flight, todayStr }) {
             </div>
             {/* Route line */}
             <div style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
-              <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${DTC.flight}60,transparent)` }} />
-              <span style={{ fontSize:16, color:DTC.flight }}>✈</span>
-              <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${DTC.flight}60,transparent)` }} />
+              <div style={{ flex:1, height:'1px', background:`linear-gradient(90deg,${getDTC(C).flight}60,transparent)` }} />
+              <span style={{ fontSize:16, color:getDTC(C).flight }}>✈</span>
+              <div style={{ flex:1, height:'1px', background:`linear-gradient(270deg,${getDTC(C).flight}60,transparent)` }} />
             </div>
             {/* Arrival */}
             <div style={{ textAlign:'center' }}>
@@ -1244,9 +1254,9 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
         {/* Tappable stat cards — always visible, tap to reveal filtered entries below */}
         {(() => {
           const filters = [
-            { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:DTC.task,    icon:'✓',
+            { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:getDTC(C).task,    icon:'✓',
               entries: entries.filter(e=>e.type==='task'&&!e.done&&(!e.repeat||e.repeat==='none')).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
-            { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:DTC.event,   icon:'⏱',
+            { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:getDTC(C).event,   icon:'⏱',
               entries: (() => { const n=new Date(),lim=new Date(n.getTime()+48*3600000);
                 return entries.filter(e=>{ const d=new Date(e.date+'T'+(e.time||'00:00'));
                   return d>=n&&d<=lim&&e.type!=='task'&&(!e.repeat||e.repeat==='none'); })
@@ -7077,7 +7087,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
                       boxShadow:`0 2px 12px ${(TC[t]||C.rose)}15`,
                       transition:'transform 0.1s' }}>
                     <span style={{ fontSize:24 }}>{TI[t]}</span>
-                    <span style={{ fontSize:16, fontWeight:600, color:DTC[t]||TC[t] }}>{TL[t]}</span>
+                    <span style={{ fontSize:16, fontWeight:600, color:getDTC(C)[t]||TC[t] }}>{TL[t]}</span>
                     <span style={{ fontSize:15, color:C.dim, lineHeight:1.4 }}>
                       {t==='meeting'?'Schedule an appointment'
                         :t==='task'?'Add a to-do item'
