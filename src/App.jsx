@@ -218,9 +218,9 @@ const flightStatusLocal = (flight) => {
   }
   if (mins < -60)       return { label:'Scheduled',  color:'#5BB8E8', source:'local' };
   if (mins < -30)       return { label:'Check-in',   color:'#4D8EC4', source:'local' };
-  if (mins < -10)       return { label:'Boarding',   color:'#B8715C', source:'local' };
-  if (mins < 0)         return { label:'Final Call', color:'#A04E08', source:'local' };
-  if (mins < arrMins)   return { label:'In Flight',  color:'#1C4878', source:'local' };
+  if (mins < -10)       return { label:'Boarding',   color:'#C48060', source:'local' };
+  if (mins < 0)         return { label:'Final Call', color:'#D4804C', source:'local' };
+  if (mins < arrMins)   return { label:'In Flight',  color:'#5B90C8', source:'local' };
   return                       { label:'Landed',     color:SUCCESS, source:'local' };
 };
 
@@ -299,7 +299,7 @@ const C_DARK = {
   card:    '#1E1A15',   // lifted dark card
   elevated:'#272118',   // inputs, chips
   border:  '#3A3028',   // subtle warm border
-  muted:   '#7A7068',   // muted text — contrast ≥ 3:1 on dark bg
+  muted:   '#988E80',   // muted text — contrast ≥4.5:1 on all dark surfaces (WCAG AA)
   text:    '#F0E8DC',   // warm cream — contrast 14:1 on dark
   dim:     '#B0A090',   // secondary text — contrast 6:1 on dark
   rose:    '#D4957F',   // lightened rose — same hue, better contrast on dark
@@ -1012,7 +1012,7 @@ function FlightHeroCard({ flight, todayStr }) {
               </p>
               {/* Show revised departure time if delayed */}
               {status?.revisedDep && status?.delayMins > 4 && (
-                <p style={{ margin:'3px 0 0', fontSize:11, color:'#8A3A08', fontWeight:700 }}>
+                <p style={{ margin:'3px 0 0', fontSize:11, color:'#D4804C', fontWeight:700 }}>
                   {status.delayLabel}
                 </p>
               )}
@@ -6082,7 +6082,7 @@ function ResetSection({ onReset }) {
           </div>
         ) : (
           <div style={{ padding:'18px 18px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#A04E08' }}>
+            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#D4804C' }}>
               Are you sure?
             </p>
             <p style={{ margin:'0 0 16px', fontSize:15, color:C.dim, lineHeight:1.5 }}>
@@ -6725,7 +6725,7 @@ function TA({ form, set, field, ...props }) {
 function FL({ label, children, tight=false }) {
   return (
     <div style={{ marginBottom: tight ? 10 : 14 }}>
-      <label style={{ fontSize:12, color:'#8C7B6E', display:'block',
+      <label style={{ fontSize:12, color:'#9E8D80', display:'block',
         marginBottom:5, fontWeight:700,
         textTransform:'uppercase', letterSpacing:'0.1em' }}>{label}</label>
       {children}
@@ -6903,7 +6903,7 @@ function EForm({ form, set }) {
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
             <div style={{ width:3, height:16, borderRadius:2,
               background:C.F, flexShrink:0 }} />
-            <p style={{ margin:0, fontSize:12, color:'#3A7AAC', fontWeight:700,
+            <p style={{ margin:0, fontSize:12, color:'#6AAAD8', fontWeight:700,
               textTransform:'uppercase', letterSpacing:'0.1em' }}>Enter manually</p>
           </div>
           <FL label="Dep. Time" tight>
@@ -8273,7 +8273,7 @@ export default function App() {
       <div style={sharedStyle.wrapper}>
         <style>{sharedStyle.googleFont}</style>
         <p style={{ fontSize:36, margin:'0 0 16px' }}>⚙️</p>
-        <h2 style={{ margin:'0 0 12px', fontSize:22, fontWeight:700, color:'#5C3020',
+        <h2 style={{ margin:'0 0 12px', fontSize:22, fontWeight:700, color:C.text,
           textAlign:'center', fontFamily:'Cormorant Garamond,serif' }}>
           Supabase not configured
         </h2>
