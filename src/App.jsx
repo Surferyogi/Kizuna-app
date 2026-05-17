@@ -1284,6 +1284,15 @@ function FlightHeroCard({ flight, todayStr }) {
         ))}
       </div>
 
+      {/* Traveller name */}
+      {flight.travellerName && (
+        <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:6 }}>
+          <span style={{ fontSize:13, color:getDTC(C).flight, fontWeight:600,
+            background:C.F+'18', borderRadius:BR.pill, padding:'3px 12px' }}>
+            👤 {flight.travellerName}
+          </span>
+        </div>
+      )}
       {/* Last updated timestamp */}
       {lastUpdated && status?.source !== 'local' && (
         <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
@@ -8184,46 +8193,53 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
     }
   });
 
-  // 3. Forward propagation — fill gaps between known points
-  // Build sorted list of all known anchor dates
+  // 3. Propagation — fill gaps, past and future
   const anchors = Object.keys(map).sort();
   if (anchors.length === 0) return map;
 
-  // For each gap between anchors, fill from the previous anchor
-  // Also fill backward from earliest anchor to (earliest - 30 days)
-  // Also fill forward from latest anchor to futureLimit
-  const fillRange = (startDate, endDate, entry) => {
-    let cur = new Date(startDate + 'T00:00:00');
-    const end = new Date(endDate + 'T00:00:00');
-    while (cur <= end) {
-      const ds = fd(cur);
-      if (!map[ds]) {
-        map[ds] = { ...entry, source: 'inferred' };
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
+  const addDay = (dateStr, n) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return fd(d);
   };
 
-  // Fill between each pair of anchors
+  // Fill between each pair of anchors (forward from each anchor)
   for (let i = 0; i < anchors.length - 1; i++) {
-    const from = anchors[i];
-    const to   = anchors[i + 1];
-    // Day after 'from' up to day before 'to' — use 'from' country
+    const from    = anchors[i];
+    const to      = anchors[i + 1];
     const fromEntry = map[from];
-    let d = new Date(from + 'T00:00:00');
-    d.setDate(d.getDate() + 1);
+    let cur = new Date(from + 'T00:00:00');
+    cur.setDate(cur.getDate() + 1);
     const toD = new Date(to + 'T00:00:00');
-    while (d < toD) {
-      const ds = fd(d);
+    while (cur < toD) {
+      const ds = fd(cur);
       if (!map[ds]) map[ds] = { ...fromEntry, source: 'inferred' };
-      d.setDate(d.getDate() + 1);
+      cur.setDate(cur.getDate() + 1);
     }
+  }
+
+  // Fill backward from earliest anchor — up to 365 days into the past
+  const firstAnchor = anchors[0];
+  const firstEntry  = map[firstAnchor];
+  const pastLimit   = fd(new Date(Date.now() - 365 * 86400000));
+  let cur = new Date(firstAnchor + 'T00:00:00');
+  cur.setDate(cur.getDate() - 1);
+  while (fd(cur) >= pastLimit) {
+    const ds = fd(cur);
+    if (!map[ds]) map[ds] = { ...firstEntry, source: 'inferred' };
+    cur.setDate(cur.getDate() - 1);
   }
 
   // Fill forward from last anchor to futureLimit
   const lastAnchor = anchors[anchors.length - 1];
   const lastEntry  = map[lastAnchor];
-  fillRange(lastAnchor, futureLimit, lastEntry);
+  let fwd = new Date(lastAnchor + 'T00:00:00');
+  fwd.setDate(fwd.getDate() + 1);
+  while (fd(fwd) <= futureLimit) {
+    const ds = fd(fwd);
+    if (!map[ds]) map[ds] = { ...lastEntry, source: 'inferred' };
+    fwd.setDate(fwd.getDate() + 1);
+  }
 
   return map;
 }
@@ -8278,9 +8294,61 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
     };
   };
 
-  const sophiaId = (workspaceMembers||[]).find(m => m.email?.includes('sophia'))?.user_id;
-  const uid = tab === 'sophia' && sophiaId ? sophiaId : currentUserId;
-  const stats = computeStats(uid);
+  // Build member tab list: self + all workspace members
+  const memberTabs = [
+    { key: currentUserId, label: '👤 Mine' },
+    ...((workspaceMembers||[])
+      .filter(m => m.id !== currentUserId)
+      .map(m => ({ key: m.id, label: `👤 ${m.name || 'Member'}` }))),
+  ];
+  // For 'others' traveller entries — aggregate by travellerName
+  const otherNames = [...new Set(
+    entries
+      .filter(e => e.type === 'flight' && e.traveller === 'other' && e.travellerName)
+      .map(e => e.travellerName)
+  )];
+  const allTabs = [
+    ...memberTabs,
+    ...otherNames.map(n => ({ key: 'other:'+n, label: `✈ ${n}` })),
+  ];
+
+  const activeTab = allTabs.find(t => t.key === tab) ? tab : currentUserId;
+
+  // Compute stats: for 'other:Name' tabs, scan flight entries by travellerName
+  const computeOtherStats = (travellerName) => {
+    const yearStr = String(year);
+    const start   = yearStr + '-01-01';
+    const end     = yearStr + '-12-31';
+    const flights = entries.filter(e =>
+      e.type === 'flight' && e.traveller === 'other' &&
+      e.travellerName === travellerName && e.date >= start && e.date <= end
+    );
+    const counts = {};
+    flights.forEach(f => {
+      const iata = (f.arrCity||'').toUpperCase().slice(0,3);
+      const match = AIRPORT_DB.find(([code]) => code === iata);
+      const cc = f.arrCountry || (match ? match[3] : null);
+      const cn = f.arrCountryName || (match ? match[4] : cc);
+      if (!cc) return;
+      counts[cc] = counts[cc] || { country_name: cn||cc, days:0, sources: new Set() };
+      counts[cc].days++;
+      counts[cc].sources.add('flight');
+    });
+    const totalKnown = Object.values(counts).reduce((s,v)=>s+v.days,0);
+    return {
+      countries: Object.entries(counts)
+        .map(([cc,v]) => ({ cc, ...v, pct:(totalKnown>0?(v.days/totalKnown*100).toFixed(1):'0') }))
+        .sort((a,b)=>b.days-a.days),
+      totalKnown,
+      totalDays: totalKnown,
+    };
+  };
+
+  const isOtherTab = activeTab.startsWith('other:');
+  const stats = isOtherTab
+    ? computeOtherStats(activeTab.slice(6))
+    : computeStats(activeTab);
+
   const years = [new Date().getFullYear()-1, new Date().getFullYear(), new Date().getFullYear()+1];
 
   return (
@@ -8316,16 +8384,16 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
           }}>{mode==='all'?'✈ + flights':'📍 GPS only'}</button>
         </div>
 
-        {isAdmin && sophiaId && (
-          <div style={{ padding:'8px 20px 12px', display:'flex', gap:8 }}>
-            {[['me','👤 Mine'],['sophia','👥 Sophia']].map(([k,l]) => (
-              <button key={k} onClick={()=>setTab(k)} style={{
-                flex:1, padding:'7px 18px', borderRadius:BR.pill,
-                border:`1.5px solid ${tab===k?C.rose:C.border}`,
-                background:tab===k?C.rose:'transparent',
-                color:tab===k?'#fff':C.dim,
-                fontFamily:'inherit', fontSize:14, fontWeight:600, cursor:'pointer',
-              }}>{l}</button>
+        {allTabs.length > 1 && (
+          <div style={{ padding:'8px 20px 12px', display:'flex', gap:8, flexWrap:'wrap' }}>
+            {allTabs.map(({key, label}) => (
+              <button key={key} onClick={()=>setTab(key)} style={{
+                padding:'7px 14px', borderRadius:BR.pill,
+                border:`1.5px solid ${activeTab===key?C.rose:C.border}`,
+                background:activeTab===key?C.rose:'transparent',
+                color:activeTab===key?'#fff':C.dim,
+                fontFamily:'inherit', fontSize:13, fontWeight:600, cursor:'pointer',
+              }}>{label}</button>
             ))}
           </div>
         )}
