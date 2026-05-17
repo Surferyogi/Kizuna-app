@@ -374,6 +374,7 @@ const AIRPORT_DB = [
   ['KUL','Kuala Lumpur','KLIA','MY','Malaysia'],
   ['SZB','Kuala Lumpur','Subang Airport','MY','Malaysia'],
   ['PEN','Penang','Penang Airport','MY','Malaysia'],
+  ['IPH','Ipoh','Sultan Azlan Shah Airport','MY','Malaysia'],
   ['BKI','Kota Kinabalu','KK Airport','MY','Malaysia'],
   ['KCH','Kuching','Kuching Airport','MY','Malaysia'],
   ['CGK','Jakarta','Soekarno-Hatta Airport','ID','Indonesia'],
@@ -7077,12 +7078,17 @@ const mkBlank = () => ({
   type:'',title:'',date:'',time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
   depCountry:'',arrCountry:'',depCountryName:'',arrCountryName:'',
+  traveller:'',travellerName:'',
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
-function EForm({ form, set }) {
+function EForm({ form, set, workspace = null, currentUserId = null }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
+  // Traveller options: current user + workspace members + Others
+  const members = workspace?.members || [];
+  const selfName = workspace?.members?.find(m => m.id === currentUserId)?.name || 'Me';
+  const selfId = currentUserId || 'me';
   // Auto-generate flight title from IATA codes
   const prevAutoRef = useRef('');
   useEffect(() => {
@@ -7180,6 +7186,51 @@ function EForm({ form, set }) {
       )}
 
       {form.type === 'flight' ? (<>
+        {/* ── Traveller selector ── */}
+        <FL label="Travelling As">
+          <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:2 }}>
+            {/* Self */}
+            <button type="button"
+              onClick={() => { set('traveller', selfId); set('travellerName', selfName); }}
+              style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
+                fontWeight:600, cursor:'pointer', border:`1.5px solid ${form.traveller===selfId||(!form.traveller)?C.rose:C.border}`,
+                background:(form.traveller===selfId||(!form.traveller))?C.rose+'22':'transparent',
+                color:(form.traveller===selfId||(!form.traveller))?C.rose:C.dim }}>
+              👤 {selfName}
+            </button>
+            {/* Workspace members (excluding self) */}
+            {members.filter(m => m.id !== currentUserId).map(m => (
+              <button key={m.id} type="button"
+                onClick={() => { set('traveller', m.id); set('travellerName', m.name); }}
+                style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
+                  fontWeight:600, cursor:'pointer', border:`1.5px solid ${form.traveller===m.id?C.rose:C.border}`,
+                  background:form.traveller===m.id?C.rose+'22':'transparent',
+                  color:form.traveller===m.id?C.rose:C.dim }}>
+                👤 {m.name}
+              </button>
+            ))}
+            {/* Others */}
+            <button type="button"
+              onClick={() => { set('traveller', 'other'); set('travellerName', ''); }}
+              style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
+                fontWeight:600, cursor:'pointer', border:`1.5px solid ${form.traveller==='other'?C.rose:C.border}`,
+                background:form.traveller==='other'?C.rose+'22':'transparent',
+                color:form.traveller==='other'?C.rose:C.dim }}>
+              ✏️ Others
+            </button>
+          </div>
+          {form.traveller === 'other' && (
+            <input
+              value={form.travellerName || ''}
+              onChange={e => set('travellerName', e.target.value)}
+              placeholder="Traveller name"
+              style={{ marginTop:8, width:'100%', padding:'10px 14px', boxSizing:'border-box',
+                borderRadius:BR.input, border:`1.5px solid ${C.border}`,
+                background:C.elevated, color:C.text, fontFamily:'inherit', fontSize:15, outline:'none' }}
+            />
+          )}
+        </FL>
+
         {/* ── Step 1: Search keys — triggers auto-fill ── */}
         <Row2>
           <FL label="Flight No.">
@@ -7340,7 +7391,7 @@ function EForm({ form, set }) {
   );
 }
 
-function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
+function AddModal({ onClose, onSave, editEntry = null, initialDate = null, workspace = null, currentUserId = null, onLocationRefresh = null }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -7358,11 +7409,14 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
     : (form.title?.trim().length > 0);             // others: need title
   const handleSave = () => {
     if (!canSave) return;
-    // Edit: preserve id + type. Create: assign UUID.
-    onSave(isEdit
+    const payload = isEdit
       ? { ...form, id: editEntry.id, type: editEntry.type }
-      : { ...form, id: crypto.randomUUID() }
-    );
+      : { ...form, id: crypto.randomUUID() };
+    onSave(payload);
+    // Refresh location map if this flight has country data
+    if (payload.type === 'flight' && payload.arrCountry && onLocationRefresh) {
+      setTimeout(onLocationRefresh, 500); // brief delay so entry is persisted first
+    }
     onClose();
   };
 
@@ -7450,7 +7504,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null }) {
               </div>
             </div>
           ) : (
-            <EForm form={form} set={setF} />
+            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} />
           )}
         </div>
       </div>
@@ -8090,9 +8144,15 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
     map[loc.date] = { country_code: loc.country_code, country_name: loc.country_name, source: 'gps' };
   });
 
-  // 2. Flight inference — only this user's flights, arrival country on flight date
+  // 2. Flight inference — flights where this user is the traveller
+  // A flight belongs to userId if: traveller === userId, OR traveller is empty/falsy (legacy — assume entry owner)
   const userFlights = entries
-    .filter(e => e.user_id === userId && e.type === 'flight' && e.arrCountry && e.date)
+    .filter(e => {
+      if (e.type !== 'flight' || !e.arrCountry || !e.date) return false;
+      // traveller field: userId means this person, empty means entry owner (legacy), 'other' means someone else
+      if (!e.traveller || e.traveller === userId) return e.user_id === userId || e.traveller === userId;
+      return e.traveller === userId;
+    })
     .sort((a, b) => a.date.localeCompare(b.date));
 
   userFlights.forEach(f => {
@@ -9131,8 +9191,8 @@ export default function App() {
         {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} showFlags={showCalFlags} locationMap={buildCalendarLocationMap(userLocations, expandedEntries, user?.id)} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} isAdmin={isAdmin} setFestiveTheme={setFestiveTheme} setFestiveVisible={setFestiveVisible} />}
-        {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
-        {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} />}
+        {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} workspace={workspace} currentUserId={user?.id} onLocationRefresh={() => loadUserLocations(user?.id)} />}
+        {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} workspace={workspace} currentUserId={user?.id} onLocationRefresh={() => loadUserLocations(user?.id)} />}
       </div>
 
       {/* ── Bottom nav bar ─────────────────────────────────────── */}
