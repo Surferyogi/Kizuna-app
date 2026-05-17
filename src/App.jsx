@@ -1853,7 +1853,7 @@ function WeekView({ entries, selDate, setSelDate, onToggle, onCancel, onEdit, on
 }
 
 // ─── MONTH VIEW ──────────────────────────────────────────────────
-function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
+function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false, showFlags=false, locationMap={} }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -2337,7 +2337,8 @@ function CalendarTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUse
           vm={vm} setVm={setVm} goToday={goToday} isToday={isToday}
           onToggle={onToggle} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete}
           currentUserId={currentUserId} onAdd={onAdd} isAdmin={isAdmin}
-          onSyncFlights={onSyncFlights} flightSyncCount={flightSyncCount} isDark={isDark} />
+          onSyncFlights={onSyncFlights} flightSyncCount={flightSyncCount} isDark={isDark}
+          showFlags={showFlags} locationMap={locationMap} />
       </div>
     </div>
   );
