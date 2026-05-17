@@ -1127,6 +1127,14 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             e.attendees&& ['Attendees',e.attendees],
             e.flightNum&& ['Flight',   `${e.airline||''} ${e.flightNum}`],
             e.depCity  && ['Route',    `${e.depCity} → ${e.arrCity||'?'}`],
+            e.type==='flight' && (() => {
+              const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
+              if (!tvs.length) return null;
+              const nmap = e.travellerNamesMap||{};
+              const names = tvs.map(t => t==='other'?(e.travellerName||'Others'):nmap[t]||(t===(e.userId||e.user_id)?(e.userName||'Me'):''))
+                               .filter(Boolean).join(', ');
+              return names ? ['Travellers', names] : null;
+            })(),
             e.seat     && ['Seat',     e.seat],
             e.terminal && ['Terminal', e.terminal],
             e.gate     && ['Gate',     e.gate],
@@ -1291,9 +1299,9 @@ function FlightHeroCard({ flight, todayStr }) {
         </div>
       </div>
 
-      {/* Terminal / Gate / Seat chips — gate may update live from AeroDataBox */}
+      {/* Terminal / Gate / Seat + Passengers chips */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {[
+        {[\
           ['Terminal', status?.terminal || flight.terminal],
           ['Gate',     status?.gate     || flight.gate],
           ['Seat',     flight.seat],
@@ -1305,29 +1313,27 @@ function FlightHeroCard({ flight, todayStr }) {
             <p style={{ fontSize:16, fontWeight:600, color:C.text, margin:'2px 0 0' }}>{v}</p>
           </div>
         ))}
+        {(() => {
+          const tvs = Array.isArray(flight.travellers)&&flight.travellers.length>0 ? flight.travellers : (flight.traveller ? [flight.traveller] : []);
+          if (tvs.length === 0) return null;
+          const nmap = flight.travellerNamesMap || {};
+          const names = tvs.map(t =>
+            t === 'other' ? (flight.travellerName||'Others') :
+            nmap[t] || (t===(flight.userId||flight.user_id) ? (flight.userName||'Me') : '')
+          ).filter(Boolean).join(', ');
+          if (!names) return null;
+          return (
+            <div style={{ background:'#ffffff60', borderRadius:BR.btn,
+              padding:'7px 12px', backdropFilter:'blur(4px)',
+              border:`1px solid ${C.F}25` }}>
+              <p style={{ fontSize:12, color:C.dim, margin:0, textTransform:'uppercase', letterSpacing:'0.06em' }}>Travellers</p>
+              <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:'2px 0 0' }}>👤 {names}</p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Traveller name */}
-      {(() => {
-        const tvs = Array.isArray(flight.travellers)&&flight.travellers.length>0 ? flight.travellers : (flight.traveller ? [flight.traveller] : []);
-        if (tvs.length === 0) return null;
-        const nmap = flight.travellerNamesMap || {};
-        const names = tvs.map(t => {
-          if (t === 'other') return flight.travellerName || 'Others';
-          if (nmap[t]) return nmap[t];
-          if (t === (flight.userId||flight.user_id)) return flight.userName || 'Me';
-          return '';
-        }).filter(Boolean).join(', ');
-        if (!names) return null;
-        return (
-          <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:6 }}>
-            <span style={{ fontSize:13, color:getDTC(C).flight, fontWeight:600,
-              background:C.F+'18', borderRadius:BR.pill, padding:'3px 12px' }}>
-              👤 {names}
-            </span>
-          </div>
-        );
-      })()}
       {/* Last updated timestamp */}
       {lastUpdated && status?.source !== 'local' && (
         <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
