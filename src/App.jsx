@@ -8218,16 +8218,31 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
     }
   }
 
-  // Fill backward from earliest anchor — up to 365 days into the past
+  // Fill backward from earliest anchor using DEPARTURE country of first flight
+  // e.g. before HND→SIN flight: show JP (departure), not SG (arrival)
   const firstAnchor = anchors[0];
-  const firstEntry  = map[firstAnchor];
-  const pastLimit   = fd(new Date(Date.now() - 365 * 86400000));
-  let cur = new Date(firstAnchor + 'T00:00:00');
-  cur.setDate(cur.getDate() - 1);
-  while (fd(cur) >= pastLimit) {
-    const ds = fd(cur);
-    if (!map[ds]) map[ds] = { ...firstEntry, source: 'inferred' };
-    cur.setDate(cur.getDate() - 1);
+  const firstFlight = userFlights[0]; // earliest flight, sorted above
+  let backEntry;
+  if (firstFlight) {
+    // Use departure country if available
+    const depIata = (firstFlight.depCity || '').toUpperCase().slice(0, 3);
+    const depMatch = AIRPORT_DB.find(([code]) => code === depIata);
+    const depCode = firstFlight.depCountry || (depMatch ? depMatch[3] : null);
+    const depName = firstFlight.depCountryName || (depMatch ? depMatch[4] : depCode);
+    if (depCode) {
+      backEntry = { country_code: depCode, country_name: depName, source: 'inferred' };
+    }
+  }
+  // Fall back to first anchor's country if no departure info
+  if (!backEntry) backEntry = { ...map[firstAnchor], source: 'inferred' };
+
+  const pastLimit = fd(new Date(Date.now() - 365 * 86400000));
+  let bCur = new Date(firstAnchor + 'T00:00:00');
+  bCur.setDate(bCur.getDate() - 1);
+  while (fd(bCur) >= pastLimit) {
+    const ds = fd(bCur);
+    if (!map[ds]) map[ds] = backEntry;
+    bCur.setDate(bCur.getDate() - 1);
   }
 
   // Fill forward from last anchor to futureLimit
