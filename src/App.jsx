@@ -8145,27 +8145,37 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
   });
 
   // 2. Flight inference — flights where this user is the traveller
-  // A flight belongs to userId if: traveller === userId, OR traveller is empty/falsy (legacy — assume entry owner)
+  // Derive country from arrCountry (new) or fallback to AIRPORT_DB lookup by arrCity IATA
+  const getArrCountry = (e) => {
+    if (e.arrCountry) return { code: e.arrCountry, name: e.arrCountryName || e.arrCountry };
+    // Legacy entries: arrCity may be an IATA code — look it up
+    const iata = (e.arrCity || '').toUpperCase().slice(0, 3);
+    const match = AIRPORT_DB.find(([code]) => code === iata);
+    if (match) return { code: match[3], name: match[4] };
+    return null;
+  };
+
   const userFlights = entries
     .filter(e => {
-      if (e.type !== 'flight' || !e.arrCountry || !e.date) return false;
-      // traveller field: userId means this person, empty means entry owner (legacy), 'other' means someone else
-      if (!e.traveller || e.traveller === userId) return e.user_id === userId || e.traveller === userId;
+      if (e.type !== 'flight' || !e.date) return false;
+      if (!getArrCountry(e)) return false;
+      // Filter by traveller: empty/falsy = entry owner (legacy), userId = this person, 'other' = someone else
+      if (!e.traveller) return e.user_id === userId;
       return e.traveller === userId;
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 
   userFlights.forEach(f => {
-    // Arrival country starts on the flight date (per Q3)
+    const arr = getArrCountry(f);
+    if (!arr) return;
+    // Arrival country starts on the flight date
     if (!map[f.date] || map[f.date].source !== 'gps') {
       map[f.date] = {
-        country_code: f.arrCountry,
-        country_name: f.arrCountryName || f.arrCountry,
+        country_code: arr.code,
+        country_name: arr.name,
         source: 'flight',
       };
     }
-    // Departure country on days BEFORE this flight (if no GPS)
-    // We handle this in the propagation step below
   });
 
   // 3. Forward propagation — fill gaps between known points
