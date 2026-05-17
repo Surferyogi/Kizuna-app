@@ -1015,6 +1015,12 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {e.time      && <span style={{ fontSize:14, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
             {e.location  && <span style={{ fontSize:14, color:C.dim }}>📍 {e.location}</span>}
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
+            {e.type === 'flight' && e.travellerName && (
+              <span style={{ fontSize:13, color:C.F, background:C.F+'18',
+                borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
+                👤 {e.travellerName}
+              </span>
+            )}
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
             {e.repeat && e.repeat !== 'none' && (
@@ -8145,10 +8151,9 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
   });
 
   // 2. Flight inference — flights where this user is the traveller
-  // Derive country from arrCountry (new) or fallback to AIRPORT_DB lookup by arrCity IATA
+  // NOTE: entries in state use 'userId' (camelCase) from addEntry stamp, not 'user_id'
   const getArrCountry = (e) => {
     if (e.arrCountry) return { code: e.arrCountry, name: e.arrCountryName || e.arrCountry };
-    // Legacy entries: arrCity may be an IATA code — look it up
     const iata = (e.arrCity || '').toUpperCase().slice(0, 3);
     const match = AIRPORT_DB.find(([code]) => code === iata);
     if (match) return { code: match[3], name: match[4] };
@@ -8159,8 +8164,9 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
     .filter(e => {
       if (e.type !== 'flight' || !e.date) return false;
       if (!getArrCountry(e)) return false;
-      // Filter by traveller: empty/falsy = entry owner (legacy), userId = this person, 'other' = someone else
-      if (!e.traveller) return e.user_id === userId;
+      // entries use e.userId (camelCase) — check both for robustness
+      const entryOwner = e.userId || e.user_id;
+      if (!e.traveller) return entryOwner === userId;
       return e.traveller === userId;
     })
     .sort((a, b) => a.date.localeCompare(b.date));
