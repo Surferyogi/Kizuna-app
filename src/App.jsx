@@ -1029,12 +1029,14 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {e.type === 'flight' && (() => {
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
               if (tvs.length === 0) return null;
-              // Build display names from travellers array
+              // Resolve names: use travellerNamesMap (stored at save time), then fallbacks
+              const nmap = e.travellerNamesMap || {};
               const names = tvs.map(t => {
                 if (t === 'other') return e.travellerName || 'Others';
+                if (nmap[t]) return nmap[t];
                 if (t === (e.userId||e.user_id)) return e.userName || 'Me';
-                return t; // will be resolved to member name if available
-              }).join(', ');
+                return ''; // ID without name — filtered out below
+              }).filter(Boolean).join(', ');
               return (
                 <span style={{ fontSize:13, color:C.F, background:C.F+'18',
                   borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
@@ -1306,14 +1308,26 @@ function FlightHeroCard({ flight, todayStr }) {
       </div>
 
       {/* Traveller name */}
-      {flight.travellerName && (
-        <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:6 }}>
-          <span style={{ fontSize:13, color:getDTC(C).flight, fontWeight:600,
-            background:C.F+'18', borderRadius:BR.pill, padding:'3px 12px' }}>
-            👤 {flight.travellerName}
-          </span>
-        </div>
-      )}
+      {(() => {
+        const tvs = Array.isArray(flight.travellers)&&flight.travellers.length>0 ? flight.travellers : (flight.traveller ? [flight.traveller] : []);
+        if (tvs.length === 0) return null;
+        const nmap = flight.travellerNamesMap || {};
+        const names = tvs.map(t => {
+          if (t === 'other') return flight.travellerName || 'Others';
+          if (nmap[t]) return nmap[t];
+          if (t === (flight.userId||flight.user_id)) return flight.userName || 'Me';
+          return '';
+        }).filter(Boolean).join(', ');
+        if (!names) return null;
+        return (
+          <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:13, color:getDTC(C).flight, fontWeight:600,
+              background:C.F+'18', borderRadius:BR.pill, padding:'3px 12px' }}>
+              👤 {names}
+            </span>
+          </div>
+        );
+      })()}
       {/* Last updated timestamp */}
       {lastUpdated && status?.source !== 'local' && (
         <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, textAlign:'right', fontStyle:'italic' }}>
@@ -7114,7 +7128,7 @@ const mkBlank = () => ({
   type:'',title:'',date:'',time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
   depCountry:'',arrCountry:'',depCountryName:'',arrCountryName:'',
-  travellers:[],traveller:'',travellerName:'',
+  travellers:[],traveller:'',travellerName:'',travellerNamesMap:{},
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
@@ -7227,10 +7241,17 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
           {(() => {
             // Multi-select: travellers = array of userIds + 'other'
             const tvs = Array.isArray(form.travellers) ? form.travellers : (form.traveller ? [form.traveller] : [selfId]);
+            // Name map for resolving IDs → display names
+            const nameMap = { [selfId]: selfName };
+            members.forEach(m => { nameMap[m.id] = m.name; });
             const toggle = (id) => {
               const next = tvs.includes(id) ? tvs.filter(t=>t!==id) : [...tvs, id];
               const safe = next.length > 0 ? next : [id]; // at least one
               set('travellers', safe);
+              // Store names map so ECard can resolve IDs without workspace access
+              const nm = {};
+              safe.forEach(t => { if (t !== 'other') nm[t] = nameMap[t] || ''; });
+              set('travellerNamesMap', nm);
               // Keep legacy fields for backward compat
               set('traveller', safe.length===1 ? safe[0] : (safe.includes('other') ? 'other' : safe[0]));
             };
