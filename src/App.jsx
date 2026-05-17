@@ -7259,8 +7259,8 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
 
         {/* ── Step 1: Search keys — triggers auto-fill ── */}
         <Row2>
-          <FL label="Flight No.">
-            <FI form={form} set={set} field="flightNum" placeholder="SQ633" autoFocus compact
+          <FL label="Flight No. (optional)">
+            <FI form={form} set={set} field="flightNum" placeholder="SQ633 or leave blank" autoFocus compact
               onChange={e=>set('flightNum',e.target.value.replace(/\s+/g,'').toUpperCase())} />
           </FL>
           <FL label="Date"><FI form={form} set={set} field="date" type="date" compact /></FL>
@@ -7429,7 +7429,9 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
   );
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
   const canSave = form.type === 'flight'
-    ? (form.flightNum?.trim().length > 0)          // flight: needs flight number
+    // Can save with flight number, OR with at least From+To+Date (for past/parent entries)
+    ? (form.flightNum?.trim().length > 0) ||
+      (form.depCity?.trim().length > 0 && form.arrCity?.trim().length > 0 && form.date?.trim().length > 0)
     : form.type === 'birthday'
     ? (form.date?.trim().length > 0)               // birthday: needs date
     : (form.title?.trim().length > 0);             // others: need title
@@ -8342,31 +8344,86 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
 
   // Compute stats: for 'other:Name' tabs, scan flight entries by travellerName
   const computeOtherStats = (travellerName) => {
-    const yearStr = String(year);
-    const start   = yearStr + '-01-01';
-    const end     = yearStr + '-12-31';
-    const flights = entries.filter(e =>
-      e.type === 'flight' && e.traveller === 'other' &&
-      e.travellerName === travellerName && e.date >= start && e.date <= end
-    );
-    const counts = {};
+    const yearStr  = String(year);
+    const start    = yearStr + '-01-01';
+    const end      = yearStr + '-12-31';
+    const todayStr = fd(new Date());
+
+    const getArrC = (f) => {
+      if (f.arrCountry) return { code: f.arrCountry, name: f.arrCountryName || f.arrCountry };
+      const iata = (f.arrCity || '').toUpperCase().slice(0, 3);
+      const m = AIRPORT_DB.find(([c]) => c === iata);
+      return m ? { code: m[3], name: m[4] } : null;
+    };
+    const getDepC = (f) => {
+      if (f.depCountry) return { code: f.depCountry, name: f.depCountryName || f.depCountry };
+      const iata = (f.depCity || '').toUpperCase().slice(0, 3);
+      const m = AIRPORT_DB.find(([c]) => c === iata);
+      return m ? { code: m[3], name: m[4] } : null;
+    };
+
+    // All flights for this traveller, all years (need full history for propagation)
+    const flights = entries
+      .filter(e => e.type === 'flight' && e.traveller === 'other' &&
+        e.travellerName === travellerName && e.date && getArrC(e))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (flights.length === 0) return { countries: [], totalKnown: 0, totalDays: 0 };
+
+    // Build day map with propagation
+    const dayMap = {};
     flights.forEach(f => {
-      const iata = (f.arrCity||'').toUpperCase().slice(0,3);
-      const match = AIRPORT_DB.find(([code]) => code === iata);
-      const cc = f.arrCountry || (match ? match[3] : null);
-      const cn = f.arrCountryName || (match ? match[4] : cc);
-      if (!cc) return;
-      counts[cc] = counts[cc] || { country_name: cn||cc, days:0, sources: new Set() };
-      counts[cc].days++;
-      counts[cc].sources.add('flight');
+      const arr = getArrC(f);
+      if (arr) dayMap[f.date] = { cc: arr.code, cn: arr.name };
     });
-    const totalKnown = Object.values(counts).reduce((s,v)=>s+v.days,0);
+
+    const anchors = Object.keys(dayMap).sort();
+    // Fill forward between anchors
+    for (let i = 0; i < anchors.length - 1; i++) {
+      const fe = dayMap[anchors[i]];
+      let cur = new Date(anchors[i] + 'T00:00:00');
+      cur.setDate(cur.getDate() + 1);
+      const toD = new Date(anchors[i + 1] + 'T00:00:00');
+      while (cur < toD) { const ds = fd(cur); if (!dayMap[ds]) dayMap[ds] = fe; cur.setDate(cur.getDate() + 1); }
+    }
+    // Fill forward from last anchor to today (or year end)
+    const fwdLimit = todayStr < end ? todayStr : end;
+    const lastFe = dayMap[anchors[anchors.length - 1]];
+    let fwd = new Date(anchors[anchors.length - 1] + 'T00:00:00');
+    fwd.setDate(fwd.getDate() + 1);
+    while (fd(fwd) <= fwdLimit) { const ds = fd(fwd); if (!dayMap[ds]) dayMap[ds] = lastFe; fwd.setDate(fwd.getDate() + 1); }
+    // Back-fill before first anchor using dep country
+    const dep = getDepC(flights[0]);
+    if (dep) {
+      const pastLim = yearStr + '-01-01'; // only back-fill within the year
+      let bCur = new Date(anchors[0] + 'T00:00:00');
+      bCur.setDate(bCur.getDate() - 1);
+      while (fd(bCur) >= pastLim) { const ds = fd(bCur); if (!dayMap[ds]) dayMap[ds] = { cc: dep.code, cn: dep.name }; bCur.setDate(bCur.getDate() - 1); }
+    }
+
+    // Count days within year range (past days only for current year)
+    const counts = {};
+    let totalKnown = 0;
+    Object.entries(dayMap).forEach(([date, loc]) => {
+      if (date < start || date > end) return;
+      if (date > todayStr && year === new Date().getFullYear()) return;
+      if (!loc.cc) return;
+      counts[loc.cc] = counts[loc.cc] || { country_name: loc.cn || loc.cc, days: 0, sources: new Set() };
+      counts[loc.cc].days++;
+      counts[loc.cc].sources.add('flight');
+      totalKnown++;
+    });
+
+    const dpy = year % 4 === 0 ? 366 : 365;
+    const totalDays = year === new Date().getFullYear()
+      ? Math.min(dpy, Math.ceil((new Date(todayStr) - new Date(start + 'T00:00:00')) / 86400000) + 1)
+      : dpy;
+
     return {
       countries: Object.entries(counts)
-        .map(([cc,v]) => ({ cc, ...v, pct:(totalKnown>0?(v.days/totalKnown*100).toFixed(1):'0') }))
-        .sort((a,b)=>b.days-a.days),
-      totalKnown,
-      totalDays: totalKnown,
+        .map(([cc, v]) => ({ cc, ...v, pct: (totalKnown > 0 ? (v.days / totalKnown * 100).toFixed(1) : '0') }))
+        .sort((a, b) => b.days - a.days),
+      totalKnown, totalDays,
     };
   };
 
