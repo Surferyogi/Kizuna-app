@@ -820,6 +820,7 @@ function SR({ label, sub, right, noBorder }) {
 // ─── ENTRY CARD ──────────────────────────────────────────────────
 function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnly=false, isAdmin=false }) {
   const C = useContext(ThemeContext);
+  const wsMembers = useContext(WorkspaceContext); // hoisted — used in rows + pill
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
   const isReadOnly = readOnly || e._virtual === true;
@@ -1033,7 +1034,6 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               if (tvs.length === 0) return null;
               // Resolve names: travellerNamesMap → WorkspaceContext → userName fallback
               const nmap = e.travellerNamesMap || {};
-              const wsMembers = useContext(WorkspaceContext);
               const names = tvs.map(t => {
                 if (t === 'other') return e.travellerName || 'Others';
                 if (nmap[t]) return nmap[t];
@@ -1137,8 +1137,13 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
               if (!tvs.length) return null;
               const nmap = e.travellerNamesMap||{};
-              const names = tvs.map(t => t==='other'?(e.travellerName||'Others'):nmap[t]||(t===(e.userId||e.user_id)?(e.userName||'Me'):''))
-                               .filter(Boolean).join(', ');
+              const names = tvs.map(t => {
+                if (t === 'other') return e.travellerName || 'Others';
+                if (nmap[t]) return nmap[t];
+                if (t === (e.userId||e.user_id)) return e.userName || 'Me';
+                const wm = wsMembers.find(m => m.id === t);
+                return wm?.name || '';
+              }).filter(Boolean).join(', ');
               return names ? ['Travellers', names] : null;
             })(),
             e.seat     && ['Seat',     e.seat],
