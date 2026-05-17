@@ -1026,12 +1026,22 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {e.time      && <span style={{ fontSize:14, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
             {e.location  && <span style={{ fontSize:14, color:C.dim }}>📍 {e.location}</span>}
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
-            {e.type === 'flight' && e.travellerName && (
-              <span style={{ fontSize:13, color:C.F, background:C.F+'18',
-                borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
-                👤 {e.travellerName}
-              </span>
-            )}
+            {e.type === 'flight' && (() => {
+              const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
+              if (tvs.length === 0) return null;
+              // Build display names from travellers array
+              const names = tvs.map(t => {
+                if (t === 'other') return e.travellerName || 'Others';
+                if (t === (e.userId||e.user_id)) return e.userName || 'Me';
+                return t; // will be resolved to member name if available
+              }).join(', ');
+              return (
+                <span style={{ fontSize:13, color:C.F, background:C.F+'18',
+                  borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
+                  👤 {names}
+                </span>
+              );
+            })()}
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
             {e.repeat && e.repeat !== 'none' && (
@@ -7104,7 +7114,7 @@ const mkBlank = () => ({
   type:'',title:'',date:'',time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
   depCountry:'',arrCountry:'',depCountryName:'',arrCountryName:'',
-  traveller:'',travellerName:'',
+  travellers:[],traveller:'',travellerName:'',
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
@@ -7214,47 +7224,63 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
       {form.type === 'flight' ? (<>
         {/* ── Traveller selector ── */}
         <FL label="Travelling As">
-          <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:2 }}>
-            {/* Self */}
-            <button type="button"
-              onClick={() => { set('traveller', selfId); set('travellerName', selfName); }}
-              style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
-                fontWeight:600, cursor:'pointer', border:`1.5px solid ${form.traveller===selfId||(!form.traveller)?C.rose:C.border}`,
-                background:(form.traveller===selfId||(!form.traveller))?C.rose+'22':'transparent',
-                color:(form.traveller===selfId||(!form.traveller))?C.rose:C.dim }}>
-              👤 {selfName}
-            </button>
-            {/* Workspace members (excluding self) */}
-            {members.filter(m => m.id !== currentUserId).map(m => (
-              <button key={m.id} type="button"
-                onClick={() => { set('traveller', m.id); set('travellerName', m.name); }}
-                style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
-                  fontWeight:600, cursor:'pointer', border:`1.5px solid ${form.traveller===m.id?C.rose:C.border}`,
-                  background:form.traveller===m.id?C.rose+'22':'transparent',
-                  color:form.traveller===m.id?C.rose:C.dim }}>
-                👤 {m.name}
-              </button>
-            ))}
-            {/* Others */}
-            <button type="button"
-              onClick={() => { set('traveller', 'other'); set('travellerName', ''); }}
-              style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
-                fontWeight:600, cursor:'pointer', border:`1.5px solid ${form.traveller==='other'?C.rose:C.border}`,
-                background:form.traveller==='other'?C.rose+'22':'transparent',
-                color:form.traveller==='other'?C.rose:C.dim }}>
-              ✏️ Others
-            </button>
-          </div>
-          {form.traveller === 'other' && (
-            <input
-              value={form.travellerName || ''}
-              onChange={e => set('travellerName', e.target.value)}
-              placeholder="Traveller name"
-              style={{ marginTop:8, width:'100%', padding:'10px 14px', boxSizing:'border-box',
-                borderRadius:BR.input, border:`1.5px solid ${C.border}`,
-                background:C.elevated, color:C.text, fontFamily:'inherit', fontSize:15, outline:'none' }}
-            />
-          )}
+          {(() => {
+            // Multi-select: travellers = array of userIds + 'other'
+            const tvs = Array.isArray(form.travellers) ? form.travellers : (form.traveller ? [form.traveller] : [selfId]);
+            const toggle = (id) => {
+              const next = tvs.includes(id) ? tvs.filter(t=>t!==id) : [...tvs, id];
+              const safe = next.length > 0 ? next : [id]; // at least one
+              set('travellers', safe);
+              // Keep legacy fields for backward compat
+              set('traveller', safe.length===1 ? safe[0] : (safe.includes('other') ? 'other' : safe[0]));
+            };
+            const isSelected = (id) => tvs.includes(id);
+            return (
+              <>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:2 }}>
+                  {/* Self */}
+                  <button type="button" onClick={() => toggle(selfId)}
+                    style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
+                      fontWeight:600, cursor:'pointer',
+                      border:`1.5px solid ${isSelected(selfId)?C.rose:C.border}`,
+                      background:isSelected(selfId)?C.rose+'22':'transparent',
+                      color:isSelected(selfId)?C.rose:C.dim }}>
+                    {isSelected(selfId)?'✓ ':''}{selfName}
+                  </button>
+                  {/* Workspace members (excluding self) */}
+                  {members.filter(m => m.id !== currentUserId).map(m => (
+                    <button key={m.id} type="button" onClick={() => toggle(m.id)}
+                      style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
+                        fontWeight:600, cursor:'pointer',
+                        border:`1.5px solid ${isSelected(m.id)?C.rose:C.border}`,
+                        background:isSelected(m.id)?C.rose+'22':'transparent',
+                        color:isSelected(m.id)?C.rose:C.dim }}>
+                      {isSelected(m.id)?'✓ ':''}{m.name}
+                    </button>
+                  ))}
+                  {/* Others toggle */}
+                  <button type="button" onClick={() => toggle('other')}
+                    style={{ padding:'7px 14px', borderRadius:BR.pill, fontFamily:'inherit', fontSize:14,
+                      fontWeight:600, cursor:'pointer',
+                      border:`1.5px solid ${isSelected('other')?C.rose:C.border}`,
+                      background:isSelected('other')?C.rose+'22':'transparent',
+                      color:isSelected('other')?C.rose:C.dim }}>
+                    {isSelected('other')?'✓ ':'✏️ '}Others
+                  </button>
+                </div>
+                {isSelected('other') && (
+                  <input
+                    value={form.travellerName || ''}
+                    onChange={e => set('travellerName', e.target.value)}
+                    placeholder="Other traveller name"
+                    style={{ marginTop:8, width:'100%', padding:'10px 14px', boxSizing:'border-box',
+                      borderRadius:BR.input, border:`1.5px solid ${C.border}`,
+                      background:C.elevated, color:C.text, fontFamily:'inherit', fontSize:15, outline:'none' }}
+                  />
+                )}
+              </>
+            );
+          })()}
         </FL>
 
         {/* ── Step 1: Search keys — triggers auto-fill ── */}
@@ -8186,8 +8212,11 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
     .filter(e => {
       if (e.type !== 'flight' || !e.date) return false;
       if (!getArrCountry(e)) return false;
-      // entries use e.userId (camelCase) — check both for robustness
+      // Check new travellers[] first, then fall back to legacy traveller string
       const entryOwner = e.userId || e.user_id;
+      if (Array.isArray(e.travellers) && e.travellers.length > 0) {
+        return e.travellers.includes(userId);
+      }
       if (!e.traveller) return entryOwner === userId;
       return e.traveller === userId;
     })
@@ -8277,6 +8306,7 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
   const [year, setYear] = useState(new Date().getFullYear());
   const [tab,  setTab]  = useState('me');
   const [mode, setMode] = useState('all');
+  const [expandedCC, setExpandedCC] = useState(null); // drill-down country code
 
   const computeStats = (userId) => {
     const today    = fd(new Date());
@@ -8486,9 +8516,33 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
             <p style={{ color:C.muted, textAlign:'center', padding:'32px 0', fontSize:15 }}>
               No location data for {year}.<br/>Enable GPS or add flights with airport details.
             </p>
-          ) : stats.countries.map(({ cc, country_name, days, pct, sources }) => (
+          ) : stats.countries.map(({ cc, country_name, days, pct, sources }) => {
+            const yearStr = String(year);
+            const yStart = yearStr+'-01-01', yEnd = yearStr+'-12-31';
+            const drillFlights = isOtherTab
+              ? entries.filter(e => {
+                  if (e.type!=='flight' || e.traveller!=='other' || e.travellerName!==activeTab.slice(6)) return false;
+                  if (e.date<yStart || e.date>yEnd) return false;
+                  const ac = e.arrCountry||(AIRPORT_DB.find(([a])=>a===(e.arrCity||'').toUpperCase())||[])[3];
+                  const dc = e.depCountry||(AIRPORT_DB.find(([a])=>a===(e.depCity||'').toUpperCase())||[])[3];
+                  return ac===cc || dc===cc;
+                }).sort((a,b)=>a.date.localeCompare(b.date))
+              : entries.filter(e => {
+                  if (e.type!=='flight' || e.date<yStart || e.date>yEnd) return false;
+                  const uid = activeTab;
+                  const owner = e.userId||e.user_id;
+                  const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : null;
+                  const isMine = tvs ? tvs.includes(uid) : (!e.traveller ? owner===uid : e.traveller===uid);
+                  if (!isMine) return false;
+                  const ac = e.arrCountry||(AIRPORT_DB.find(([a])=>a===(e.arrCity||'').toUpperCase())||[])[3];
+                  const dc = e.depCountry||(AIRPORT_DB.find(([a])=>a===(e.depCity||'').toUpperCase())||[])[3];
+                  return ac===cc || dc===cc;
+                }).sort((a,b)=>a.date.localeCompare(b.date));
+
+            return (
             <div key={cc} style={{ marginBottom:14 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+              <div onClick={()=>setExpandedCC(expandedCC===cc?null:cc)}
+                style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4, cursor:'pointer' }}>
                 <span style={{ fontSize:24, lineHeight:1 }}>{countryFlag(cc)}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8 }}>
@@ -8503,14 +8557,51 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
                       background:`linear-gradient(90deg,${C.rose},${C.T})` }} />
                   </div>
                 </div>
-                <div style={{ display:'flex', gap:2, flexShrink:0 }}>
+                <div style={{ display:'flex', gap:4, alignItems:'center', flexShrink:0 }}>
                   {[...sources].includes('gps')      && <span title="GPS verified"   style={{ fontSize:11, color:C.T }}>📍</span>}
                   {[...sources].includes('flight')   && <span title="From flights"   style={{ fontSize:11, color:C.F }}>✈</span>}
                   {[...sources].includes('inferred') && <span title="Estimated stay" style={{ fontSize:11, color:C.muted }}>~</span>}
+                  <span style={{ fontSize:11, color:C.muted, marginLeft:2 }}>{expandedCC===cc?'▲':'▼'}</span>
                 </div>
               </div>
-            </div>
-          ))}
+              {expandedCC===cc && (
+                <div style={{ margin:'4px 0 8px 34px', borderLeft:`2px solid ${C.rose}40`, paddingLeft:12 }}>
+                  {drillFlights.length===0
+                    ? <p style={{ fontSize:13, color:C.muted, margin:'4px 0' }}>No flights recorded for {year}.</p>
+                    : drillFlights.map((f,i) => {
+                        const ac = f.arrCountry||(AIRPORT_DB.find(([a])=>a===(f.arrCity||'').toUpperCase())||[])[3];
+                        const isArr = ac===cc;
+                        const tvs = Array.isArray(f.travellers)&&f.travellers.length>0 ? f.travellers : null;
+                        const names = tvs
+                          ? tvs.map(t=>t==='other'?f.travellerName:(workspaceMembers||[]).find(m=>m.id===t)?.name||'Me').filter(Boolean).join(', ')
+                          : f.travellerName||null;
+                        return (
+                          <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
+                            padding:'6px 0', borderBottom:`1px solid ${C.border}25` }}>
+                            <span style={{ fontSize:15 }}>{isArr?'🛬':'🛫'}</span>
+                            <div style={{ flex:1 }}>
+                              <span style={{ fontSize:14, fontWeight:600, color:C.text }}>
+                                {f.depCity||'?'} → {f.arrCity||'?'}
+                              </span>
+                              {f.flightNum && <span style={{ fontSize:12, color:C.muted, marginLeft:6 }}>{f.flightNum}</span>}
+                              <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>
+                                {f.date}{names ? ` · 👤 ${names}` : ''}
+                              </div>
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:700,
+                              color:isArr?C.T:C.rose,
+                              background:isArr?C.T+'18':C.rose+'18',
+                              borderRadius:BR.pill, padding:'2px 7px' }}>
+                              {isArr?'ARR':'DEP'}
+                            </span>
+                          </div>
+                        );
+                      })
+                  }
+                </div>
+              )}
+            </div>);
+          })}
           <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, marginTop:4,
             fontSize:13, color:C.muted, textAlign:'center' }}>
             {stats.totalKnown} of {stats.totalDays} days tracked in {year}
