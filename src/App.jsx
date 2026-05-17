@@ -316,6 +316,8 @@ const C = C_LIGHT;
 
 // ─── THEME CONTEXT ────────────────────────────────────────────────
 const ThemeContext = createContext(C_LIGHT);
+// WorkspaceContext: provides member name resolution to any component
+const WorkspaceContext = createContext([]);
 
 // ─── HELPERS: check dark hours (9pm=21 to 7am=7) ─────────────────
 function isDarkHour(now = new Date()) {
@@ -1029,13 +1031,17 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {e.type === 'flight' && (() => {
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
               if (tvs.length === 0) return null;
-              // Resolve names: use travellerNamesMap (stored at save time), then fallbacks
+              // Resolve names: travellerNamesMap → WorkspaceContext → userName fallback
               const nmap = e.travellerNamesMap || {};
+              const wsMembers = useContext(WorkspaceContext);
               const names = tvs.map(t => {
                 if (t === 'other') return e.travellerName || 'Others';
                 if (nmap[t]) return nmap[t];
                 if (t === (e.userId||e.user_id)) return e.userName || 'Me';
-                return ''; // ID without name — filtered out below
+                // Fallback: look up in workspace members (for entries missing travellerNamesMap)
+                const wm = wsMembers.find(m => m.id === t);
+                if (wm?.name) return wm.name;
+                return ''; // filtered out below
               }).filter(Boolean).join(', ');
               return (
                 <span style={{ fontSize:13, color:C.F, background:C.F+'18',
@@ -1317,10 +1323,14 @@ function FlightHeroCard({ flight, todayStr }) {
           const tvs = Array.isArray(flight.travellers)&&flight.travellers.length>0 ? flight.travellers : (flight.traveller ? [flight.traveller] : []);
           if (tvs.length === 0) return null;
           const nmap = flight.travellerNamesMap || {};
-          const names = tvs.map(t =>
-            t === 'other' ? (flight.travellerName||'Others') :
-            nmap[t] || (t===(flight.userId||flight.user_id) ? (flight.userName||'Me') : '')
-          ).filter(Boolean).join(', ');
+          const wsMembers = useContext(WorkspaceContext);
+          const names = tvs.map(t => {
+            if (t === 'other') return flight.travellerName || 'Others';
+            if (nmap[t]) return nmap[t];
+            if (t === (flight.userId||flight.user_id)) return flight.userName || 'Me';
+            const wm = wsMembers.find(m => m.id === t);
+            return wm?.name || '';
+          }).filter(Boolean).join(', ');
           if (!names) return null;
           return (
             <div style={{ background:'#ffffff60', borderRadius:BR.btn,
@@ -7257,6 +7267,8 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
               // Store names map so ECard can resolve IDs without workspace access
               const nm = {};
               safe.forEach(t => { if (t !== 'other') nm[t] = nameMap[t] || ''; });
+              // Always include self in map even if not selected (for future fallback)
+              if (!nm[selfId]) nm[selfId] = selfName;
               set('travellerNamesMap', nm);
               // Keep legacy fields for backward compat
               set('traveller', safe.length===1 ? safe[0] : (safe.includes('other') ? 'other' : safe[0]));
@@ -8599,8 +8611,9 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
                         const ac = f.arrCountry||(AIRPORT_DB.find(([a])=>a===(f.arrCity||'').toUpperCase())||[])[3];
                         const isArr = ac===cc;
                         const tvs = Array.isArray(f.travellers)&&f.travellers.length>0 ? f.travellers : null;
+                        const nmap = f.travellerNamesMap || {};
                         const names = tvs
-                          ? tvs.map(t=>t==='other'?f.travellerName:(workspaceMembers||[]).find(m=>m.id===t)?.name||'Me').filter(Boolean).join(', ')
+                          ? tvs.map(t=>t==='other'?f.travellerName:(nmap[t]||(workspaceMembers||[]).find(m=>m.id===t)?.name||'')).filter(Boolean).join(', ')
                           : f.travellerName||null;
                         return (
                           <div key={i} style={{ display:'flex', alignItems:'center', gap:8,
@@ -9412,6 +9425,7 @@ export default function App() {
   }
 
   return (
+    <WorkspaceContext.Provider value={workspace?.members || []}>
     <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
 
     {showLocationSummary && (
@@ -9532,5 +9546,6 @@ export default function App() {
       </div>
     </div>
     </ThemeContext.Provider>
+    </WorkspaceContext.Provider>
   );
 }
