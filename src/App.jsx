@@ -608,10 +608,21 @@ async function dbLoadAudit(userId) {
 }
 
 // Upsert a single entry
-async function dbUpsertEntry(userId, entry) {
+async function dbUpsertEntry(userId, entry, callerUserId = null) {
+  // If the caller is different from the entry owner (admin editing member's entry),
+  // use the admin_upsert_entry RPC which has SECURITY DEFINER to bypass RLS
+  if (callerUserId && callerUserId !== userId) {
+    const { error } = await supabase.rpc('admin_upsert_entry', {
+      p_entry_id:   entry.id,
+      p_owner_id:   userId,
+      p_data:       entry,
+      p_caller_id:  callerUserId,
+    });
+    if (error) console.warn('admin_upsert_entry error:', error.message);
+    return;
+  }
   const { error } = await supabase.from('entries')
     .upsert({ id: entry.id, user_id: userId, data: entry, updated_at: new Date().toISOString() });
-  
 }
 
 // Delete a single entry
@@ -9012,7 +9023,7 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === id ? updated : e));
     logAudit(willCancel ? 'updated' : 'reopened', current);
     const ownerUserId = current.userId || user?.id;
-    if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
+    if (ownerUserId) dbUpsertEntry(ownerUserId, updated, user?.id);
   }, [logAudit, user]);
 
   const updateEntry = useCallback(updated => {
@@ -9028,9 +9039,9 @@ export default function App() {
     logAudit('updated', updated, changes.length > 0 ? changes : null);
     setEditingEntry(null);
     // Always use the entry's original owner userId for the DB write.
-    // The RLS policy must allow workspace admins to update members' entries.
+    // Pass caller ID so admin writes use SECURITY DEFINER RPC to bypass RLS.
     const ownerUserId = original.userId || user?.id;
-    if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
+    if (ownerUserId) dbUpsertEntry(ownerUserId, updated, user?.id);
   }, [logAudit, user]);
 
   const deleteEntry = useCallback(id => {
