@@ -1301,7 +1301,7 @@ function FlightHeroCard({ flight, todayStr }) {
 
       {/* Terminal / Gate / Seat + Passengers chips */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {[\
+        {[
           ['Terminal', status?.terminal || flight.terminal],
           ['Gate',     status?.gate     || flight.gate],
           ['Seat',     flight.seat],
