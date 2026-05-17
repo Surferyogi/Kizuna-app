@@ -329,6 +329,207 @@ const TL  = { meeting:'Appointment', flight:'Flight', task:'Task', reminder:'Rem
 
 // DTC — dark type colors for TEXT/ICONS on same-hue tinted backgrounds.
 // Each gives ≥ 7:1 contrast on TC[type]+'28' tint, ≥ 9:1 on white card.
+
+// ─── AIRPORT DATABASE ─────────────────────────────────────────────────────────
+// Format: [IATA, city, name, country_code, country_name]
+// ~200 airports covering major destinations from Singapore
+const AIRPORT_DB = [
+  ['SIN','Singapore','Changi Airport','SG','Singapore'],
+  ['SZB','Singapore','Seletar Airport','SG','Singapore'],
+  ['HND','Tokyo','Haneda Airport','JP','Japan'],
+  ['NRT','Tokyo','Narita Airport','JP','Japan'],
+  ['KIX','Osaka','Kansai Airport','JP','Japan'],
+  ['ITM','Osaka','Itami Airport','JP','Japan'],
+  ['NGO','Nagoya','Chubu Airport','JP','Japan'],
+  ['CTS','Sapporo','Chitose Airport','JP','Japan'],
+  ['FUK','Fukuoka','Fukuoka Airport','JP','Japan'],
+  ['OKA','Okinawa','Naha Airport','JP','Japan'],
+  ['HIJ','Hiroshima','Hiroshima Airport','JP','Japan'],
+  ['SDJ','Sendai','Sendai Airport','JP','Japan'],
+  ['ICN','Seoul','Incheon Airport','KR','South Korea'],
+  ['GMP','Seoul','Gimpo Airport','KR','South Korea'],
+  ['PUS','Busan','Gimhae Airport','KR','South Korea'],
+  ['CJU','Jeju','Jeju Airport','KR','South Korea'],
+  ['HKG','Hong Kong','Hong Kong Airport','HK','Hong Kong'],
+  ['TPE','Taipei','Taoyuan Airport','TW','Taiwan'],
+  ['TSA','Taipei','Songshan Airport','TW','Taiwan'],
+  ['KHH','Kaohsiung','Kaohsiung Airport','TW','Taiwan'],
+  ['PEK','Beijing','Capital Airport','CN','China'],
+  ['PKX','Beijing','Daxing Airport','CN','China'],
+  ['PVG','Shanghai','Pudong Airport','CN','China'],
+  ['SHA','Shanghai','Hongqiao Airport','CN','China'],
+  ['CAN','Guangzhou','Baiyun Airport','CN','China'],
+  ['SZX','Shenzhen','Bao an Airport','CN','China'],
+  ['CTU','Chengdu','Shuangliu Airport','CN','China'],
+  ['CKG','Chongqing','Jiangbei Airport','CN','China'],
+  ['XIY','Xi an','Xianyang Airport','CN','China'],
+  ['KMG','Kunming','Changshui Airport','CN','China'],
+  ['CGQ','Changchun','Longjia Airport','CN','China'],
+  ['BKK','Bangkok','Suvarnabhumi Airport','TH','Thailand'],
+  ['DMK','Bangkok','Don Mueang Airport','TH','Thailand'],
+  ['HKT','Phuket','Phuket Airport','TH','Thailand'],
+  ['CNX','Chiang Mai','Chiang Mai Airport','TH','Thailand'],
+  ['KBV','Krabi','Krabi Airport','TH','Thailand'],
+  ['USM','Koh Samui','Samui Airport','TH','Thailand'],
+  ['KUL','Kuala Lumpur','KLIA','MY','Malaysia'],
+  ['SZB','Kuala Lumpur','Subang Airport','MY','Malaysia'],
+  ['PEN','Penang','Penang Airport','MY','Malaysia'],
+  ['BKI','Kota Kinabalu','KK Airport','MY','Malaysia'],
+  ['KCH','Kuching','Kuching Airport','MY','Malaysia'],
+  ['CGK','Jakarta','Soekarno-Hatta Airport','ID','Indonesia'],
+  ['DPS','Bali','Ngurah Rai Airport','ID','Indonesia'],
+  ['SUB','Surabaya','Juanda Airport','ID','Indonesia'],
+  ['MDC','Manado','Sam Ratulangi Airport','ID','Indonesia'],
+  ['UPG','Makassar','Sultan Hasanuddin Airport','ID','Indonesia'],
+  ['MNL','Manila','Ninoy Aquino Airport','PH','Philippines'],
+  ['CEB','Cebu','Mactan-Cebu Airport','PH','Philippines'],
+  ['DVO','Davao','Francisco Bangoy Airport','PH','Philippines'],
+  ['SGN','Ho Chi Minh City','Tan Son Nhat Airport','VN','Vietnam'],
+  ['HAN','Hanoi','Noi Bai Airport','VN','Vietnam'],
+  ['DAD','Da Nang','Da Nang Airport','VN','Vietnam'],
+  ['PQC','Phu Quoc','Phu Quoc Airport','VN','Vietnam'],
+  ['REP','Siem Reap','Angkor Airport','KH','Cambodia'],
+  ['PNH','Phnom Penh','Pochentong Airport','KH','Cambodia'],
+  ['RGN','Yangon','Mingaladon Airport','MM','Myanmar'],
+  ['VTE','Vientiane','Wattay Airport','LA','Laos'],
+  ['LPQ','Luang Prabang','Luang Prabang Airport','LA','Laos'],
+  ['BWN','Bandar Seri Begawan','Brunei Airport','BN','Brunei'],
+  ['CMB','Colombo','Bandaranaike Airport','LK','Sri Lanka'],
+  ['MLE','Male','Velana Airport','MV','Maldives'],
+  ['BOM','Mumbai','Chhatrapati Shivaji Airport','IN','India'],
+  ['DEL','Delhi','Indira Gandhi Airport','IN','India'],
+  ['BLR','Bangalore','Kempegowda Airport','IN','India'],
+  ['MAA','Chennai','Anna Airport','IN','India'],
+  ['HYD','Hyderabad','Rajiv Gandhi Airport','IN','India'],
+  ['CCU','Kolkata','Netaji Subhash Airport','IN','India'],
+  ['COK','Kochi','Cochin Airport','IN','India'],
+  ['LHR','London','Heathrow Airport','GB','United Kingdom'],
+  ['LGW','London','Gatwick Airport','GB','United Kingdom'],
+  ['STN','London','Stansted Airport','GB','United Kingdom'],
+  ['LTN','London','Luton Airport','GB','United Kingdom'],
+  ['MAN','Manchester','Manchester Airport','GB','United Kingdom'],
+  ['EDI','Edinburgh','Edinburgh Airport','GB','United Kingdom'],
+  ['GLA','Glasgow','Glasgow Airport','GB','United Kingdom'],
+  ['BHX','Birmingham','Birmingham Airport','GB','United Kingdom'],
+  ['CDG','Paris','Charles de Gaulle Airport','FR','France'],
+  ['ORY','Paris','Orly Airport','FR','France'],
+  ['NCE','Nice','Nice Airport','FR','France'],
+  ['LYS','Lyon','Saint-Exupery Airport','FR','France'],
+  ['MRS','Marseille','Marseille Airport','FR','France'],
+  ['FRA','Frankfurt','Frankfurt Airport','DE','Germany'],
+  ['MUC','Munich','Munich Airport','DE','Germany'],
+  ['DUS','Dusseldorf','Dusseldorf Airport','DE','Germany'],
+  ['HAM','Hamburg','Hamburg Airport','DE','Germany'],
+  ['TXL','Berlin','Tegel Airport','DE','Germany'],
+  ['BER','Berlin','Brandenburg Airport','DE','Germany'],
+  ['AMS','Amsterdam','Schiphol Airport','NL','Netherlands'],
+  ['ZRH','Zurich','Zurich Airport','CH','Switzerland'],
+  ['GVA','Geneva','Geneva Airport','CH','Switzerland'],
+  ['VIE','Vienna','Vienna Airport','AT','Austria'],
+  ['BRU','Brussels','Brussels Airport','BE','Belgium'],
+  ['CPH','Copenhagen','Copenhagen Airport','DK','Denmark'],
+  ['ARN','Stockholm','Arlanda Airport','SE','Sweden'],
+  ['HEL','Helsinki','Helsinki Airport','FI','Finland'],
+  ['OSL','Oslo','Gardermoen Airport','NO','Norway'],
+  ['LIS','Lisbon','Humberto Delgado Airport','PT','Portugal'],
+  ['OPO','Porto','Francisco de Sa Carneiro Airport','PT','Portugal'],
+  ['MAD','Madrid','Adolfo Suarez Airport','ES','Spain'],
+  ['BCN','Barcelona','El Prat Airport','ES','Spain'],
+  ['AGP','Malaga','Malaga Airport','ES','Spain'],
+  ['PMI','Palma de Mallorca','Mallorca Airport','ES','Spain'],
+  ['FCO','Rome','Fiumicino Airport','IT','Italy'],
+  ['MXP','Milan','Malpensa Airport','IT','Italy'],
+  ['LIN','Milan','Linate Airport','IT','Italy'],
+  ['VCE','Venice','Marco Polo Airport','IT','Italy'],
+  ['NAP','Naples','Naples Airport','IT','Italy'],
+  ['ATH','Athens','Athens Airport','GR','Greece'],
+  ['SKG','Thessaloniki','Makedonia Airport','GR','Greece'],
+  ['JFK','New York','JFK Airport','US','United States'],
+  ['EWR','New York','Newark Airport','US','United States'],
+  ['LGA','New York','LaGuardia Airport','US','United States'],
+  ['LAX','Los Angeles','LAX Airport','US','United States'],
+  ['SFO','San Francisco','SFO Airport','US','United States'],
+  ['ORD','Chicago','O Hare Airport','US','United States'],
+  ['MDW','Chicago','Midway Airport','US','United States'],
+  ['MIA','Miami','Miami Airport','US','United States'],
+  ['SEA','Seattle','Sea-Tac Airport','US','United States'],
+  ['BOS','Boston','Logan Airport','US','United States'],
+  ['DFW','Dallas','Dallas Fort Worth Airport','US','United States'],
+  ['IAH','Houston','George Bush Airport','US','United States'],
+  ['DEN','Denver','Denver Airport','US','United States'],
+  ['ATL','Atlanta','Hartsfield-Jackson Airport','US','United States'],
+  ['LAS','Las Vegas','McCarran Airport','US','United States'],
+  ['PHX','Phoenix','Sky Harbour Airport','US','United States'],
+  ['MSP','Minneapolis','Minneapolis Airport','US','United States'],
+  ['DTW','Detroit','Metro Airport','US','United States'],
+  ['CLT','Charlotte','Douglas Airport','US','United States'],
+  ['IAD','Washington','Dulles Airport','US','United States'],
+  ['DCA','Washington','Reagan Airport','US','United States'],
+  ['YVR','Vancouver','Vancouver Airport','CA','Canada'],
+  ['YYZ','Toronto','Pearson Airport','CA','Canada'],
+  ['YUL','Montreal','Trudeau Airport','CA','Canada'],
+  ['YYC','Calgary','Calgary Airport','CA','Canada'],
+  ['SYD','Sydney','Sydney Airport','AU','Australia'],
+  ['MEL','Melbourne','Melbourne Airport','AU','Australia'],
+  ['BNE','Brisbane','Brisbane Airport','AU','Australia'],
+  ['PER','Perth','Perth Airport','AU','Australia'],
+  ['ADL','Adelaide','Adelaide Airport','AU','Australia'],
+  ['AKL','Auckland','Auckland Airport','NZ','New Zealand'],
+  ['CHC','Christchurch','Christchurch Airport','NZ','New Zealand'],
+  ['DXB','Dubai','Dubai International Airport','AE','UAE'],
+  ['AUH','Abu Dhabi','Abu Dhabi Airport','AE','UAE'],
+  ['DOH','Doha','Hamad Airport','QA','Qatar'],
+  ['BAH','Manama','Bahrain Airport','BH','Bahrain'],
+  ['KWI','Kuwait City','Kuwait Airport','KW','Kuwait'],
+  ['AMM','Amman','Queen Alia Airport','JO','Jordan'],
+  ['CAI','Cairo','Cairo Airport','EG','Egypt'],
+  ['IST','Istanbul','Istanbul Airport','TR','Turkey'],
+  ['SAW','Istanbul','Sabiha Gokcen Airport','TR','Turkey'],
+  ['TLV','Tel Aviv','Ben Gurion Airport','IL','Israel'],
+  ['NBO','Nairobi','Jomo Kenyatta Airport','KE','Kenya'],
+  ['JNB','Johannesburg','OR Tambo Airport','ZA','South Africa'],
+  ['CPT','Cape Town','Cape Town Airport','ZA','South Africa'],
+  ['DUR','Durban','King Shaka Airport','ZA','South Africa'],
+  ['LOS','Lagos','Murtala Muhammed Airport','NG','Nigeria'],
+  ['ACC','Accra','Kotoka Airport','GH','Ghana'],
+  ['ADD','Addis Ababa','Bole Airport','ET','Ethiopia'],
+  ['CMN','Casablanca','Mohammed V Airport','MA','Morocco'],
+  ['RBA','Rabat','Rabat-Sale Airport','MA','Morocco'],
+  ['TUN','Tunis','Tunis-Carthage Airport','TN','Tunisia'],
+  ['GRU','Sao Paulo','Guarulhos Airport','BR','Brazil'],
+  ['GIG','Rio de Janeiro','Galeao Airport','BR','Brazil'],
+  ['EZE','Buenos Aires','Ezeiza Airport','AR','Argentina'],
+  ['BOG','Bogota','El Dorado Airport','CO','Colombia'],
+  ['SCL','Santiago','Comodoro Arturo Merino Airport','CL','Chile'],
+  ['LIM','Lima','Jorge Chavez Airport','PE','Peru'],
+  ['MEX','Mexico City','Benito Juarez Airport','MX','Mexico'],
+  ['CUN','Cancun','Cancun Airport','MX','Mexico'],
+  ['SVO','Moscow','Sheremetyevo Airport','RU','Russia'],
+  ['DME','Moscow','Domodedovo Airport','RU','Russia'],
+  ['LED','St Petersburg','Pulkovo Airport','RU','Russia'],
+];
+
+// Search airports by IATA, city, or name — returns up to 8 matches
+const searchAirports = (q) => {
+  if (!q || q.length < 2) return [];
+  const s = q.toUpperCase();
+  const sl = s.toLowerCase();
+  return AIRPORT_DB.filter(([iata, city, name]) =>
+    iata.startsWith(s) ||
+    city.toUpperCase().startsWith(s) ||
+    name.toLowerCase().includes(sl) ||
+    city.toLowerCase().includes(sl)
+  ).slice(0, 8);
+};
+
+// Country code → flag emoji
+const countryFlag = (code) => {
+  if (!code || code.length !== 2) return '';
+  return [...code.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
+  ).join('');
+};
+
 // DTC — type accent colours (light mode). Use getDTC(C) in components for theme safety.
 const DTC = {
   meeting:  '#1C4878',
@@ -1087,7 +1288,7 @@ function FlightHeroCard({ flight, todayStr }) {
     </div>
   );
 }
-function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false, isDark=false }) {
+function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, currentUserId, onAdd, syncStatus, flightSyncCount=0, isAdmin=false, isDark=false, onLocationSummary }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
@@ -1338,6 +1539,23 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
             })()}
           </>);
         })()}
+
+        {/* 📍 Location Summary button */}
+        {onLocationSummary && (
+          <button onClick={onLocationSummary} style={{
+            width:'100%', marginBottom:8,
+            padding:'12px 16px', borderRadius:BR.card,
+            background:C.card, border:`1px solid ${C.border}`,
+            boxShadow:SH.card, cursor:'pointer',
+            display:'flex', alignItems:'center', gap:10, textAlign:'left',
+          }}>
+            <span style={{ fontSize:20 }}>📍</span>
+            <span style={{ flex:1, fontSize:15, fontWeight:600, color:C.text }}>
+              My Location Summary
+            </span>
+            <span style={{ fontSize:13, color:C.muted }}>›</span>
+          </button>
+        )}
 
         {/* Next Flight — only shown when no filter card is active */}
         {!homeFilter && nextFlight && (<>
@@ -1722,6 +1940,22 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
           <span style={{ fontSize:13 }}>✈</span>
           <span>{monthFlights.length > 0 ? `${monthFlights.length}` : ''}</span>
         </button>
+        {/* 📍 Flag toggle */}
+        <button
+          onClick={() => {
+            const next = !showFlags;
+            localStorage.setItem('kizuna_cal_flags', String(next));
+            // bubble up via onAdd hack — use a custom event instead
+            window.dispatchEvent(new CustomEvent('kizuna_flags_toggle', { detail: next }));
+          }}
+          style={{ padding:'5px 9px', borderRadius:BR.pill, marginRight:8,
+            border:`1.5px solid ${showFlags ? C.rose : C.border}`,
+            background: showFlags ? C.rose+'22' : 'transparent',
+            color: showFlags ? C.rose : C.muted,
+            fontSize:13, cursor:'pointer', flexShrink:0,
+            transition:'all 0.2s' }}>
+          📍
+        </button>
         {/* Manual flight refresh button — only shown in flight mode */}
         {showFlights && onSyncFlights && (
           <button onClick={onSyncFlights}
@@ -1832,6 +2066,11 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                     {dayFlights.length > 2 && (
                       <div style={{ fontSize:8, color:C.muted }}>+{dayFlights.length-2}</div>
                     )}
+                  </div>
+                ) : showFlags && locationMap[ds] ? (
+                  /* Country flag badge */
+                  <div style={{ fontSize:11, lineHeight:1, marginTop:2, textAlign:'center' }}>
+                    {countryFlag(locationMap[ds].country_code)}
                   </div>
                 ) : (
                   /* Normal dots */
@@ -2078,7 +2317,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
 // ─── CALENDAR TAB ────────────────────────────────────────────────
 const CAL_VIEW_KEY = 'kizuna_cal_view_v1';
-function CalendarTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false }) {
+function CalendarTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserId, onAdd, isAdmin=false, onSyncFlights, flightSyncCount=0, isDark=false, showFlags=false, locationMap={} }) {
   const [selDate, setSelDate] = useState(fd(new Date()));
   const now = new Date();
   const [vm, setVm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -6745,9 +6984,98 @@ function FL({ label, children, tight=false }) {
 function Row2({ children }) {
   return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>{children}</div>;
 }
+
+// ─── AIRPORT PICKER COMPONENT ────────────────────────────────────────────────
+function AirportPicker({ label, value, countryCode, onSelect, compact=false, inputStyle={} }) {
+  const C = useContext(ThemeContext);
+  const [q, setQ]           = useState(value || '');
+  const [results, setResults] = useState([]);
+  const [open, setOpen]      = useState(false);
+  const ref                  = useRef(null);
+
+  // Sync display text when value changes externally (auto-fill from flight lookup)
+  useEffect(() => { setQ(value || ''); }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const handleInput = (v) => {
+    setQ(v);
+    const r = searchAirports(v);
+    setResults(r);
+    setOpen(r.length > 0);
+    if (r.length === 0) onSelect({ iata:'', city:v, name:'', country_code:'', country_name:'' });
+  };
+
+  const handleSelect = (airport) => {
+    const [iata, city, name, country_code, country_name] = airport;
+    setQ(`${iata} — ${city}`);
+    setOpen(false);
+    onSelect({ iata, city, name, country_code, country_name });
+  };
+
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        {countryCode && (
+          <span style={{ fontSize:22, lineHeight:1 }}>{countryFlag(countryCode)}</span>
+        )}
+        <input
+          value={q}
+          onChange={e => handleInput(e.target.value)}
+          onFocus={() => { if (q.length >= 2) setOpen(searchAirports(q).length > 0); }}
+          placeholder={compact ? 'City or IATA' : 'City, airport or IATA code'}
+          style={{
+            flex:1, padding: compact ? '10px 12px' : '13px 14px',
+            borderRadius:BR.input, border:`1.5px solid ${C.border}`,
+            background:C.elevated, color:C.text,
+            fontFamily:'inherit', fontSize: compact ? 15 : 17,
+            fontWeight:600, outline:'none', ...inputStyle,
+          }}
+          autoComplete="off"
+        />
+      </div>
+      {open && results.length > 0 && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 4px)', left:0, right:0,
+          background:C.card, border:`1.5px solid ${C.border}`,
+          borderRadius:BR.card, zIndex:1000,
+          boxShadow:`0 8px 32px rgba(0,0,0,0.25)`,
+          maxHeight:240, overflowY:'auto',
+        }}>
+          {results.map(([iata, city, name, cc, cn]) => (
+            <button key={iata}
+              onMouseDown={() => handleSelect([iata, city, name, cc, cn])}
+              style={{
+                display:'flex', alignItems:'center', gap:10,
+                width:'100%', padding:'11px 14px',
+                background:'transparent', border:'none',
+                borderBottom:`1px solid ${C.border}40`,
+                cursor:'pointer', textAlign:'left',
+              }}>
+              <span style={{ fontSize:20 }}>{countryFlag(cc)}</span>
+              <div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text }}>
+                  {iata} — {city}
+                </div>
+                <div style={{ fontSize:12, color:C.muted }}>{name} · {cn}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const mkBlank = () => ({
   type:'',title:'',date:'',time:'',endTime:'',location:'',attendees:'',notes:'',
   priority:'medium',tags:'',message:'',airline:'',flightNum:'',depCity:'',arrCity:'',
+  depCountry:'',arrCountry:'',depCountryName:'',arrCountryName:'',
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
@@ -6890,10 +7218,30 @@ function EForm({ form, set }) {
           </FL>
           <Row2>
             <FL label="From" tight>
-              <FI form={form} set={set} field="depCity" placeholder="" onChange={e=>set('depCity',e.target.value.toUpperCase())} />
+              <AirportPicker
+                label="From"
+                value={form.depCity}
+                countryCode={form.depCountry}
+                compact
+                onSelect={({iata,city,country_code,country_name}) => {
+                  set('depCity', iata || city);
+                  set('depCountry', country_code);
+                  set('depCountryName', country_name);
+                }}
+              />
             </FL>
             <FL label="To" tight>
-              <FI form={form} set={set} field="arrCity" placeholder="" onChange={e=>set('arrCity',e.target.value.toUpperCase())} />
+              <AirportPicker
+                label="To"
+                value={form.arrCity}
+                countryCode={form.arrCountry}
+                compact
+                onSelect={({iata,city,country_code,country_name}) => {
+                  set('arrCity', iata || city);
+                  set('arrCountry', country_code);
+                  set('arrCountryName', country_name);
+                }}
+              />
             </FL>
           </Row2>
           <Row2>
@@ -7722,6 +8070,229 @@ const DEV_BYPASS      = false; // ← set true to skip login during debugging
 const DEV_BYPASS_NAME = 'Koksum';
 
 // ─── APP ROOT ────────────────────────────────────────────────────
+
+// ─── LOCATION SUMMARY MODAL ───────────────────────────────────────────────────
+// ─── BUILD CALENDAR LOCATION MAP ─────────────────────────────────────────────
+// Merges GPS records + flight inference + forward propagation of last known country.
+// Returns { 'YYYY-MM-DD': { country_code, country_name, source } }
+// source: 'gps' | 'flight' | 'inferred'
+function buildCalendarLocationMap(userLocations, entries, userId) {
+  if (!userId) return {};
+
+  const today = fd(new Date());
+  // Look 90 days into the future for flight inference
+  const futureLimit = fd(new Date(Date.now() + 90 * 86400000));
+  const map = {};
+
+  // 1. Seed GPS-confirmed locations (highest priority)
+  (userLocations[userId] || []).forEach(loc => {
+    map[loc.date] = { country_code: loc.country_code, country_name: loc.country_name, source: 'gps' };
+  });
+
+  // 2. Flight inference — only this user's flights, arrival country on flight date
+  const userFlights = entries
+    .filter(e => e.user_id === userId && e.type === 'flight' && e.arrCountry && e.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  userFlights.forEach(f => {
+    // Arrival country starts on the flight date (per Q3)
+    if (!map[f.date] || map[f.date].source !== 'gps') {
+      map[f.date] = {
+        country_code: f.arrCountry,
+        country_name: f.arrCountryName || f.arrCountry,
+        source: 'flight',
+      };
+    }
+    // Departure country on days BEFORE this flight (if no GPS)
+    // We handle this in the propagation step below
+  });
+
+  // 3. Forward propagation — fill gaps between known points
+  // Build sorted list of all known anchor dates
+  const anchors = Object.keys(map).sort();
+  if (anchors.length === 0) return map;
+
+  // For each gap between anchors, fill from the previous anchor
+  // Also fill backward from earliest anchor to (earliest - 30 days)
+  // Also fill forward from latest anchor to futureLimit
+  const fillRange = (startDate, endDate, entry) => {
+    let cur = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    while (cur <= end) {
+      const ds = fd(cur);
+      if (!map[ds]) {
+        map[ds] = { ...entry, source: 'inferred' };
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  };
+
+  // Fill between each pair of anchors
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const from = anchors[i];
+    const to   = anchors[i + 1];
+    // Day after 'from' up to day before 'to' — use 'from' country
+    const fromEntry = map[from];
+    let d = new Date(from + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    const toD = new Date(to + 'T00:00:00');
+    while (d < toD) {
+      const ds = fd(d);
+      if (!map[ds]) map[ds] = { ...fromEntry, source: 'inferred' };
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  // Fill forward from last anchor to futureLimit
+  const lastAnchor = anchors[anchors.length - 1];
+  const lastEntry  = map[lastAnchor];
+  fillRange(lastAnchor, futureLimit, lastEntry);
+
+  return map;
+}
+
+function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, isAdmin, workspaceMembers }) {
+  const C = useContext(ThemeContext);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [tab,  setTab]  = useState('me');
+  const [mode, setMode] = useState('all');
+
+  const computeStats = (userId) => {
+    const today    = fd(new Date());
+    const yearStr  = String(year);
+    const start    = yearStr + '-01-01';
+    const end      = yearStr + '-12-31';
+
+    // Use buildCalendarLocationMap for full GPS + flight + inferred data
+    const fullMap = buildCalendarLocationMap(userLocations, entries, userId);
+
+    // Filter to year range
+    const locMap = {};
+    Object.entries(fullMap).forEach(([date, loc]) => {
+      if (date >= start && date <= end) {
+        // mode filter: 'gps' = GPS only, 'all' = GPS + flight + inferred
+        if (mode === 'gps' && loc.source !== 'gps') return;
+        locMap[date] = loc;
+      }
+    });
+
+    const counts = {};
+    let totalKnown = 0;
+    Object.values(locMap).forEach(loc => {
+      if (!loc.country_code) return;
+      const cc = loc.country_code;
+      counts[cc] = counts[cc] || { country_name: loc.country_name || cc, days: 0, sources: new Set() };
+      counts[cc].days++;
+      counts[cc].sources.add(loc.source);
+      totalKnown++;
+    });
+    const dpy = (year % 4 === 0) ? 366 : 365;
+    const totalDays = year === new Date().getFullYear()
+      ? Math.min(dpy, Math.ceil((new Date(today) - new Date(start + 'T00:00:00')) / 86400000) + 1)
+      : dpy;
+    return {
+      countries: Object.entries(counts)
+        .map(([cc, v]) => ({
+          cc, ...v,
+          pct: (totalKnown > 0 ? (v.days / totalKnown * 100).toFixed(1) : '0'),
+        }))
+        .sort((a, b) => b.days - a.days),
+      totalKnown, totalDays,
+    };
+  };
+
+  const sophiaId = (workspaceMembers||[]).find(m => m.email?.includes('sophia'))?.user_id;
+  const uid = tab === 'sophia' && sophiaId ? sophiaId : currentUserId;
+  const stats = computeStats(uid);
+  const years = [new Date().getFullYear()-1, new Date().getFullYear(), new Date().getFullYear()+1];
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(0,0,0,0.65)',
+      backdropFilter:'blur(6px)', display:'flex', alignItems:'flex-end', justifyContent:'center'
+    }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'100%', maxWidth:430, maxHeight:'85vh', background:C.bg,
+        borderRadius:BR.modal+'px '+BR.modal+'px 0 0',
+        padding:'0 0 32px', overflowY:'auto',
+        boxShadow:'0 -8px 40px rgba(0,0,0,0.4)',
+      }}>
+        <div style={{ padding:'18px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <h3 style={{ margin:0, fontSize:20, fontWeight:700, color:C.text }}>📍 Location Summary</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:C.muted, fontSize:24, cursor:'pointer' }}>✕</button>
+        </div>
+
+        <div style={{ padding:'12px 20px 4px', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+          {years.map(y => (
+            <button key={y} onClick={()=>setYear(y)} style={{
+              padding:'6px 14px', borderRadius:BR.pill,
+              border:`1.5px solid ${year===y?C.rose:C.border}`,
+              background:year===y?C.rose:'transparent',
+              color:year===y?'#fff':C.dim,
+              fontFamily:'inherit', fontSize:13, fontWeight:600, cursor:'pointer',
+            }}>{y}</button>
+          ))}
+          <button onClick={()=>setMode(m=>m==='all'?'gps':'all')} style={{
+            padding:'6px 12px', borderRadius:BR.pill, marginLeft:'auto',
+            border:`1.5px solid ${C.border}`,
+            background:mode==='all'?C.elevated:'transparent',
+            color:C.dim, fontFamily:'inherit', fontSize:12, fontWeight:600, cursor:'pointer',
+          }}>{mode==='all'?'✈ + flights':'📍 GPS only'}</button>
+        </div>
+
+        {isAdmin && sophiaId && (
+          <div style={{ padding:'8px 20px 12px', display:'flex', gap:8 }}>
+            {[['me','👤 Mine'],['sophia','👥 Sophia']].map(([k,l]) => (
+              <button key={k} onClick={()=>setTab(k)} style={{
+                flex:1, padding:'7px 18px', borderRadius:BR.pill,
+                border:`1.5px solid ${tab===k?C.rose:C.border}`,
+                background:tab===k?C.rose:'transparent',
+                color:tab===k?'#fff':C.dim,
+                fontFamily:'inherit', fontSize:14, fontWeight:600, cursor:'pointer',
+              }}>{l}</button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ padding:'4px 20px' }}>
+          {stats.countries.length === 0 ? (
+            <p style={{ color:C.muted, textAlign:'center', padding:'32px 0', fontSize:15 }}>
+              No location data for {year}.<br/>Enable GPS or add flights with airport details.
+            </p>
+          ) : stats.countries.map(({ cc, country_name, days, pct, sources }) => (
+            <div key={cc} style={{ marginBottom:14 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+                <span style={{ fontSize:24, lineHeight:1 }}>{countryFlag(cc)}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8 }}>
+                    <span style={{ fontSize:15, fontWeight:600, color:C.text, flex:1 }}>{country_name}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color:C.rose, whiteSpace:'nowrap' }}>
+                      {days}d · {pct}%
+                    </span>
+                  </div>
+                  <div style={{ marginTop:5, height:6, borderRadius:3, background:C.elevated, overflow:'hidden' }}>
+                    <div style={{ height:'100%', borderRadius:3, minWidth:4,
+                      width:pct+'%',
+                      background:`linear-gradient(90deg,${C.rose},${C.T})` }} />
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:2, flexShrink:0 }}>
+                  {[...sources].includes('gps')      && <span title="GPS verified"   style={{ fontSize:11, color:C.T }}>📍</span>}
+                  {[...sources].includes('flight')   && <span title="From flights"   style={{ fontSize:11, color:C.F }}>✈</span>}
+                  {[...sources].includes('inferred') && <span title="Estimated stay" style={{ fontSize:11, color:C.muted }}>~</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, marginTop:4,
+            fontSize:13, color:C.muted, textAlign:'center' }}>
+            {stats.totalKnown} of {stats.totalDays} days tracked in {year}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // ── Dark mode — active 9pm to 7am, checked every minute ──────
   // ── Theme mode: 'auto' | 'light' | 'dark' ────────────────────
@@ -7770,6 +8341,16 @@ export default function App() {
     return () => navigator.serviceWorker?.removeEventListener('message', handler);
   }, []);
   const [entries,      setEntries]      = useState([]);
+  const [userLocations,  setUserLocations]  = useState({});       // {userId: [{date,country_code,country_name,source}]}
+  const [showLocationSummary, setShowLocationSummary] = useState(false);
+  const [showCalFlags,   setShowCalFlags]   = useState(() => localStorage.getItem('kizuna_cal_flags') !== 'false');
+
+  // Listen for flag toggle events from CalendarTab
+  useEffect(() => {
+    const h = (e) => setShowCalFlags(e.detail);
+    window.addEventListener('kizuna_flags_toggle', h);
+    return () => window.removeEventListener('kizuna_flags_toggle', h);
+  }, []);
   const [auditLog,     setAuditLog]     = useState([]);
   const [showAdd,      setShowAdd]      = useState(false);
   const [addDate,      setAddDate]      = useState(null);  // pre-fill date when opening from calendar
@@ -7778,6 +8359,61 @@ export default function App() {
   const [flightSyncCount, setFlightSyncCount] = useState(0); // how many flights being synced
   const [workspace,       setWorkspace]       = useState(null); // {id, name, ownerId, role, members}
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
+
+  // ── Location tracking ─────────────────────────────────────────
+  // Load saved locations from Supabase — own rows always, plus workspace partner rows
+  const loadUserLocations = async (uid) => {
+    if (!supabaseConfigured || !uid) return;
+    // Fetch own rows (always works via RLS)
+    const { data: own } = await supabase.from('user_locations')
+      .select('user_id,date,country_code,country_name,source')
+      .eq('user_id', uid)
+      .order('date', { ascending: true });
+    // Fetch partner rows via workspace_member_locations view (or via service — see SQL)
+    // Partners' rows are exposed via the partner_locations RLS policy added in SQL
+    const { data: partner } = await supabase.from('user_locations')
+      .select('user_id,date,country_code,country_name,source')
+      .neq('user_id', uid)
+      .order('date', { ascending: true });
+    const all = [...(own || []), ...(partner || [])];
+    const grouped = {};
+    all.forEach(loc => {
+      if (!grouped[loc.user_id]) grouped[loc.user_id] = [];
+      grouped[loc.user_id].push(loc);
+    });
+    setUserLocations(grouped);
+  };
+
+  // GPS capture — once per day, non-blocking
+  const captureGpsLocation = async (uid) => {
+    if (!uid || !supabaseConfigured) return;
+    const today = fd(new Date());
+    const lastCapture = localStorage.getItem('kizuna_gps_date');
+    if (lastCapture === today) return;
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`,
+          { headers: { 'Accept-Language': 'en', 'User-Agent': 'Kizuna-App' } }
+        );
+        const json = await res.json();
+        const country_code = json.address?.country_code?.toUpperCase();
+        const country_name = json.address?.country;
+        if (!country_code) return;
+        await supabase.from('user_locations').upsert({
+          user_id: uid, date: today,
+          country_code, country_name, source: 'gps',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,date' });
+        localStorage.setItem('kizuna_gps_date', today);
+        setUserLocations(prev => {
+          const existing = (prev[uid] || []).filter(l => l.date !== today);
+          return { ...prev, [uid]: [...existing, { date:today, country_code, country_name, source:'gps' }] };
+        });
+      } catch (e) { /* silent — GPS is best-effort */ }
+    }, () => {}, { timeout:8000, maximumAge:3600000 });
+  };
 
   // ── Auth state ─────────────────────────────────────────────────
   const [user,        setUser]        = useState(null);
@@ -7878,6 +8514,8 @@ export default function App() {
         loadedEntries = await dbLoadEntries(user.id);
         setEntries(loadedEntries);
         setSyncStatus('synced');
+        loadUserLocations(user.id);
+        captureGpsLocation(user.id);
       } catch (err) {
         console.warn('entries load failed:', err.message);
         setSyncStatus('error');
@@ -8430,6 +9068,17 @@ export default function App() {
   return (
     <ThemeContext.Provider value={isDark ? C_DARK : C_LIGHT}>
 
+    {showLocationSummary && (
+      <LocationSummaryModal
+        onClose={() => setShowLocationSummary(false)}
+        userLocations={userLocations}
+        entries={entries}
+        currentUserId={user?.id}
+        isAdmin={isAdmin}
+        workspaceMembers={workspace?.members}
+      />
+    )}
+
     {/* ── Festive fireworks overlay (non-christmas only) ── */}
     {festiveTheme && festiveTheme !== 'christmas' && (
       <FestiveFireworks
@@ -8477,8 +9126,8 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} onLocationSummary={() => setShowLocationSummary(true)} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} showFlags={showCalFlags} locationMap={buildCalendarLocationMap(userLocations, expandedEntries, user?.id)} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} isAdmin={isAdmin} setFestiveTheme={setFestiveTheme} setFestiveVisible={setFestiveVisible} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} />}
