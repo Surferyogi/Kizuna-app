@@ -5658,9 +5658,23 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
 
   const STATUS_OPTS = [
     { k:'all',    l:'All Status' },
-    { k:'active', l:(typeF==='flight'?'Upcoming':typeF==='task'||typeF==='reminder'?'Active':'Upcoming/Active') },
-    { k:'done',   l:(typeF==='flight'?'Landed':typeF==='task'||typeF==='reminder'?'Completed':'Completed/Past') },
+    { k:'active', l:'active' },  // resolved dynamically in render
+    { k:'done',   l:'done'   },  // resolved dynamically in render
   ];
+
+  const statusLabel = (k) => {
+    if (k === 'active') {
+      if (typeF === 'flight') return 'Upcoming';
+      if (typeF === 'task' || typeF === 'reminder') return 'Active';
+      return 'Upcoming / Active';
+    }
+    if (k === 'done') {
+      if (typeF === 'flight') return 'Landed';
+      if (typeF === 'task' || typeF === 'reminder') return 'Completed';
+      return 'Completed / Past';
+    }
+    return 'All Status';
+  };
 
   const clearAll = () => { setWhenF('all'); setTypeF('all'); setStatusF('all'); setQ(''); };
   const hasFilter = whenF !== 'all' || typeF !== 'all' || statusF !== 'all' || q.trim().length > 0;
@@ -6048,6 +6062,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
               {STATUS_OPTS.map(opt => {
                 const isActive = statusF === opt.k;
                 const col = opt.k === 'done' ? C.T : opt.k === 'active' ? C.rose : C.muted;
+                const displayLabel = statusLabel(opt.k);
                 return (
                   <button key={opt.k} onClick={() => setStatusF(isActive ? 'all' : opt.k)}
                     style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
@@ -6061,7 +6076,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                       transition:'all 0.15s' }}>
                     {opt.k === 'active' && <span style={{ fontSize:13 }}>🔜</span>}
                     {opt.k === 'done'   && <span style={{ fontSize:13 }}>✅</span>}
-                    <span>{opt.l}</span>
+                    <span>{displayLabel}</span>
                   </button>
                 );
               })}
@@ -6104,7 +6119,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                 background: statusF === 'done' ? C.T : C.rose,
                 borderRadius:BR.pill, padding:'2px 10px', display:'flex',
                 alignItems:'center', gap:4 }}>
-                {statusF === 'done' ? '✅' : '🔜'} {STATUS_OPTS.find(x=>x.k===statusF)?.l}
+                {statusF === 'done' ? '✅' : '🔜'} {statusLabel(statusF)}
                 <button onClick={() => setStatusF('all')}
                   style={{ background:'transparent', border:'none', color:'#fff',
                     cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
