@@ -1032,24 +1032,37 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
             {e.type === 'flight' && (() => {
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
-              if (tvs.length === 0) return null;
-              // Resolve names: travellerNamesMap → WorkspaceContext → userName fallback
               const nmap = e.travellerNamesMap || {};
-              const names = tvs.map(t => {
+              const entryOwner = e.userId || e.user_id;
+
+              // Traveller names
+              const travellerNames = tvs.length > 0 ? tvs.map(t => {
                 if (t === 'other') return e.travellerName || 'Others';
                 if (nmap[t]) return nmap[t];
-                if (t === (e.userId||e.user_id)) return e.userName || 'Me';
-                // Fallback: look up in workspace members (for entries missing travellerNamesMap)
+                if (t === entryOwner) return e.userName || 'Me';
                 const wm = wsMembers.find(m => m.id === t);
-                if (wm?.name) return wm.name;
-                return ''; // filtered out below
-              }).filter(Boolean).join(', ');
-              return (
-                <span style={{ fontSize:13, color:C.F, background:C.F+'18',
-                  borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
-                  👤 {names}
-                </span>
-              );
+                return wm?.name || '';
+              }).filter(Boolean).join(', ') : null;
+
+              // Entered by — show only if owner is NOT already in the traveller list
+              const ownerInTravellers = tvs.includes(entryOwner) || tvs.length === 0;
+              const enteredBy = !ownerInTravellers ? (e.userName || null) : null;
+
+              return (<>
+                {travellerNames && (
+                  <span style={{ fontSize:13, color:C.F, background:C.F+'18',
+                    borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
+                    ✈ {travellerNames}
+                  </span>
+                )}
+                {enteredBy && (
+                  <span style={{ fontSize:12, color:C.muted, background:C.elevated,
+                    borderRadius:BR.pill, padding:'2px 8px', flexShrink:0,
+                    border:`1px solid ${C.border}` }}>
+                    ✍️ {enteredBy}
+                  </span>
+                )}
+              </>);
             })()}
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
@@ -1147,6 +1160,8 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               }).filter(Boolean).join(', ');
               return names ? ['Travellers', names] : null;
             })(),
+            // Who entered this flight (entry owner — may differ from traveller)
+            e.type==='flight' && e.userName && ['Entered by', e.userName],
             e.seat     && ['Seat',     e.seat],
             e.terminal && ['Terminal', e.terminal],
             e.gate     && ['Gate',     e.gate],
