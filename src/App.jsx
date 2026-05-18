@@ -1035,28 +1035,27 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               const nmap = e.travellerNamesMap || {};
               const entryOwner = e.userId || e.user_id;
 
-              // Traveller names
-              const travellerNames = tvs.length > 0 ? tvs.map(t => {
-                if (t === 'other') return e.travellerName || 'Others';
-                if (nmap[t]) return nmap[t];
-                if (t === entryOwner) return e.userName || 'Me';
-                const wm = wsMembers.find(m => m.id === t);
-                return wm?.name || '';
-              }).filter(Boolean).join(', ') : null;
+              // Traveller names — legacy entries (no traveller field): show entry owner
+              let travellerNames;
+              if (tvs.length > 0) {
+                travellerNames = tvs.map(t => {
+                  if (t === 'other') return e.travellerName || 'Others';
+                  if (nmap[t]) return nmap[t];
+                  if (t === entryOwner) return e.userName || 'Me';
+                  const wm = wsMembers.find(m => m.id === t);
+                  return wm?.name || '';
+                }).filter(Boolean).join(', ');
+              } else {
+                // Legacy: no traveller set — implicit owner is the traveller
+                travellerNames = e.userName || null;
+              }
 
-              // Entered by — only show when the entry owner is NOT in the traveller list
-              // i.e. someone entered a flight on behalf of others (PARENTS etc.)
-              const ownerInTravellers = tvs.length === 0 || tvs.includes(entryOwner);
-              const enteredBy = !ownerInTravellers ? (e.userName || null) : null;
-
-              return (<>
-                {travellerNames && (
-                  <span style={{ fontSize:13, color:C.F, background:C.F+'18',
-                    borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
-                    ✈ {travellerNames}
-                  </span>
-                )}
-              </>);
+              return travellerNames ? (
+                <span style={{ fontSize:13, color:C.F, background:C.F+'18',
+                  borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
+                  ✈ {travellerNames}
+                </span>
+              ) : null;
             })()}
             {e.tags      && <span style={{ fontSize:14, color:C.dim }}>🏷 {e.tags}</span>}
             {e.message   && <span style={{ fontSize:14, color:C.dim, fontStyle:'italic' }}>{e.message}</span>}
@@ -1143,22 +1142,31 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             e.depCity  && ['Route',    `${e.depCity} → ${e.arrCity||'?'}`],
             e.type==='flight' && (() => {
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
-              if (!tvs.length) return null;
               const nmap = e.travellerNamesMap||{};
-              const names = tvs.map(t => {
-                if (t === 'other') return e.travellerName || 'Others';
-                if (nmap[t]) return nmap[t];
-                if (t === (e.userId||e.user_id)) return e.userName || 'Me';
-                const wm = wsMembers.find(m => m.id === t);
-                return wm?.name || '';
-              }).filter(Boolean).join(', ');
+              const entryOwner = e.userId||e.user_id;
+              let names;
+              if (tvs.length > 0) {
+                names = tvs.map(t => {
+                  if (t === 'other') return e.travellerName || 'Others';
+                  if (nmap[t]) return nmap[t];
+                  if (t === entryOwner) return e.userName || 'Me';
+                  const wm = wsMembers.find(m => m.id === t);
+                  return wm?.name || '';
+                }).filter(Boolean).join(', ');
+              } else {
+                // Legacy entry: no traveller field — owner is the traveller
+                names = e.userName || null;
+              }
               return names ? ['Travellers', names] : null;
             })(),
-            // Who entered this flight — only show when owner is not one of the travellers
+            // Entered by — only when owner is NOT a traveller (e.g. logged on behalf of PARENTS)
             e.type==='flight' && e.userName && (() => {
               const tvs2 = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
-              const owner = e.userId || e.user_id;
-              return !tvs2.includes(owner) && tvs2.length > 0 ? ['Entered by', e.userName] : null;
+              const owner = e.userId||e.user_id;
+              // Legacy (tvs2 empty): owner IS the traveller — don't show Entered by
+              if (tvs2.length === 0) return null;
+              // Show only if owner not in travellers list
+              return !tvs2.includes(owner) ? ['Entered by', e.userName] : null;
             })(),
             e.seat     && ['Seat',     e.seat],
             e.terminal && ['Terminal', e.terminal],
