@@ -5702,33 +5702,39 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
     // ── STATUS filter ─────────────────────────────────────────────
     if (statusF === 'active') {
       r = r.filter(e => {
-        if (e.type === 'task' || e.type === 'reminder') return !e.done && !e.cancelled;
-        if (e.type === 'flight') return e.date >= todayStr;
+        if (e.cancelled) return false; // cancelled items are never "active"
+        if (e.type === 'task' || e.type === 'reminder') return !e.done;
+        if (e.type === 'flight')  return e.date >= todayStr;
         if (e.type === 'event' || e.type === 'meeting') return e.date >= todayStr;
+        if (e.type === 'birthday') return true; // birthdays always active (recurring)
         return true;
       });
     } else if (statusF === 'done') {
       r = r.filter(e => {
-        if (e.type === 'task' || e.type === 'reminder') return !!e.done && !e.cancelled;
-        if (e.type === 'flight') return e.date < todayStr;
-        if (e.type === 'event' || e.type === 'meeting') return e.date < todayStr;
-        return false; // birthdays have no done state
+        if (e.cancelled) return false; // cancelled ≠ completed
+        if (e.type === 'task' || e.type === 'reminder') return !!e.done;
+        if (e.type === 'flight')  return e.date <= todayStr;
+        if (e.type === 'event' || e.type === 'meeting') return e.date <= todayStr;
+        return false; // birthdays have no done/past state
       });
     }
 
     // ── WHEN filter ───────────────────────────────────────────────
     if (whenF !== 'all') {
       r = r.filter(e => {
-        // For tasks/reminders with no date — only show in 'all' or when they're done (use doneAt)
-        const dateStr = e.type === 'task' || e.type === 'reminder'
-          ? (e.done && e.doneAt ? e.doneAt.slice(0,10) : e.date || null)
-          : e.date;
-        if (!dateStr) return whenF === 'all';
+        // Tasks/reminders: use doneAt for completed, date for active, null if undated
+        let dateStr;
+        if (e.type === 'task' || e.type === 'reminder') {
+          dateStr = e.done && e.doneAt ? e.doneAt.slice(0,10) : (e.date || null);
+        } else {
+          dateStr = e.date || null;
+        }
+        if (!dateStr) return false; // no date = exclude from time-scoped views
         if (whenF === 'today')  return dateStr === todayStr;
         if (whenF === 'week')   return dateStr >= todayStr && dateStr <= weekEnd;
         if (whenF === 'month')  return dateStr >= todayStr && dateStr <= monthEnd;
         if (whenF === 'future') return dateStr > monthEnd;
-        return true;
+        return false; // unknown whenF key = exclude
       });
     }
 
