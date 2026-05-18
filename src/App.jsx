@@ -916,9 +916,11 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
       [['physio','physiotherapy','rehab','therapy'],'🏋️'],
       [['eye','optom','vision test'],'🤓'],
       // Appearance
+      [['lash','lashes','eyelash','lash lift','lash extension'],'👱‍♀️'],
       [['hair','haircut','salon','barber','blowout','colour','tint','perm'],'💈'],
       [['glasses','spectacles','optical','lens','contact','shades','sunglasses'],'🤓'],
       [['nails','manicure','pedicure'],'💅'],
+      [['blood','bleed','haemoglobin','platelet','transfusion','donate blood','blood test','blood draw'],'⛑️'],
       // Work & business
       [['call','phone','ring','dial'],'📞'],
       [['meeting','appt','appointment','catchup','catch up','catch-up','sync','standup','1-on-1','check in'],'👥'],
@@ -935,7 +937,7 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
       [['visa','passport','immigration','customs','permit'],'🛂'],
       [['tax','iras','cpf','gst','filing'],'🧾'],
       [['insurance','policy','coverage','premium'],'📄'],
-      [['pay','payment','bill','invoice','transfer','fee'],'💳'],
+      [['pay','payment','bill','invoice','transfer','fee','wallet','bank','money','cash','atm','withdraw','deposit','fund'],'💰'],
       // Creative & building
       [['build','construct','install','set up','setup'],'👷'],
       [['create','design','make','craft','build','develop'],'👷‍♀️'],
@@ -946,10 +948,12 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
       [['collect','collection','pick up','pickup','fetch','receive','retrieve'],'🙌'],
       [['drop','deliver','send over','hand over'],'📦'],
       // Personal & family
-      [['birthday','bday','party','celebrate','celebration'],'🎂'],
+      [['birthday','bday'],'🎂'],
+      [['party','celebrate','celebration','anniversary'],'🎉'],
       [['wedding','anniversary','engagement'],'💍'],
       [['school','class','lesson','tuition','exam','test','quiz','study'],'📚'],
-      [['shopping','buy','purchase','market','mall'],'🛍️'],
+      [['market','wet market','pasar','bazaar','hawker','fishmonger'],'🐟'],
+      [['shopping','buy','purchase','mall'],'🛍️'],
       [['movie','cinema','film','show','theatre','theater','concert','gig','performance'],'🎭'],
       [['museum','gallery','exhibition','heritage'],'🖼️'],
       [['prayer','church','mosque','temple','worship','mass','service'],'🙏'],
@@ -993,13 +997,13 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
     })
       .then(r => r.json())
       .then(d => {
-        const emoji = d?.content?.[0]?.text?.trim() || '📌';
+        const emoji = d?.content?.[0]?.text?.trim() || '🔸';
         // Basic validation — should be 1-2 chars (emoji)
-        const clean = emoji.length <= 4 ? emoji : '📌';
+        const clean = emoji.length <= 4 ? emoji : '🔸';
         localStorage.setItem(cacheKey, clean);
         setAiIcon(clean);
       })
-      .catch(() => { setAiIcon('📌'); });
+      .catch(() => { setAiIcon('🔸'); });
     return () => ctrl.abort();
   }, [e.title, actIcon]);
 
