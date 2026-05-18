@@ -5587,6 +5587,15 @@ const QUICK_FILTERS = (() => {
       f: e => e.type === 'birthday' && e.date >= todayStr() },
     { k:'pending',  l:'Pending Tasks',      icon:'✓',  impliedType:'task',    isStatus:false,
       f: e => e.type === 'task' && !e.done && !e.cancelled },
+    // ── History filters ────────────────────────────────────────────────────
+    { k:'done-tasks',     l:'Completed Tasks',    icon:'✅', impliedType:'task',    isStatus:true,
+      f: e => e.type === 'task' && !!e.done && !e.cancelled },
+    { k:'done-reminders', l:'Completed Reminders',icon:'🔔', impliedType:'reminder',isStatus:true,
+      f: e => e.type === 'reminder' && !!e.done && !e.cancelled },
+    { k:'landed',         l:'Landed Flights',     icon:'🛬', impliedType:'flight',  isStatus:true,
+      f: e => e.type === 'flight' && e.date < todayStr() },
+    { k:'past-events',    l:'Past Events',        icon:'📋', impliedType:'event',   isStatus:true,
+      f: e => (e.type === 'event' || e.type === 'meeting') && e.date < todayStr() },
   ];
 })();
 
@@ -5952,17 +5961,16 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
         </div>
 
         {showFilters && (<>
-          {/* ── ROW 1: Time / Preset Filters ────────────────── */}
+          {/* ── ROW 1: Upcoming / Active Filters ─────────── */}
           <div style={{ padding:'0 16px 6px' }}>
             <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
               textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              When
+              Upcoming
             </p>
             <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
-              {QUICK_FILTERS.map(qf => {
+              {QUICK_FILTERS.filter(qf => !qf.isStatus).map(qf => {
                 const isActive = quickF === qf.k;
                 const isTimeScope = TIME_SCOPE_KEYS.has(qf.k);
-                // Blur other time-scope presets when one is active
                 const isDimmed = !isActive && isTimeScope && quickF && TIME_SCOPE_KEYS.has(quickF);
                 return (
                   <button key={qf.k} onClick={() => handleQuickF(qf.k)}
@@ -5988,7 +5996,35 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
               })}
             </div>
           </div>
-
+          {/* ── ROW 1b: History Filters ───────────────────── */}
+          <div style={{ padding:'0 16px 6px' }}>
+            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.1em' }}>
+              History
+            </p>
+            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
+              {QUICK_FILTERS.filter(qf => qf.isStatus).map(qf => {
+                const isActive = quickF === qf.k;
+                return (
+                  <button key={qf.k} onClick={() => handleQuickF(qf.k)}
+                    style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
+                      background: isActive
+                        ? `linear-gradient(135deg,${C.T},${C.F})`
+                        : C.elevated,
+                      border:`1.5px solid ${isActive ? C.T : C.border}`,
+                      color: isActive ? '#fff' : C.dim,
+                      borderRadius:BR.card, padding:'7px 13px',
+                      fontSize:13, fontWeight: isActive ? 700 : 500,
+                      cursor:'pointer', whiteSpace:'nowrap',
+                      boxShadow: isActive ? `0 3px 12px ${C.T}40` : 'none',
+                      transition:'all 0.15s' }}>
+                    <span style={{ fontSize:14 }}>{qf.icon}</span>
+                    <span>{qf.l}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {/* ── ROW 2: Type Filters ──────────────────────────── */}
           <div style={{ padding:'6px 16px 12px' }}>
             <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
