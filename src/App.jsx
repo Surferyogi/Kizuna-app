@@ -1044,23 +1044,16 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
                 return wm?.name || '';
               }).filter(Boolean).join(', ') : null;
 
-              // Entered by — show when owner is NOT in traveller list
-              // OR when viewer is not the owner (so they know who logged it)
-              const ownerInTravellers = tvs.includes(entryOwner) || tvs.length === 0;
-              const enteredBy = (!ownerInTravellers || !isOwn) ? (e.userName || null) : null;
+              // Entered by — only show when the entry owner is NOT in the traveller list
+              // i.e. someone entered a flight on behalf of others (PARENTS etc.)
+              const ownerInTravellers = tvs.length === 0 || tvs.includes(entryOwner);
+              const enteredBy = !ownerInTravellers ? (e.userName || null) : null;
 
               return (<>
                 {travellerNames && (
                   <span style={{ fontSize:13, color:C.F, background:C.F+'18',
                     borderRadius:BR.pill, padding:'2px 9px', flexShrink:0 }}>
                     ✈ {travellerNames}
-                  </span>
-                )}
-                {enteredBy && (
-                  <span style={{ fontSize:12, color:C.muted, background:C.elevated,
-                    borderRadius:BR.pill, padding:'2px 8px', flexShrink:0,
-                    border:`1px solid ${C.border}` }}>
-                    ✍️ {enteredBy}
                   </span>
                 )}
               </>);
