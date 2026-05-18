@@ -5699,27 +5699,34 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
       }
     }
 
-    // ── STATUS filter ─────────────────────────────────────────────
+    // ── STATUS filter — mirrors ECard strikethrough logic exactly ────────────
+    const nowMs = Date.now();
+    // isVisuallyDone: returns true if the entry appears struck-out in the UI
+    const isVisuallyDone = (e) => {
+      if (e.cancelled) return false; // cancelled is its own state
+      if (e.done) return true;
+      const t = e.type;
+      if (t === 'flight') {
+        if (!e.date) return false;
+        if (e.endTime) return new Date(`${e.date}T${e.endTime}`).getTime() < nowMs;
+        const dep = e.time ? new Date(`${e.date}T${e.time}`).getTime() : new Date(`${e.date}T23:59`).getTime();
+        return dep + (8 * 3600000) < nowMs;
+      }
+      // events, meetings, tasks, reminders — past due date+time
+      if (!e.date) return false;
+      const dt = e.time ? new Date(`${e.date}T${e.time}`) : new Date(`${e.date}T23:59`);
+      return dt.getTime() < nowMs;
+    };
+
     if (statusF === 'active') {
       r = r.filter(e => {
         if (e.cancelled) return false;
-        if (e.done) return false; // explicitly marked done = never active
-        const t = e.type;
-        if (t === 'task' || t === 'reminder') return true; // !done already checked
-        if (t === 'flight' || t === 'event' || t === 'meeting') return (e.date||'') >= todayStr;
-        if (t === 'birthday') return true;
-        return true;
+        return !isVisuallyDone(e);
       });
     } else if (statusF === 'done') {
       r = r.filter(e => {
         if (e.cancelled) return false;
-        const t = e.type;
-        if (t === 'task' || t === 'reminder') return !!e.done;
-        // flights/events: STRICTLY past date (not today) OR explicitly marked done
-        if (t === 'flight' || t === 'event' || t === 'meeting') {
-          return !!e.done || (e.date||'') < todayStr;
-        }
-        return false; // birthdays have no done/past state
+        return isVisuallyDone(e);
       });
     }
 
