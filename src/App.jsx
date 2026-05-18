@@ -4326,122 +4326,193 @@ function OtsukimiBackground() {
   );
 }
 
-// ─── CHRISTMAS — falling snow + Christmas tree with blinking lights ────────────
+// ─── CHRISTMAS — winter night sky: blinking stars, north star, shooting stars ──
 function ChristmasBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let VW = window.innerWidth, VH = window.innerHeight;
-    let ctx;
+    let W = window.innerWidth, H = window.innerHeight;
+    let ctx, T = 0, lastNow = null, animId;
+    const hash = n => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
+
     const setup = () => {
-      canvas.width  = Math.round(VW * dpr);
-      canvas.height = Math.round(VH * dpr);
-      canvas.style.width  = VW + 'px';
-      canvas.style.height = VH + 'px';
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width  = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
       ctx = canvas.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     setup();
-    const mkTree = () => ({
-      tw: Math.min(VW * 0.32, 140), th: Math.min(VH * 0.58, 420),
-      tx: Math.min(VW * 0.32, 140) * 0.48, ty: VH,
+
+    // ── Stars (blinking) ────────────────────────────────────────────────────
+    const STARS = Array.from({ length: 280 }, (_, i) => ({
+      x:        hash(i * 13.7) * W,
+      y:        hash(i * 7.31) * H * 0.92,
+      r:        0.15 + hash(i * 19.3) * 1.1,
+      hz:       0.3 + hash(i * 3.77) * 2.2,
+      phase:    hash(i * 5.53) * Math.PI * 2,
+      minAlpha: 0.15 + hash(i * 11.9) * 0.45,
+      // Some stars twinkle faster for sparkle effect
+      sparkle:  hash(i * 23.1) > 0.85,
+    }));
+
+    // ── North Star ──────────────────────────────────────────────────────────
+    const NS = {
+      x: W * 0.50, y: H * 0.08,
+      r: 4.5,
+      rays: 8,
+      rayLen: 22,
+    };
+
+    // ── Shooting stars ──────────────────────────────────────────────────────
+    const MAX_SHOOTS = 3;
+    const shoots = [];
+    const spawnShoot = () => ({
+      x:     hash(Math.random() * 99991) * W * 1.2 - W * 0.1,
+      y:     hash(Math.random() * 77771) * H * 0.5,
+      len:   80 + hash(Math.random() * 55551) * 120,
+      speed: 380 + hash(Math.random() * 33331) * 280,
+      angle: 0.35 + hash(Math.random() * 11111) * 0.25, // steep diagonal
+      alpha: 1,
+      fade:  0.88 + hash(Math.random() * 22221) * 0.08,
+      delay: hash(Math.random() * 44441) * 4.0, // stagger
+      active: false,
     });
-    let T = mkTree();
-    const drawTree = () => {
-      const { tw, th, tx, ty } = T;
-      [[tw*0.22,ty-th,th*0.28],[tw*0.55,ty-th*0.74,th*0.35],[tw*0.90,ty-th*0.42,th*0.42]].forEach(([w,y,h]) => {
-        ctx.beginPath(); ctx.moveTo(tx,y); ctx.lineTo(tx-w,y+h); ctx.lineTo(tx+w,y+h); ctx.closePath();
-        const tg = ctx.createLinearGradient(tx,y,tx,y+h);
-        tg.addColorStop(0,'#1a5c1a'); tg.addColorStop(0.5,'#1e7a1e'); tg.addColorStop(1,'#14491a');
-        ctx.fillStyle=tg; ctx.fill(); ctx.strokeStyle='#0a2a0a'; ctx.lineWidth=1.0; ctx.stroke();
-      });
-      ctx.fillStyle='#5c3317'; ctx.fillRect(tx-tw*0.05,ty-th*0.09,tw*0.10,th*0.09);
-      const sR=tw*0.11; ctx.save(); ctx.translate(tx,ty-th-8); ctx.beginPath();
-      for(let i=0;i<10;i++){const a=(i*Math.PI/5)-Math.PI/2,r=i%2===0?sR:sR*0.42;
-        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
-      ctx.closePath();
-      const sg=ctx.createRadialGradient(0,0,0,0,0,sR);
-      sg.addColorStop(0,'#fffff0');sg.addColorStop(0.5,'#FFD700');sg.addColorStop(1,'#FFA500');
-      ctx.fillStyle=sg;ctx.fill();ctx.restore();
-    };
-    const drawSnowOnTree = () => {
-      const {tw,th,tx,ty}=T;
-      [[tw*0.22,ty-th,th*0.28],[tw*0.55,ty-th*0.74,th*0.35],[tw*0.90,ty-th*0.42,th*0.42]].forEach(([w,y,h])=>{
-        const cH=h*0.12; ctx.beginPath(); ctx.moveTo(tx,y);
-        ctx.lineTo(tx-w*0.7,y+cH*0.8);
-        ctx.bezierCurveTo(tx-w*0.85,y+cH*1.1,tx-w*0.4,y+cH*1.3,tx,y+cH*1.1);
-        ctx.bezierCurveTo(tx+w*0.4,y+cH*1.3,tx+w*0.85,y+cH*1.1,tx+w*0.7,y+cH*0.8);
-        ctx.closePath(); ctx.fillStyle='rgba(235,248,255,0.92)'; ctx.fill();
-      });
-    };
-    const LCOLS=['#FF0000','#00CC00','#FFD700','#0088FF','#FF69B4','#FF8C00','#FFFFFF'];
-    const mkLights=()=>{ const {tw,th,tx,ty}=T,lights=[];
-      for(let row=0;row<14;row++){
-        const frac=(row+1)/14,rowY=ty-th*(1-frac*0.92),rowW=tw*(0.15+frac*0.78),nL=Math.floor(3+frac*6);
-        for(let i=0;i<nL;i++){
-          const xOff=((i/(nL-1||1))-0.5)*2*rowW*0.88;
-          lights.push({x:tx+xOff,y:rowY+(Math.random()-0.5)*(th/14)*0.5,
-            r:2.2+Math.random()*2.0,col:LCOLS[Math.floor(Math.random()*LCOLS.length)],
-            phase:Math.random()*Math.PI*2,speed:0.020+Math.random()*0.060});
+    // Initial set staggered
+    for (let i = 0; i < MAX_SHOOTS; i++) {
+      const s = spawnShoot();
+      s.delay = i * 1.8 + hash(i * 31.1) * 2.0;
+      shoots.push(s);
+    }
+
+    // ── Frame loop ──────────────────────────────────────────────────────────
+    const frame = now => {
+      const dt = lastNow ? Math.min(now - lastNow, 50) / 1000 : 0.016;
+      lastNow = now;
+      T += dt;
+
+      // Sky gradient — deep navy/indigo winter night
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0,    '#01040b');
+      sky.addColorStop(0.30, '#02091a');
+      sky.addColorStop(0.65, '#04102a');
+      sky.addColorStop(1,    '#060b18');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // ── Blinking stars ──────────────────────────────────────────────────
+      for (const s of STARS) {
+        const hz = s.sparkle ? s.hz * 2.5 : s.hz;
+        const a  = s.minAlpha + (1 - s.minAlpha) * 0.5 * (1 + Math.sin(T * hz + s.phase));
+        ctx.globalAlpha = a;
+        // Sparkle stars get a tiny cross shape
+        if (s.sparkle && a > 0.7) {
+          ctx.strokeStyle = '#fffef5';
+          ctx.lineWidth   = 0.5;
+          ctx.globalAlpha = a * 0.6;
+          ctx.beginPath(); ctx.moveTo(s.x - s.r * 2.5, s.y); ctx.lineTo(s.x + s.r * 2.5, s.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(s.x, s.y - s.r * 2.5); ctx.lineTo(s.x, s.y + s.r * 2.5); ctx.stroke();
         }
-      } return lights; };
-    let lights=mkLights();
-    const drawLights=(t)=>{
-      for(const l of lights){
-        const blink=0.30+0.70*((Math.sin(l.phase+t*l.speed)+1)/2);
-        if(blink<0.08) continue;
-        const h=Math.round(blink*200).toString(16).padStart(2,'0');
-        const gw=ctx.createRadialGradient(l.x,l.y,0,l.x,l.y,l.r*5);
-        gw.addColorStop(0,l.col+h);gw.addColorStop(0.5,l.col+'44');gw.addColorStop(1,l.col+'00');
-        ctx.beginPath();ctx.arc(l.x,l.y,l.r*5,0,Math.PI*2);ctx.fillStyle=gw;ctx.fill();
-        ctx.beginPath();ctx.arc(l.x,l.y,l.r*blink,0,Math.PI*2);
-        ctx.fillStyle='rgba(255,255,255,'+(blink*0.85)+')';ctx.fill();
-        ctx.beginPath();ctx.arc(l.x,l.y,l.r*0.55*blink,0,Math.PI*2);
-        ctx.fillStyle=l.col;ctx.fill();
+        ctx.globalAlpha = a;
+        ctx.fillStyle   = '#fffef5';
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
       }
-    };
-    let windX=0,windTarget=0.2,windTimer=0;
-    const mkSnow=()=>({x:Math.random()*VW,y:-8-Math.random()*VH*0.4,
-      r:0.8+Math.random()*3.5,vy:0.5+Math.random()*1.4,vx:(Math.random()-0.5)*0.6,
-      sph:Math.random()*Math.PI*2,sfq:0.016+Math.random()*0.022,
-      samp:0.18+Math.random()*0.28,op:0.55+Math.random()*0.40});
-    const SNOW=Array.from({length:90},mkSnow);
-    SNOW.forEach((s,i)=>{s.y=-s.r+(i/90)*VH*0.95;});
-    const onResize=()=>{VW=window.innerWidth;VH=window.innerHeight;setup();T=mkTree();lights=mkLights();};
-    window.addEventListener('resize',onResize);
-    let animId,lastT=null,elapsed=0;
-    const frame=now=>{
-      const dt=lastT?Math.min(now-lastT,50):16;lastT=now;elapsed+=dt;const ds=dt/16;
-      ctx.clearRect(0,0,VW,VH);
-      windTimer+=dt;
-      if(windTimer>4000+Math.random()*5000){windTarget=(Math.random()-0.4)*1.2;windTimer=0;}
-      windX+=(windTarget-windX)*0.010*ds;
-      drawTree();drawSnowOnTree();drawLights(elapsed*0.001);
-      const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
-      for(const s of SNOW){
-        s.sph+=s.sfq*ds;s.vx+=Math.sin(s.sph)*s.samp*0.012*ds;
-        s.vx+=windX*0.018*ds;s.vx*=0.98;s.vy+=0.020*ds;
-        if(s.vy>3.0)s.vy=3.0;s.x+=s.vx*ds;s.y+=s.vy*ds;
-        if(s.y>VH+10||s.x<-40||s.x>VW+40)Object.assign(s,mkSnow());
-        const sc=isDark?'rgba(255,255,255,'+s.op+')':'rgba(60,80,120,'+(s.op*0.8)+')';
-        const sc2=isDark?'rgba(220,235,255,'+(s.op*0.5)+')':'rgba(80,100,140,'+(s.op*0.4)+')';
-        const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*1.8);
-        g.addColorStop(0,sc);g.addColorStop(0.5,sc2);g.addColorStop(1,'rgba(180,200,240,0)');
-        ctx.beginPath();ctx.arc(s.x,s.y,s.r*1.8,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // ── North Star ──────────────────────────────────────────────────────
+      const nsPulse = 1 + 0.12 * Math.sin(T * 1.4);
+      const nsR = NS.r * nsPulse;
+      // Outer glow
+      const nsGlow = ctx.createRadialGradient(NS.x, NS.y, 0, NS.x, NS.y, nsR * 8);
+      nsGlow.addColorStop(0,   'rgba(200,220,255,0.55)');
+      nsGlow.addColorStop(0.3, 'rgba(180,210,255,0.18)');
+      nsGlow.addColorStop(1,   'rgba(180,210,255,0)');
+      ctx.fillStyle = nsGlow;
+      ctx.beginPath(); ctx.arc(NS.x, NS.y, nsR * 8, 0, Math.PI * 2); ctx.fill();
+      // Rays (8-pointed star shape)
+      ctx.save();
+      ctx.translate(NS.x, NS.y);
+      ctx.strokeStyle = 'rgba(220,235,255,0.90)';
+      ctx.lineCap     = 'round';
+      for (let r = 0; r < NS.rays; r++) {
+        const a    = (r / NS.rays) * Math.PI * 2 + T * 0.18;
+        const rLen = (r % 2 === 0 ? NS.rayLen : NS.rayLen * 0.48) * nsPulse;
+        ctx.lineWidth   = r % 2 === 0 ? 1.2 : 0.7;
+        ctx.globalAlpha = r % 2 === 0 ? 0.90 : 0.55;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * rLen, Math.sin(a) * rLen);
+        ctx.stroke();
       }
-      ctx.globalAlpha=1;animId=requestAnimationFrame(frame);
+      ctx.globalAlpha = 1;
+      // Core disc
+      const nsCore = ctx.createRadialGradient(NS.x * 0, NS.y * 0, 0, 0, 0, nsR * 2);
+      nsCore.addColorStop(0,   '#ffffff');
+      nsCore.addColorStop(0.4, '#e8f0ff');
+      nsCore.addColorStop(1,   'rgba(200,220,255,0)');
+      ctx.fillStyle = nsCore;
+      ctx.beginPath(); ctx.arc(0, 0, nsR * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // ── Shooting stars ──────────────────────────────────────────────────
+      for (const s of shoots) {
+        s.delay -= dt;
+        if (s.delay > 0) continue;
+        if (!s.active) s.active = true;
+
+        s.x += Math.cos(s.angle) * s.speed * dt;
+        s.y += Math.sin(s.angle) * s.speed * dt;
+        s.alpha *= Math.pow(s.fade, dt * 60);
+
+        if (s.alpha > 0.02 && s.x < W + 100 && s.y < H + 100) {
+          const tx = s.x - Math.cos(s.angle) * s.len * s.alpha;
+          const ty = s.y - Math.sin(s.angle) * s.len * s.alpha;
+          const grad = ctx.createLinearGradient(tx, ty, s.x, s.y);
+          grad.addColorStop(0,   'rgba(255,255,255,0)');
+          grad.addColorStop(0.6, `rgba(200,220,255,${s.alpha * 0.6})`);
+          grad.addColorStop(1,   `rgba(255,255,255,${s.alpha})`);
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(s.x, s.y);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth   = 1.5;
+          ctx.lineCap     = 'round';
+          ctx.stroke();
+        } else {
+          // Respawn
+          const ns = spawnShoot();
+          ns.delay  = 1.2 + hash(T * 37.3) * 3.5;
+          Object.assign(s, ns);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      animId = requestAnimationFrame(frame);
     };
-    animId=requestAnimationFrame(frame);
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',onResize);};
-  },[]);
-  return <canvas ref={canvasRef} style={{
-    position:'fixed',top:0,left:0,width:'100vw',height:'100vh',
-    pointerEvents:'none',zIndex:0,background:'transparent',
-  }} />;
+
+    const onResize = () => {
+      setup();
+      // Respread stars on resize
+      STARS.forEach((s, i) => { s.x = hash(i * 13.7) * W; s.y = hash(i * 7.31) * H * 0.92; });
+    };
+    window.addEventListener('resize', onResize);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{
+      position:'fixed', top:0, left:0,
+      width:'100vw', height:'100vh',
+      pointerEvents:'none', zIndex:0,
+      background:'transparent',
+    }} />
+  );
 }
 
-// ─── BIRTHDAY BACKGROUND — balloons, confetti, sparkles ──────────────────────
+
 function BirthdayBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -5242,6 +5313,73 @@ const PUBLIC_HOLIDAYS = [
   {date:'2035-11-03',name:'Culture Day',country:'JP'},{date:'2035-11-07',name:'Deepavali',country:'SG'},
   {date:'2035-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2035-12-21',name:'Hari Raya Puasa',country:'SG'},
   {date:'2035-12-25',name:'Christmas Day',country:'SG'},
+
+  // France — Jours fériés 2026–2030
+  // Fixed public holidays (same date every year)
+  {date:'2026-01-01',name:"Jour de l'An",country:'FR'},
+  {date:'2026-05-01',name:'Fête du Travail',country:'FR'},
+  {date:'2026-05-08',name:'Victoire 1945',country:'FR'},
+  {date:'2026-07-14',name:'Fête Nationale',country:'FR'},
+  {date:'2026-08-15',name:'Assomption',country:'FR'},
+  {date:'2026-11-01',name:'Toussaint',country:'FR'},
+  {date:'2026-11-11',name:'Armistice',country:'FR'},
+  {date:'2026-12-25',name:'Noël',country:'FR'},
+  // Variable 2026 (Easter Apr 5)
+  {date:'2026-04-06',name:'Lundi de Pâques',country:'FR'},
+  {date:'2026-05-14',name:'Ascension',country:'FR'},
+  {date:'2026-05-25',name:'Lundi de Pentecôte',country:'FR'},
+  // 2027
+  {date:'2027-01-01',name:"Jour de l'An",country:'FR'},
+  {date:'2027-05-01',name:'Fête du Travail',country:'FR'},
+  {date:'2027-05-08',name:'Victoire 1945',country:'FR'},
+  {date:'2027-07-14',name:'Fête Nationale',country:'FR'},
+  {date:'2027-08-15',name:'Assomption',country:'FR'},
+  {date:'2027-11-01',name:'Toussaint',country:'FR'},
+  {date:'2027-11-11',name:'Armistice',country:'FR'},
+  {date:'2027-12-25',name:'Noël',country:'FR'},
+  // Variable 2027 (Easter Mar 28)
+  {date:'2027-03-29',name:'Lundi de Pâques',country:'FR'},
+  {date:'2027-05-06',name:'Ascension',country:'FR'},
+  {date:'2027-05-17',name:'Lundi de Pentecôte',country:'FR'},
+  // 2028
+  {date:'2028-01-01',name:"Jour de l'An",country:'FR'},
+  {date:'2028-05-01',name:'Fête du Travail',country:'FR'},
+  {date:'2028-05-08',name:'Victoire 1945',country:'FR'},
+  {date:'2028-07-14',name:'Fête Nationale',country:'FR'},
+  {date:'2028-08-15',name:'Assomption',country:'FR'},
+  {date:'2028-11-01',name:'Toussaint',country:'FR'},
+  {date:'2028-11-11',name:'Armistice',country:'FR'},
+  {date:'2028-12-25',name:'Noël',country:'FR'},
+  // Variable 2028 (Easter Apr 16)
+  {date:'2028-04-17',name:'Lundi de Pâques',country:'FR'},
+  {date:'2028-05-25',name:'Ascension',country:'FR'},
+  {date:'2028-06-05',name:'Lundi de Pentecôte',country:'FR'},
+  // 2029
+  {date:'2029-01-01',name:"Jour de l'An",country:'FR'},
+  {date:'2029-05-01',name:'Fête du Travail',country:'FR'},
+  {date:'2029-05-08',name:'Victoire 1945',country:'FR'},
+  {date:'2029-07-14',name:'Fête Nationale',country:'FR'},
+  {date:'2029-08-15',name:'Assomption',country:'FR'},
+  {date:'2029-11-01',name:'Toussaint',country:'FR'},
+  {date:'2029-11-11',name:'Armistice',country:'FR'},
+  {date:'2029-12-25',name:'Noël',country:'FR'},
+  // Variable 2029 (Easter Apr 1)
+  {date:'2029-04-02',name:'Lundi de Pâques',country:'FR'},
+  {date:'2029-05-10',name:'Ascension',country:'FR'},
+  {date:'2029-05-21',name:'Lundi de Pentecôte',country:'FR'},
+  // 2030
+  {date:'2030-01-01',name:"Jour de l'An",country:'FR'},
+  {date:'2030-05-01',name:'Fête du Travail',country:'FR'},
+  {date:'2030-05-08',name:'Victoire 1945',country:'FR'},
+  {date:'2030-07-14',name:'Fête Nationale',country:'FR'},
+  {date:'2030-08-15',name:'Assomption',country:'FR'},
+  {date:'2030-11-01',name:'Toussaint',country:'FR'},
+  {date:'2030-11-11',name:'Armistice',country:'FR'},
+  {date:'2030-12-25',name:'Noël',country:'FR'},
+  // Variable 2030 (Easter Apr 21)
+  {date:'2030-04-22',name:'Lundi de Pâques',country:'FR'},
+  {date:'2030-05-30',name:'Ascension',country:'FR'},
+  {date:'2030-06-10',name:'Lundi de Pentecôte',country:'FR'},
 ];
 
 // Fast lookup by date
@@ -8533,12 +8671,15 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
               fontFamily:'inherit', fontSize:13, fontWeight:600, cursor:'pointer',
             }}>{y}</button>
           ))}
-          <button onClick={()=>setMode(m=>m==='all'?'gps':'all')} style={{
-            padding:'6px 12px', borderRadius:BR.pill, marginLeft:'auto',
-            border:`1.5px solid ${C.border}`,
-            background:mode==='all'?C.elevated:'transparent',
-            color:C.dim, fontFamily:'inherit', fontSize:12, fontWeight:600, cursor:'pointer',
-          }}>{mode==='all'?'✈ + flights':'📍 GPS only'}</button>
+          {/* GPS/All toggle — only meaningful for own profile tabs, not Others */}
+          {!isOtherTab && (
+            <button onClick={()=>setMode(m=>m==='all'?'gps':'all')} style={{
+              padding:'6px 12px', borderRadius:BR.pill, marginLeft:'auto',
+              border:`1.5px solid ${C.border}`,
+              background:mode==='all'?C.elevated:'transparent',
+              color:C.dim, fontFamily:'inherit', fontSize:12, fontWeight:600, cursor:'pointer',
+            }}>{mode==='all'?'✈ + flights':'📍 GPS only'}</button>
+          )}
         </div>
 
         {allTabs.length > 1 && (
