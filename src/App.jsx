@@ -5649,11 +5649,14 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
 
   // ── WHEN / TYPE / STATUS filter options ──────────────────────
   const WHEN_OPTS = [
-    { k:'all',    l:'All Time',          icon:'◎' },
-    { k:'today',  l:'Today',             icon:'📅' },
-    { k:'week',   l:'This Week',         icon:'🗓' },
-    { k:'month',  l:'This Month',        icon:'📆' },
-    { k:'future', l:'After This Month',  icon:'🔭' },
+    { k:'all',         l:'All Time',           icon:'◎' },
+    { k:'today',       l:'Today',              icon:'📅' },
+    { k:'week',        l:'This Week',          icon:'🗓' },
+    { k:'month',       l:'This Month',         icon:'📆' },
+    { k:'future',      l:'After This Month',   icon:'🔭' },
+    { k:'last-week',   l:'Last Week',          icon:'⏮' },
+    { k:'last-month',  l:'Last Month',         icon:'📂' },
+    { k:'older',       l:'Before Last Month',  icon:'🗃' },
   ];
 
   const STATUS_OPTS = [
@@ -5687,6 +5690,12 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
     const sot = new Date(); sot.setHours(0,0,0,0);
     const weekEnd  = fd(new Date(sot.getTime() + 7*86400000));
     const monthEnd = (() => { const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+1); d.setDate(0); return fd(d); })();
+    // Last week: Mon–Sun of the previous calendar week
+    const lastWeekEnd   = fd(new Date(sot.getTime() - (sot.getDay() === 0 ? 1 : sot.getDay()) * 86400000));
+    const lastWeekStart = fd(new Date(new Date(lastWeekEnd+'T00:00:00').getTime() - 6*86400000));
+    // Last month: 1st–last of the previous calendar month
+    const lastMonthEnd   = (() => { const d=new Date(); d.setDate(0); return fd(d); })();
+    const lastMonthStart = lastMonthEnd.slice(0,7) + '-01';
 
     let r = entries;
 
@@ -5741,10 +5750,13 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
           dateStr = e.date || null;
         }
         if (!dateStr) return false; // no date = exclude from time-scoped views
-        if (whenF === 'today')  return dateStr === todayStr;
-        if (whenF === 'week')   return dateStr >= todayStr && dateStr <= weekEnd;
-        if (whenF === 'month')  return dateStr >= todayStr && dateStr <= monthEnd;
-        if (whenF === 'future') return dateStr > monthEnd;
+        if (whenF === 'today')      return dateStr === todayStr;
+        if (whenF === 'week')       return dateStr >= todayStr && dateStr <= weekEnd;
+        if (whenF === 'month')      return dateStr >= todayStr && dateStr <= monthEnd;
+        if (whenF === 'future')     return dateStr > monthEnd;
+        if (whenF === 'last-week')  return dateStr >= lastWeekStart && dateStr <= lastWeekEnd;
+        if (whenF === 'last-month') return dateStr >= lastMonthStart && dateStr <= lastMonthEnd;
+        if (whenF === 'older')      return dateStr < lastMonthStart;
         return false; // unknown whenF key = exclude
       });
     }
