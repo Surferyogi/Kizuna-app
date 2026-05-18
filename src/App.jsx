@@ -2229,8 +2229,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                             borderRadius:BR.input, padding:'6px 12px', marginBottom:5,
                             opacity: isPastFlight ? 0.7 : 1 }}>
                             <span style={{ fontSize:16, flexShrink:0, letterSpacing:2 }}>
-                              {h.countries.includes('SG') ? '🇸🇬' : ''}
-                              {h.countries.includes('JP') ? '🇯🇵' : ''}
+                              {h.countries.map(x=>({'SG':'🇸🇬','JP':'🇯🇵','FR':'🇫🇷','MY':'🇲🇾','GB':'🇬🇧','US':'🇺🇸','AU':'🇦🇺'}[x]||'')).join('')}
                             </span>
                             <div>
                               <span style={{ fontSize:12, fontWeight:700, color:ac }}>{h.name}</span>
@@ -2331,8 +2330,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                     transition:'box-shadow 0.15s' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:14, letterSpacing:2, flexShrink:0 }}>
-                      {h.countries.includes('SG') ? '🇸🇬' : ''}
-                      {h.countries.includes('JP') ? '🇯🇵' : ''}
+                      {h.countries.map(x=>({'SG':'🇸🇬','JP':'🇯🇵','FR':'🇫🇷','MY':'🇲🇾','GB':'🇬🇧','US':'🇺🇸','AU':'🇦🇺'}[x]||'')).join('')}
                     </span>
                     <div style={{ flex:1 }}>
                       <span style={{ fontSize:13, fontWeight:700,
@@ -5853,8 +5851,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                             transition:'box-shadow 0.15s' }}>
                           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                             <span style={{ fontSize:22, flexShrink:0, letterSpacing:2 }}>
-                              {h.countries.includes('SG') ? '🇸🇬' : ''}
-                              {h.countries.includes('JP') ? '🇯🇵' : ''}
+                              {h.countries.map(x=>({'SG':'🇸🇬','JP':'🇯🇵','FR':'🇫🇷','MY':'🇲🇾','GB':'🇬🇧','US':'🇺🇸','AU':'🇦🇺'}[x]||'')).join('')}
                             </span>
                             <div style={{ flex:1 }}>
                               <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
