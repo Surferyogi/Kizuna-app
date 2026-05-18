@@ -5702,19 +5702,23 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
     // ── STATUS filter ─────────────────────────────────────────────
     if (statusF === 'active') {
       r = r.filter(e => {
-        if (e.cancelled) return false; // cancelled items are never "active"
-        if (e.type === 'task' || e.type === 'reminder') return !e.done;
-        if (e.type === 'flight')  return e.date >= todayStr;
-        if (e.type === 'event' || e.type === 'meeting') return e.date >= todayStr;
-        if (e.type === 'birthday') return true; // birthdays always active (recurring)
+        if (e.cancelled) return false;
+        if (e.done) return false; // explicitly marked done = never active
+        const t = e.type;
+        if (t === 'task' || t === 'reminder') return true; // !done already checked
+        if (t === 'flight' || t === 'event' || t === 'meeting') return (e.date||'') >= todayStr;
+        if (t === 'birthday') return true;
         return true;
       });
     } else if (statusF === 'done') {
       r = r.filter(e => {
-        if (e.cancelled) return false; // cancelled ≠ completed
-        if (e.type === 'task' || e.type === 'reminder') return !!e.done;
-        if (e.type === 'flight')  return e.date <= todayStr;
-        if (e.type === 'event' || e.type === 'meeting') return e.date <= todayStr;
+        if (e.cancelled) return false;
+        const t = e.type;
+        if (t === 'task' || t === 'reminder') return !!e.done;
+        // flights/events: STRICTLY past date (not today) OR explicitly marked done
+        if (t === 'flight' || t === 'event' || t === 'meeting') {
+          return !!e.done || (e.date||'') < todayStr;
+        }
         return false; // birthdays have no done/past state
       });
     }
