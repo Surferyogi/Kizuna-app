@@ -5617,15 +5617,15 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const TC = getTC(C);
-  const [q,          setQ]         = useState('');
-  const [typeF,      setTypeF]     = useState('all');
-  const [quickF,     setQuickF]    = useState('week');
-  const [savedTypeF, setSavedTypeF]= useState('all');
-  const [showFilters,setShowFilters]= useState(true);
-  const [activeTab,    setActiveTab]      = useState('search');
-  const [holidayRange, setHolidayRange]   = useState('3m');
-  const [holidayCountry, setHolidayCountry] = useState('all');
-  const [expandedHoliday, setExpandedHoliday] = useState(null); // 'name|date' key
+  const [q,              setQ]             = useState('');
+  const [typeF,          setTypeF]         = useState('all');
+  const [whenF,          setWhenF]         = useState('all');
+  const [statusF,        setStatusF]       = useState('all');
+  const [showFilters,    setShowFilters]   = useState(true);
+  const [activeTab,      setActiveTab]     = useState('search');
+  const [holidayRange,   setHolidayRange]  = useState('3m');
+  const [holidayCountry, setHolidayCountry]= useState('all');
+  const [expandedHoliday,setExpandedHoliday]=useState(null);
 
   const HOLIDAY_RANGES = [
     { k:'1w', l:'This Week',   days:7   },
@@ -5647,53 +5647,78 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
       .sort((a,b) => a.date.localeCompare(b.date));
   }, [holidayRange, holidayCountry]);
 
-  // ── Row 1 handler ─────────────────────────────────────────────
-  const handleQuickF = (key) => {
-    const qf = QUICK_FILTERS.find(x => x.k === key);
-    const isActive = quickF === key;
+  // ── WHEN / TYPE / STATUS filter options ──────────────────────
+  const WHEN_OPTS = [
+    { k:'all',    l:'All Time',          icon:'◎' },
+    { k:'today',  l:'Today',             icon:'📅' },
+    { k:'week',   l:'This Week',         icon:'🗓' },
+    { k:'month',  l:'This Month',        icon:'📆' },
+    { k:'future', l:'After This Month',  icon:'🔭' },
+  ];
 
-    // Tap active filter → deactivate, restore type
-    if (isActive) {
-      setQuickF(null);
-      if (qf.impliedType) setTypeF(savedTypeF);
-      return;
-    }
+  const STATUS_OPTS = [
+    { k:'all',    l:'All Status' },
+    { k:'active', l:(typeF==='flight'?'Upcoming':typeF==='task'||typeF==='reminder'?'Active':'Upcoming/Active') },
+    { k:'done',   l:(typeF==='flight'?'Landed':typeF==='task'||typeF==='reminder'?'Completed':'Completed/Past') },
+  ];
 
-    // Lock type to impliedType for ALL filters that have one (upcoming + history)
-    if (qf.impliedType) {
-      const curQf = QUICK_FILTERS.find(x => x.k === quickF);
-      if (!curQf?.impliedType) setSavedTypeF(typeF); // save current type before locking
-      setTypeF(qf.impliedType);
-    } else {
-      // Time-scope filter — restore free type selection
-      const curQf = QUICK_FILTERS.find(x => x.k === quickF);
-      if (curQf?.impliedType) setTypeF(savedTypeF);
-    }
-
-    setQuickF(key);
-  };
-
-  // ── Row 2 handler ─────────────────────────────────────────────
-  const handleTypeF = (type) => {
-    const activeQf = QUICK_FILTERS.find(x => x.k === quickF);
-    if (activeQf?.impliedType && !activeQf.isStatus) return; // locked
-    setTypeF(type);
-    setSavedTypeF(type);
-  };
-
-  const activeQf  = QUICK_FILTERS.find(x => x.k === quickF);
-  const typeLocked = !!(activeQf?.impliedType); // locked for ALL presets with an implied type
+  const clearAll = () => { setWhenF('all'); setTypeF('all'); setStatusF('all'); setQ(''); };
+  const hasFilter = whenF !== 'all' || typeF !== 'all' || statusF !== 'all' || q.trim().length > 0;
 
   const [sortAsc, setSortAsc] = useState(true); // default: earliest first
 
   // ── Results ───────────────────────────────────────────────────
   const results = useMemo(() => {
+    const todayStr = fd(new Date());
+    const sot = new Date(); sot.setHours(0,0,0,0);
+    const weekEnd  = fd(new Date(sot.getTime() + 7*86400000));
+    const monthEnd = (() => { const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+1); d.setDate(0); return fd(d); })();
+
     let r = entries;
-    if (quickF) {
-      const qf = QUICK_FILTERS.find(x => x.k === quickF);
-      if (qf) r = r.filter(qf.f);
+
+    // ── TYPE filter ──────────────────────────────────────────────
+    if (typeF !== 'all') {
+      if (typeF === 'event') {
+        r = r.filter(e => e.type === 'event' || e.type === 'meeting');
+      } else {
+        r = r.filter(e => e.type === typeF);
+      }
     }
-    if (typeF !== 'all') r = r.filter(e => e.type === typeF);
+
+    // ── STATUS filter ─────────────────────────────────────────────
+    if (statusF === 'active') {
+      r = r.filter(e => {
+        if (e.type === 'task' || e.type === 'reminder') return !e.done && !e.cancelled;
+        if (e.type === 'flight') return e.date >= todayStr;
+        if (e.type === 'event' || e.type === 'meeting') return e.date >= todayStr;
+        return true;
+      });
+    } else if (statusF === 'done') {
+      r = r.filter(e => {
+        if (e.type === 'task' || e.type === 'reminder') return !!e.done && !e.cancelled;
+        if (e.type === 'flight') return e.date < todayStr;
+        if (e.type === 'event' || e.type === 'meeting') return e.date < todayStr;
+        return false; // birthdays have no done state
+      });
+    }
+
+    // ── WHEN filter ───────────────────────────────────────────────
+    if (whenF !== 'all') {
+      r = r.filter(e => {
+        // For tasks/reminders with no date — only show in 'all' or when they're done (use doneAt)
+        const dateStr = e.type === 'task' || e.type === 'reminder'
+          ? (e.done && e.doneAt ? e.doneAt.slice(0,10) : e.date || null)
+          : e.date;
+        if (!dateStr) return whenF === 'all';
+        if (whenF === 'today')  return dateStr === todayStr;
+        if (whenF === 'week')   return dateStr >= todayStr && dateStr <= weekEnd;
+        if (whenF === 'month')  return dateStr >= todayStr && dateStr <= monthEnd;
+        if (whenF === 'future') return dateStr > monthEnd;
+        return true;
+      });
+    }
+
+    // ── TEXT search ───────────────────────────────────────────────
     if (q.trim()) {
       const lq = q.toLowerCase();
       r = r.filter(e =>
@@ -5701,21 +5726,15 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
          e.airline,e.flightNum,e.depCity,e.arrCity]
           .some(f => f && f.toLowerCase().includes(lq)));
     }
-    return r.sort((a,b) => {
-      // Primary: date, direction controlled by sortAsc
-      const dA = a.date || '0000';
-      const dB = b.date || '0000';
-      const dCmp = sortAsc ? dA.localeCompare(dB) : dB.localeCompare(dA);
-      if (dCmp !== 0) return dCmp;
-      // Secondary: time, same direction. No time → treat as '00:00'
-      const tA = a.time || '00:00';
-      const tB = b.time || '00:00';
-      return sortAsc ? tA.localeCompare(tB) : tB.localeCompare(tA);
-    });
-  }, [entries, q, typeF, quickF, sortAsc]);
 
-  const hasFilter = quickF || typeF !== 'all';
-  const clearAll  = () => { setQuickF(null); setTypeF('all'); setSavedTypeF('all'); setQ(''); };
+    // ── Sort: future-first for active, recent-first for done ─────
+    return r.sort((a,b) => {
+      const dA = a.date || (a.doneAt ? a.doneAt.slice(0,10) : '0000');
+      const dB = b.date || (b.doneAt ? b.doneAt.slice(0,10) : '0000');
+      // Upcoming: earliest first. History: most recent first
+      return statusF === 'done' ? dB.localeCompare(dA) : dA.localeCompare(dB);
+    });
+  }, [entries, q, typeF, whenF, statusF]);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:C.bg }}>
@@ -5940,7 +5959,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
               <span style={{ fontSize:11, fontWeight:700, color:'#fff',
                 background:C.rose, borderRadius:BR.pill, padding:'1px 7px',
                 minWidth:18, textAlign:'center' }}>
-                {(quickF ? 1 : 0) + (typeF !== 'all' ? 1 : 0)}
+                {[whenF !== 'all', typeF !== 'all', statusF !== 'all'].filter(Boolean).length || null}
               </span>
             )}
           </div>
@@ -5963,23 +5982,21 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
         </div>
 
         {showFilters && (<>
-          {/* ══ FILTER PANEL ════════════════════════════════════════
-              Two-section design:
-              UPCOMING — time-scoped + specific future item presets
-              HISTORY  — completed / past item presets
-              TYPE CHIPS — only shown when not locked by a preset
-          ══════════════════════════════════════════════════════════ */}
+          {/* ══ FILTER PANEL: 3 orthogonal dimensions ══════════════
+              WHEN   — time window (independent of status/type)
+              WHAT   — entry type
+              STATUS — active/upcoming vs completed/landed/past
+          ════════════════════════════════════════════════════════ */}
 
-          {/* ── UPCOMING section ─────────────────────────────────── */}
+          {/* ── WHEN ─────────────────────────────────────────────── */}
           <div style={{ padding:'8px 16px 4px' }}>
-            <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.12em' }}>Upcoming</p>
-            {/* Row A: Time scope */}
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:6 }}>
-              {QUICK_FILTERS.filter(qf => TIME_SCOPE_KEYS.has(qf.k)).map(qf => {
-                const isActive = quickF === qf.k;
+            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.12em' }}>When</p>
+            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4 }}>
+              {WHEN_OPTS.map(opt => {
+                const isActive = whenF === opt.k;
                 return (
-                  <button key={qf.k} onClick={() => handleQuickF(qf.k)}
+                  <button key={opt.k} onClick={() => setWhenF(isActive ? 'all' : opt.k)}
                     style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
                       background: isActive ? `linear-gradient(135deg,${C.rose},${C.roseL})` : C.elevated,
                       border:`1.5px solid ${isActive ? C.rose : C.border}`,
@@ -5987,21 +6004,52 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                       borderRadius:BR.btn, padding:'6px 13px',
                       fontSize:13, fontWeight: isActive ? 700 : 500,
                       cursor:'pointer', whiteSpace:'nowrap',
-                      boxShadow: isActive ? `0 3px 12px ${C.rose}40` : 'none',
+                      boxShadow: isActive ? `0 2px 10px ${C.rose}40` : 'none',
                       transition:'all 0.15s' }}>
-                    <span style={{ fontSize:14 }}>{qf.icon}</span>
-                    <span>{qf.l}</span>
+                    <span>{opt.l}</span>
                   </button>
                 );
               })}
             </div>
-            {/* Row B: Specific upcoming presets (imply type) */}
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4 }}>
-              {QUICK_FILTERS.filter(qf => !TIME_SCOPE_KEYS.has(qf.k) && !qf.isStatus).map(qf => {
-                const isActive = quickF === qf.k;
-                const col = qf.impliedType ? (getTC(C)[qf.impliedType] || C.rose) : C.rose;
+          </div>
+
+          {/* ── WHAT ─────────────────────────────────────────────── */}
+          <div style={{ padding:'6px 16px 4px' }}>
+            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.12em' }}>What</p>
+            <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:4 }}>
+              {TYPE_CHIPS.map(({ t, icon, label }) => {
+                const isActive = typeF === t;
+                const col = t === 'all' ? C.rose : (getTC(C)[t] || C.rose);
                 return (
-                  <button key={qf.k} onClick={() => handleQuickF(qf.k)}
+                  <button key={t} onClick={() => { setTypeF(t); }}
+                    style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0,
+                      background: isActive ? col : C.elevated,
+                      border:`1.5px solid ${isActive ? col : C.border}`,
+                      color: isActive ? '#fff' : C.dim,
+                      borderRadius:BR.card, padding:'6px 11px',
+                      fontSize:13, fontWeight: isActive ? 700 : 400,
+                      cursor:'pointer', whiteSpace:'nowrap',
+                      boxShadow: isActive ? `0 2px 10px ${col}50` : 'none',
+                      transition:'all 0.15s' }}>
+                    <span style={{ fontSize:13 }}>{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── STATUS ───────────────────────────────────────────── */}
+          <div style={{ padding:'6px 16px 10px' }}>
+            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.12em' }}>Status</p>
+            <div style={{ display:'flex', gap:6, paddingBottom:4 }}>
+              {STATUS_OPTS.map(opt => {
+                const isActive = statusF === opt.k;
+                const col = opt.k === 'done' ? C.T : opt.k === 'active' ? C.rose : C.muted;
+                return (
+                  <button key={opt.k} onClick={() => setStatusF(isActive ? 'all' : opt.k)}
                     style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
                       background: isActive ? col : C.elevated,
                       border:`1.5px solid ${isActive ? col : C.border}`,
@@ -6009,86 +6057,16 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                       borderRadius:BR.btn, padding:'6px 13px',
                       fontSize:13, fontWeight: isActive ? 700 : 500,
                       cursor:'pointer', whiteSpace:'nowrap',
-                      boxShadow: isActive ? `0 3px 12px ${col}40` : 'none',
+                      boxShadow: isActive ? `0 2px 10px ${col}40` : 'none',
                       transition:'all 0.15s' }}>
-                    <span style={{ fontSize:14 }}>{qf.icon}</span>
-                    <span>{qf.l}</span>
+                    {opt.k === 'active' && <span style={{ fontSize:13 }}>🔜</span>}
+                    {opt.k === 'done'   && <span style={{ fontSize:13 }}>✅</span>}
+                    <span>{opt.l}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-
-          {/* Divider */}
-          <div style={{ margin:'2px 16px 2px', height:1, background:C.border+'60' }} />
-
-          {/* ── HISTORY section ───────────────────────────────────── */}
-          <div style={{ padding:'8px 16px 8px' }}>
-            <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.12em' }}>History</p>
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4 }}>
-              {QUICK_FILTERS.filter(qf => qf.isStatus).map(qf => {
-                const isActive = quickF === qf.k;
-                // Each history filter uses its entry type colour
-                const col = qf.impliedType ? (getTC(C)[qf.impliedType] || C.T) : C.T;
-                return (
-                  <button key={qf.k} onClick={() => handleQuickF(qf.k)}
-                    style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-                      background: isActive ? col : C.elevated,
-                      border:`1.5px solid ${isActive ? col : C.border}`,
-                      color: isActive ? '#fff' : C.dim,
-                      borderRadius:BR.btn, padding:'6px 13px',
-                      fontSize:13, fontWeight: isActive ? 700 : 500,
-                      cursor:'pointer', whiteSpace:'nowrap',
-                      boxShadow: isActive ? `0 3px 12px ${col}40` : 'none',
-                      transition:'all 0.15s' }}>
-                    <span style={{ fontSize:14 }}>{qf.icon}</span>
-                    <span>{qf.l}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ── TYPE CHIPS — only when no type-locking preset active ── */}
-          {!typeLocked && (
-            <div style={{ padding:'4px 16px 10px',
-              borderTop:`1px solid ${C.border}40` }}>
-              <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
-                textTransform:'uppercase', letterSpacing:'0.12em' }}>Type</p>
-              <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:3 }}>
-                {TYPE_CHIPS.map(({ t, icon, label }) => {
-                  const isActive = typeF === t;
-                  const col = t === 'all' ? C.rose : (getTC(C)[t] || C.rose);
-                  return (
-                    <button key={t} onClick={() => handleTypeF(t)}
-                      style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-                        background: isActive ? col : C.elevated,
-                        border:`1.5px solid ${isActive ? col : C.border}`,
-                        color: isActive ? '#fff' : C.dim,
-                        borderRadius:BR.card, padding:'6px 11px',
-                        fontSize:13, fontWeight: isActive ? 700 : 400,
-                        cursor:'pointer', whiteSpace:'nowrap',
-                        boxShadow: isActive ? `0 3px 10px ${col}50` : 'none',
-                        transition:'all 0.15s' }}>
-                      <span style={{ fontSize:13 }}>{icon}</span>
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {/* If type is locked, show which type is active as a read-only pill */}
-          {typeLocked && (
-            <div style={{ padding:'4px 16px 10px' }}>
-              <span style={{ fontSize:12, color:C.muted, fontStyle:'italic' }}>
-                Type locked: <span style={{ fontWeight:700, color:C.rose }}>
-                  {TYPE_CHIPS.find(x => x.t === typeF)?.icon} {TYPE_CHIPS.find(x => x.t === typeF)?.label}
-                </span>
-              </span>
-            </div>
-          )}
         </>)}
 
         {/* Active filter summary strip */}
@@ -6099,28 +6077,37 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
             background:C.rose+'06' }}>
             <span style={{ fontSize:11, color:C.muted, fontWeight:600,
               textTransform:'uppercase', letterSpacing:'0.08em' }}>Active:</span>
-            {quickF && (
+            {whenF !== 'all' && (
               <span style={{ fontSize:12, fontWeight:700, color:C.rose,
                 background:C.rose+'15', border:`1px solid ${C.rose}30`,
                 borderRadius:BR.pill, padding:'2px 10px', display:'flex',
                 alignItems:'center', gap:4 }}>
-                {QUICK_FILTERS.find(x=>x.k===quickF)?.icon} {QUICK_FILTERS.find(x=>x.k===quickF)?.l}
-                <button onClick={() => { setQuickF(null); if (activeQf?.impliedType && !activeQf.isStatus) setTypeF(savedTypeF); }}
+                {WHEN_OPTS.find(x=>x.k===whenF)?.l}
+                <button onClick={() => setWhenF('all')}
                   style={{ background:'transparent', border:'none', color:C.rose,
                     cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
               </span>
             )}
             {typeF !== 'all' && (
               <span style={{ fontSize:12, fontWeight:700, color:'#fff',
-                background:TC[typeF]||C.rose,
+                background:getTC(C)[typeF]||C.rose,
                 borderRadius:BR.pill, padding:'2px 10px', display:'flex',
                 alignItems:'center', gap:4 }}>
                 {TYPE_CHIPS.find(x=>x.t===typeF)?.icon} {TL[typeF]||typeF}
-                {!typeLocked && (
-                  <button onClick={() => { setTypeF('all'); setSavedTypeF('all'); }}
-                    style={{ background:'transparent', border:'none', color:'#fff',
-                      cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
-                )}
+                <button onClick={() => setTypeF('all')}
+                  style={{ background:'transparent', border:'none', color:'#fff',
+                    cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
+              </span>
+            )}
+            {statusF !== 'all' && (
+              <span style={{ fontSize:12, fontWeight:700, color:'#fff',
+                background: statusF === 'done' ? C.T : C.rose,
+                borderRadius:BR.pill, padding:'2px 10px', display:'flex',
+                alignItems:'center', gap:4 }}>
+                {statusF === 'done' ? '✅' : '🔜'} {STATUS_OPTS.find(x=>x.k===statusF)?.l}
+                <button onClick={() => setStatusF('all')}
+                  style={{ background:'transparent', border:'none', color:'#fff',
+                    cursor:'pointer', fontSize:12, padding:0, lineHeight:1, marginLeft:2 }}>×</button>
               </span>
             )}
           </div>
