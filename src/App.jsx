@@ -891,56 +891,117 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
       [['rugby'],'🏉'],
       [['volleyball'],'🏐'],
       [['baseball','softball'],'⚾'],
-      [['boxing','martial arts','mma','karate','judo'],'🥊'],
+      [['boxing','martial arts','mma','karate','judo','taekwondo'],'🥊'],
       // Food & drink
       [['dinner','supper','evening meal'],'🍽️'],
       [['lunch','brunch'],'🥗'],
       [['breakfast','morning meal'],'🍳'],
-      [['coffee','cafe','tea','kopi'],'☕'],
-      [['drinks','cocktail','wine','beer','bar'],'🍷'],
+      [['coffee','cafe','kopi'],'☕'],
+      [['tea','high tea'],'🫖'],
+      [['drinks','cocktail','wine','beer','bar','pub'],'🍷'],
       [['bbq','barbecue','grill'],'🍖'],
       // Travel & transport
-      [['flight','fly','airport'],'✈️'],
-      [['hotel','check in','check-in','checkin','resort'],'🏨'],
-      [['drive','road trip','car'],'🚗'],
-      [['train','rail','mrt','subway','metro'],'🚆'],
+      [['flight','fly','airport','depart','arrive'],'✈️'],
+      [['hotel','resort','check in','checkin','check-in'],'🏨'],
+      [['drive','road trip'],'🚗'],
+      [['train','rail','mrt','subway','metro','lrt'],'🚆'],
       [['cruise','ship','boat','ferry'],'🚢'],
+      [['taxi','grab','uber','lyft'],'🚕'],
       // Health & wellness
-      [['doctor','physician','gp','checkup','check-up'],'🩺'],
-      [['dentist','dental','teeth'],'🦷'],
-      [['hospital','clinic','medical'],'🏥'],
-      [['massage','spa','facial','manicure','pedicure'],'💆'],
-      [['medicine','pharmacy','prescription'],'💊'],
+      [['doctor','physician','gp','checkup','check-up','clinic visit'],'🩺'],
+      [['dentist','dental','teeth','orthodon'],'🦷'],
+      [['hospital','surgery','operation','ward'],'🏥'],
+      [['massage','spa','facial','manicure','pedicure','beauty'],'💆'],
+      [['medicine','pharmacy','prescription','dispensary'],'💊'],
+      [['physio','physiotherapy','rehab','therapy'],'🏋️'],
+      [['eye','optom','vision test'],'🤓'],
+      // Appearance
+      [['hair','haircut','salon','barber','blowout','colour','tint','perm'],'💈'],
+      [['glasses','spectacles','optical','lens','contact','shades','sunglasses'],'🤓'],
+      [['nails','manicure','pedicure'],'💅'],
       // Work & business
-      [['call','phone','ring'],'📞'],
-      [['meeting','conference','zoom','teams'],'💼'],
-      [['interview','presentation','pitch'],'🎯'],
-      [['deadline','submit','review'],'📋'],
-      [['workshop','training','seminar','webinar'],'🎓'],
+      [['call','phone','ring','dial'],'📞'],
+      [['meeting','appt','appointment','catchup','catch up','catch-up','sync','standup','1-on-1','check in'],'👥'],
+      [['interview','pitch','present'],'🎯'],
+      [['presentation','demo','showcase'],'📊'],
+      [['deadline','review'],'📋'],
+      [['workshop','training','seminar','webinar','bootcamp'],'🎓'],
+      [['conference','summit','forum','expo'],'🏛️'],
+      [['negotiate','contract','sign','legal'],'🤝'],
+      // Documents & admin
+      [['claim','renew','renewal','extend','extension','reimburs'],'📃'],
+      [['apply','application','register','registration','enrol','enroll'],'📨'],
+      [['submit','send','dispatch','post','forward','email'],'📨'],
+      [['visa','passport','immigration','customs','permit'],'🛂'],
+      [['tax','iras','cpf','gst','filing'],'🧾'],
+      [['insurance','policy','coverage','premium'],'📄'],
+      [['pay','payment','bill','invoice','transfer','fee'],'💳'],
+      // Creative & building
+      [['build','construct','install','set up','setup'],'👷'],
+      [['create','design','make','craft','build','develop'],'👷‍♀️'],
+      [['photo','photography','shoot','portrait'],'📸'],
+      [['art','paint','draw','sketch','illustration'],'🎨'],
+      [['music','practice','rehearsal','recording','studio'],'🎵'],
+      // Collections & receiving
+      [['collect','collection','pick up','pickup','fetch','receive','retrieve'],'🙌'],
+      [['drop','deliver','send over','hand over'],'📦'],
       // Personal & family
-      [['birthday','bday','celebration','party'],'🎂'],
-      [['wedding','anniversary'],'💍'],
-      [['school','class','lesson','tuition','exam','test'],'📚'],
-      [['haircut','hair','salon','barber'],'✂️'],
-      [['shopping','buy','purchase','market'],'🛍️'],
-      [['movie','cinema','film','show','theatre','theater','concert','gig'],'🎭'],
-      [['museum','gallery','exhibition'],'🖼️'],
-      [['prayer','church','mosque','temple','worship'],'🙏'],
-      [['volunteer','charity','community'],'🤝'],
-      // Tasks & reminders
-      [['email','send','reply'],'📧'],
-      [['pay','payment','bill','invoice','transfer'],'💳'],
-      [['carousel'],'💰'],
-      [['vacuum','roomba','robot clean'],'🤖'],
-      [['clean','laundry','wash','tidy'],'🧹'],
-      [['cook','cooking','bake','baking'],'🍳'],
-      [['pick up','collect','fetch','drop'],'🚗'],
+      [['birthday','bday','party','celebrate','celebration'],'🎂'],
+      [['wedding','anniversary','engagement'],'💍'],
+      [['school','class','lesson','tuition','exam','test','quiz','study'],'📚'],
+      [['shopping','buy','purchase','market','mall'],'🛍️'],
+      [['movie','cinema','film','show','theatre','theater','concert','gig','performance'],'🎭'],
+      [['museum','gallery','exhibition','heritage'],'🖼️'],
+      [['prayer','church','mosque','temple','worship','mass','service'],'🙏'],
+      [['volunteer','charity','community','donation','fundrais'],'🤝'],
+      [['cook','cooking','bake','baking','recipe'],'🍳'],
+      [['clean','laundry','wash','tidy','vacuum','housework'],'🧹'],
+      [['move','moving','relocat','pack'],'📦'],
+      [['repair','fix','maintenance','service','plumb','electrician'],'🔧'],
+      [['plant','garden','water','prune','landscape'],'🌱'],
+      [['pet','vet','veterinary','groom','dog','cat'],'🐾'],
     ];
     for (const [keywords, icon] of map) {
       if (keywords.some(k => t.includes(k))) return icon;
     }
     return null;
   })();
+
+  // AI emoji fallback — called only when no static match found
+  // Uses cached result from localStorage to avoid repeated API calls
+  const [aiIcon, setAiIcon] = useState(null);
+  useEffect(() => {
+    if (actIcon) return; // static match found — no need for AI
+    if (!e.title?.trim()) return;
+    const cacheKey = `kizuna_emoji_${e.title.toLowerCase().trim().slice(0,80)}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) { setAiIcon(cached); return; }
+    // Call Claude API for best emoji
+    const ctrl = new AbortController();
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 20,
+        messages: [{
+          role: 'user',
+          content: `Reply with exactly ONE emoji that best represents this calendar entry title. Reply with only the emoji, nothing else. If unsure, reply with 📌\n\nTitle: "${e.title}"`,
+        }],
+      }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        const emoji = d?.content?.[0]?.text?.trim() || '📌';
+        // Basic validation — should be 1-2 chars (emoji)
+        const clean = emoji.length <= 4 ? emoji : '📌';
+        localStorage.setItem(cacheKey, clean);
+        setAiIcon(clean);
+      })
+      .catch(() => { setAiIcon('📌'); });
+    return () => ctrl.abort();
+  }, [e.title, actIcon]);
 
   return (
     <div style={{ display:'flex', gap:16, padding:'18px 0',
@@ -970,10 +1031,10 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               {e.done ? '✅' : isPastDue ? '☑️' : ''}
             </button>
           )}
-          {/* Activity icon — auto-matched from title keywords */}
-          {actIcon && !isFlightLanded && (
+          {/* Activity icon — static keyword match, then AI fallback */}
+          {(actIcon || aiIcon) && !isFlightLanded && (
             <span style={{ fontSize:18, flexShrink:0, marginTop:1, lineHeight:1 }}>
-              {actIcon}
+              {actIcon || aiIcon}
             </span>
           )}
           <span style={{ fontSize:16, fontWeight:600,
