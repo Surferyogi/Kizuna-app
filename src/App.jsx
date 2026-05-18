@@ -5652,22 +5652,24 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
     const qf = QUICK_FILTERS.find(x => x.k === key);
     const isActive = quickF === key;
 
+    // Tap active filter → deactivate, restore type
     if (isActive) {
       setQuickF(null);
-      if (qf.impliedType && !qf.isStatus) setTypeF(savedTypeF);
+      if (qf.impliedType) setTypeF(savedTypeF);
       return;
     }
 
-    // Lock type row if preset has impliedType and is not status-based
-    if (qf.impliedType && !qf.isStatus) {
+    // Lock type to impliedType for ALL filters that have one (upcoming + history)
+    if (qf.impliedType) {
       const curQf = QUICK_FILTERS.find(x => x.k === quickF);
-      if (!curQf?.impliedType) setSavedTypeF(typeF);
+      if (!curQf?.impliedType) setSavedTypeF(typeF); // save current type before locking
       setTypeF(qf.impliedType);
-    } else if (qf.isStatus && qf.impliedType) {
-      if (typeF === 'all') setTypeF(qf.impliedType);
+    } else {
+      // Time-scope filter — restore free type selection
+      const curQf = QUICK_FILTERS.find(x => x.k === quickF);
+      if (curQf?.impliedType) setTypeF(savedTypeF);
     }
 
-    // Time-scope presets are mutually exclusive — deactivate any other time-scope
     setQuickF(key);
   };
 
@@ -5680,7 +5682,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
   };
 
   const activeQf  = QUICK_FILTERS.find(x => x.k === quickF);
-  const typeLocked = !!(activeQf?.impliedType && !activeQf.isStatus);
+  const typeLocked = !!(activeQf?.impliedType); // locked for ALL presets with an implied type
 
   const [sortAsc, setSortAsc] = useState(true); // default: earliest first
 
@@ -5961,62 +5963,53 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
         </div>
 
         {showFilters && (<>
-          {/* ── ROW 1: Upcoming / Active Filters ─────────── */}
-          <div style={{ padding:'0 16px 6px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              Upcoming
-            </p>
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
-              {QUICK_FILTERS.filter(qf => !qf.isStatus).map(qf => {
+          {/* ══ FILTER PANEL ════════════════════════════════════════
+              Two-section design:
+              UPCOMING — time-scoped + specific future item presets
+              HISTORY  — completed / past item presets
+              TYPE CHIPS — only shown when not locked by a preset
+          ══════════════════════════════════════════════════════════ */}
+
+          {/* ── UPCOMING section ─────────────────────────────────── */}
+          <div style={{ padding:'8px 16px 4px' }}>
+            <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.12em' }}>Upcoming</p>
+            {/* Row A: Time scope */}
+            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:6 }}>
+              {QUICK_FILTERS.filter(qf => TIME_SCOPE_KEYS.has(qf.k)).map(qf => {
                 const isActive = quickF === qf.k;
-                const isTimeScope = TIME_SCOPE_KEYS.has(qf.k);
-                const isDimmed = !isActive && isTimeScope && quickF && TIME_SCOPE_KEYS.has(quickF);
                 return (
                   <button key={qf.k} onClick={() => handleQuickF(qf.k)}
                     style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-                      background: isActive
-                        ? `linear-gradient(135deg,${C.rose},${C.roseL})`
-                        : C.elevated,
-                      border:`1.5px solid ${isActive ? C.rose : isDimmed ? '#E8E0D480' : C.border}`,
-                      color: isActive ? '#fff' : isDimmed ? C.muted : C.dim,
-                      borderRadius:BR.card, padding:'7px 13px',
+                      background: isActive ? `linear-gradient(135deg,${C.rose},${C.roseL})` : C.elevated,
+                      border:`1.5px solid ${isActive ? C.rose : C.border}`,
+                      color: isActive ? '#fff' : C.dim,
+                      borderRadius:BR.btn, padding:'6px 13px',
                       fontSize:13, fontWeight: isActive ? 700 : 500,
                       cursor:'pointer', whiteSpace:'nowrap',
-                      opacity: isDimmed ? 0.45 : 1,
                       boxShadow: isActive ? `0 3px 12px ${C.rose}40` : 'none',
                       transition:'all 0.15s' }}>
                     <span style={{ fontSize:14 }}>{qf.icon}</span>
                     <span>{qf.l}</span>
-                    {qf.impliedType && !qf.isStatus && isActive && (
-                      <span style={{ fontSize:10, opacity:0.8 }}>🔒</span>
-                    )}
                   </button>
                 );
               })}
             </div>
-          </div>
-          {/* ── ROW 1b: History Filters ───────────────────── */}
-          <div style={{ padding:'0 16px 6px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              History
-            </p>
-            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:3 }}>
-              {QUICK_FILTERS.filter(qf => qf.isStatus).map(qf => {
+            {/* Row B: Specific upcoming presets (imply type) */}
+            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4 }}>
+              {QUICK_FILTERS.filter(qf => !TIME_SCOPE_KEYS.has(qf.k) && !qf.isStatus).map(qf => {
                 const isActive = quickF === qf.k;
+                const col = qf.impliedType ? (getTC(C)[qf.impliedType] || C.rose) : C.rose;
                 return (
                   <button key={qf.k} onClick={() => handleQuickF(qf.k)}
                     style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
-                      background: isActive
-                        ? `linear-gradient(135deg,${C.T},${C.F})`
-                        : C.elevated,
-                      border:`1.5px solid ${isActive ? C.T : C.border}`,
+                      background: isActive ? col : C.elevated,
+                      border:`1.5px solid ${isActive ? col : C.border}`,
                       color: isActive ? '#fff' : C.dim,
-                      borderRadius:BR.card, padding:'7px 13px',
+                      borderRadius:BR.btn, padding:'6px 13px',
                       fontSize:13, fontWeight: isActive ? 700 : 500,
                       cursor:'pointer', whiteSpace:'nowrap',
-                      boxShadow: isActive ? `0 3px 12px ${C.T}40` : 'none',
+                      boxShadow: isActive ? `0 3px 12px ${col}40` : 'none',
                       transition:'all 0.15s' }}>
                     <span style={{ fontSize:14 }}>{qf.icon}</span>
                     <span>{qf.l}</span>
@@ -6025,38 +6018,77 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
               })}
             </div>
           </div>
-          {/* ── ROW 2: Type Filters ──────────────────────────── */}
-          <div style={{ padding:'6px 16px 12px' }}>
-            <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:C.muted,
-              textTransform:'uppercase', letterSpacing:'0.1em' }}>
-              Type {typeLocked && <span style={{ color:C.rose, fontStyle:'italic',
-                textTransform:'none', fontWeight:500, letterSpacing:0 }}> · locked by preset</span>}
-            </p>
-            <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:3 }}>
-              {TYPE_CHIPS.map(({ t, icon, label }) => {
-                const isActive = typeF === t;
-                const isLocked = typeLocked && !isActive;
-                const col = t === 'all' ? C.rose : (TC[t] || C.rose);
+
+          {/* Divider */}
+          <div style={{ margin:'2px 16px 2px', height:1, background:C.border+'60' }} />
+
+          {/* ── HISTORY section ───────────────────────────────────── */}
+          <div style={{ padding:'8px 16px 8px' }}>
+            <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
+              textTransform:'uppercase', letterSpacing:'0.12em' }}>History</p>
+            <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4 }}>
+              {QUICK_FILTERS.filter(qf => qf.isStatus).map(qf => {
+                const isActive = quickF === qf.k;
+                // Each history filter uses its entry type colour
+                const col = qf.impliedType ? (getTC(C)[qf.impliedType] || C.T) : C.T;
                 return (
-                  <button key={t} onClick={() => handleTypeF(t)}
+                  <button key={qf.k} onClick={() => handleQuickF(qf.k)}
                     style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
                       background: isActive ? col : C.elevated,
-                      border:`1.5px solid ${isActive ? col : isLocked ? '#E8E0D460' : C.border}`,
-                      color: isActive ? '#fff' : isLocked ? C.border : C.dim,
-                      borderRadius:BR.card, padding:'7px 12px',
-                      fontSize:13, fontWeight: isActive ? 700 : 400,
-                      cursor: isLocked ? 'not-allowed' : 'pointer',
-                      whiteSpace:'nowrap',
-                      opacity: isLocked ? 0.3 : 1,
-                      boxShadow: isActive ? `0 3px 10px ${col}50` : 'none',
+                      border:`1.5px solid ${isActive ? col : C.border}`,
+                      color: isActive ? '#fff' : C.dim,
+                      borderRadius:BR.btn, padding:'6px 13px',
+                      fontSize:13, fontWeight: isActive ? 700 : 500,
+                      cursor:'pointer', whiteSpace:'nowrap',
+                      boxShadow: isActive ? `0 3px 12px ${col}40` : 'none',
                       transition:'all 0.15s' }}>
-                    <span style={{ fontSize:13 }}>{icon}</span>
-                    <span>{label}</span>
+                    <span style={{ fontSize:14 }}>{qf.icon}</span>
+                    <span>{qf.l}</span>
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {/* ── TYPE CHIPS — only when no type-locking preset active ── */}
+          {!typeLocked && (
+            <div style={{ padding:'4px 16px 10px',
+              borderTop:`1px solid ${C.border}40` }}>
+              <p style={{ margin:'0 0 7px', fontSize:11, fontWeight:700, color:C.muted,
+                textTransform:'uppercase', letterSpacing:'0.12em' }}>Type</p>
+              <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:3 }}>
+                {TYPE_CHIPS.map(({ t, icon, label }) => {
+                  const isActive = typeF === t;
+                  const col = t === 'all' ? C.rose : (getTC(C)[t] || C.rose);
+                  return (
+                    <button key={t} onClick={() => handleTypeF(t)}
+                      style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0,
+                        background: isActive ? col : C.elevated,
+                        border:`1.5px solid ${isActive ? col : C.border}`,
+                        color: isActive ? '#fff' : C.dim,
+                        borderRadius:BR.card, padding:'6px 11px',
+                        fontSize:13, fontWeight: isActive ? 700 : 400,
+                        cursor:'pointer', whiteSpace:'nowrap',
+                        boxShadow: isActive ? `0 3px 10px ${col}50` : 'none',
+                        transition:'all 0.15s' }}>
+                      <span style={{ fontSize:13 }}>{icon}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* If type is locked, show which type is active as a read-only pill */}
+          {typeLocked && (
+            <div style={{ padding:'4px 16px 10px' }}>
+              <span style={{ fontSize:12, color:C.muted, fontStyle:'italic' }}>
+                Type locked: <span style={{ fontWeight:700, color:C.rose }}>
+                  {TYPE_CHIPS.find(x => x.t === typeF)?.icon} {TYPE_CHIPS.find(x => x.t === typeF)?.label}
+                </span>
+              </span>
+            </div>
+          )}
         </>)}
 
         {/* Active filter summary strip */}
