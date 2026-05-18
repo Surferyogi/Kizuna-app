@@ -1044,9 +1044,10 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
                 return wm?.name || '';
               }).filter(Boolean).join(', ') : null;
 
-              // Entered by — show only if owner is NOT already in the traveller list
+              // Entered by — show when owner is NOT in traveller list
+              // OR when viewer is not the owner (so they know who logged it)
               const ownerInTravellers = tvs.includes(entryOwner) || tvs.length === 0;
-              const enteredBy = !ownerInTravellers ? (e.userName || null) : null;
+              const enteredBy = (!ownerInTravellers || !isOwn) ? (e.userName || null) : null;
 
               return (<>
                 {travellerNames && (
@@ -1072,13 +1073,13 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
                 🔁 {e.repeat.charAt(0).toUpperCase()+e.repeat.slice(1)}
               </span>
             )}
-            {e.visibility==='shared' && isOwn && (
+            {e.visibility==='shared' && isOwn && e.type !== 'flight' && (
               <span style={{ fontSize:12, color:C.rose, background:C.rose+'15', borderRadius:BR.pill, padding:'2px 8px' }}>◯ Shared by me</span>
             )}
-            {(e.visibility==='private' || !e.visibility) && isOwn && (
+            {(e.visibility==='private' || !e.visibility) && isOwn && e.type !== 'flight' && (
               <span style={{ fontSize:12, color:C.muted, background:C.elevated, borderRadius:BR.pill, padding:'2px 8px', border:`1px solid ${C.border}` }}>🔒 Private</span>
             )}
-            {e.visibility==='shared' && !isOwn && (
+            {e.visibility==='shared' && !isOwn && e.type !== 'flight' && (
               <span style={{ fontSize:12, color:getDTC(C).meeting, background:C.M+'18',
                 borderRadius:BR.pill, padding:'2px 8px' }}>
                 👤 {e.userName || 'Team member'}
@@ -1160,8 +1161,12 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               }).filter(Boolean).join(', ');
               return names ? ['Travellers', names] : null;
             })(),
-            // Who entered this flight (entry owner — may differ from traveller)
-            e.type==='flight' && e.userName && ['Entered by', e.userName],
+            // Who entered this flight — only show when owner is not one of the travellers
+            e.type==='flight' && e.userName && (() => {
+              const tvs2 = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
+              const owner = e.userId || e.user_id;
+              return !tvs2.includes(owner) && tvs2.length > 0 ? ['Entered by', e.userName] : null;
+            })(),
             e.seat     && ['Seat',     e.seat],
             e.terminal && ['Terminal', e.terminal],
             e.gate     && ['Gate',     e.gate],
@@ -7525,8 +7530,7 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
               // Store names map so ECard can resolve IDs without workspace access
               const nm = {};
               safe.forEach(t => { if (t !== 'other') nm[t] = nameMap[t] || ''; });
-              // Always include self in map even if not selected (for future fallback)
-              if (!nm[selfId]) nm[selfId] = selfName;
+              // Only include self if explicitly selected — not automatically
               set('travellerNamesMap', nm);
               // Keep legacy fields for backward compat
               set('traveller', safe.length===1 ? safe[0] : (safe.includes('other') ? 'other' : safe[0]));
