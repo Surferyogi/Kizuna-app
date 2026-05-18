@@ -88,7 +88,7 @@ const AIRPORTS = {
   DXB:'Dubai',AUH:'Abu Dhabi',DOH:'Doha',BAH:'Bahrain',KWI:'Kuwait City',
   RUH:'Riyadh',JED:'Jeddah',CAI:'Cairo',ADD:'Addis Ababa',NBO:'Nairobi',
   JNB:'Johannesburg',CPT:'Cape Town',LOS:'Lagos',ACC:'Accra',CMN:'Casablanca',
-  JFK:'New York',EWR:'New York',LGA:'New York',LAX:'Los Angeles',ORD:'Chicago',
+  JFK:'New York',EWR:'New York',LGA:'New York',PHL:'Philadelphia',LAX:'Los Angeles',ORD:'Chicago',
   MDW:'Chicago',ATL:'Atlanta',DFW:'Dallas',DEN:'Denver',SFO:'San Francisco',
   SEA:'Seattle',MIA:'Miami',BOS:'Boston',IAD:'Washington DC',DCA:'Washington DC',
   YYZ:'Toronto',YVR:'Vancouver',YUL:'Montreal',GRU:'São Paulo',GIG:'Rio de Janeiro',
@@ -450,6 +450,7 @@ const AIRPORT_DB = [
   ['JFK','New York','JFK Airport','US','United States'],
   ['EWR','New York','Newark Airport','US','United States'],
   ['LGA','New York','LaGuardia Airport','US','United States'],
+  ['PHL','Philadelphia','Philadelphia Intl Airport','US','United States'],
   ['LAX','Los Angeles','LAX Airport','US','United States'],
   ['SFO','San Francisco','SFO Airport','US','United States'],
   ['ORD','Chicago','O Hare Airport','US','United States'],
@@ -2218,7 +2219,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                       });
                       return merged.map((h, hi) => {
                         const isBoth = h.countries.length > 1;
-                        const ac = isBoth ? C.rose : (HC[h.countries[0]]||'#EF3340');
+                        const ac = isBoth ? C.rose : (HC[h.countries[0]]||C.rose);
                         const bg = isBoth ? '#FFF0EC' : (HC_LIGHT[h.countries[0]]||'#FEE8EA');
                         return (
                           <div key={hi} style={{ display:'flex', alignItems:'center', gap:10,
@@ -2234,7 +2235,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                             <div>
                               <span style={{ fontSize:12, fontWeight:700, color:ac }}>{h.name}</span>
                               <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                                {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                                {h.countries.length > 1 ? h.countries.map(x=>({'SG':'Singapore','JP':'Japan','FR':'France'}[x]||x)).join(' & ') : ({'SG':'Singapore','JP':'Japan','FR':'France'}[h.countries[0]]||h.countries[0])}
                                 {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' Public Holiday'}
                               </span>
                             </div>
@@ -2313,7 +2314,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             });
             return merged.map((h, i) => {
               const isBoth = h.countries.length > 1;
-              const accentColor = isBoth ? C.rose : (HC[h.countries[0]]||'#EF3340');
+              const accentColor = isBoth ? C.rose : (HC[h.countries[0]]||C.rose);
               const bgColor    = isBoth ? '#FFF0EC' : (HC_LIGHT[h.countries[0]]||'#FEE8EA');
               const calKey = `${h.name}|${selDate}`;
               const isExpanded = expandedCalHoliday === calKey;
@@ -2337,7 +2338,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                       <span style={{ fontSize:13, fontWeight:700,
                         color:accentColor }}>{h.name}</span>
                       <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
-                        {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                        {h.countries.length > 1 ? h.countries.map(x=>({'SG':'Singapore','JP':'Japan','FR':'France'}[x]||x)).join(' & ') : ({'SG':'Singapore','JP':'Japan','FR':'France'}[h.countries[0]]||h.countries[0])}
                         {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' · Public Holiday'}
                         {info && !isExpanded && <span style={{ color:C.rose }}> · Tap</span>}
                       </span>
@@ -5390,8 +5391,8 @@ const HOLIDAYS_BY_DATE = PUBLIC_HOLIDAYS.reduce((acc, h) => {
 }, {});
 
 // Country colours for holiday badges
-const HC = { SG:'#EF3340', JP:'#BC002D' }; // SG red, JP red (distinct shades)
-const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8' };
+const HC = { SG:'#EF3340', JP:'#BC002D', FR:'#0055A4' }; // SG red, JP red, FR blue
+const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8', FR:'#E8EFF8' };
 
 // ─── HOLIDAY WRITEUPS ─────────────────────────────────────────────
 // Short, interesting history/origin for each SG and JP public holiday.
@@ -5758,23 +5759,24 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
               textTransform:'uppercase', letterSpacing:'0.1em' }}>Country</p>
             <div style={{ display:'flex', gap:6 }}>
               {[
-                { k:'all', l:'All', icon:'🌏' },
+                { k:'all', l:'All',       icon:'🌏' },
                 { k:'SG',  l:'Singapore', icon:'🇸🇬' },
                 { k:'JP',  l:'Japan',     icon:'🇯🇵' },
-              ].map(c => (
-                <button key={c.k} onClick={() => setHolidayCountry(c.k)}
+                { k:'FR',  l:'France',    icon:'🇫🇷' },
+              ].map(cc => (
+                <button key={cc.k} onClick={() => setHolidayCountry(cc.k)}
                   style={{ flexShrink:0, display:'flex', alignItems:'center', gap:5,
                     padding:'5px 13px', borderRadius:BR.pill,
-                    background: holidayCountry===c.k
-                      ? (c.k==='SG' ? HC.SG : c.k==='JP' ? HC.JP : C.rose)
+                    background: holidayCountry===cc.k
+                      ? (HC[cc.k] || C.rose)
                       : C.elevated,
-                    border:`1.5px solid ${holidayCountry===c.k
-                      ? (c.k==='SG' ? HC.SG : c.k==='JP' ? HC.JP : C.rose)
+                    border:`1.5px solid ${holidayCountry===cc.k
+                      ? (HC[cc.k] || C.rose)
                       : C.border}`,
-                    color: holidayCountry===c.k ? '#fff' : C.dim,
-                    fontSize:13, fontWeight: holidayCountry===c.k ? 700 : 400,
+                    color: holidayCountry===cc.k ? '#fff' : C.dim,
+                    fontSize:13, fontWeight: holidayCountry===cc.k ? 700 : 400,
                     cursor:'pointer', transition:'all 0.15s' }}>
-                  <span>{c.icon}</span><span>{c.l}</span>
+                  <span>{cc.icon}</span><span>{cc.l}</span>
                 </button>
               ))}
             </div>
@@ -5782,7 +5784,9 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
             <p style={{ margin:'10px 0 0', fontSize:12, color:C.muted, fontStyle:'italic' }}>
               {upcomingHolidays.length} holiday{upcomingHolidays.length!==1?'s':''} ·{' '}
               {HOLIDAY_RANGES.find(r=>r.k===holidayRange)?.l} ·{' '}
-              {holidayCountry==='all' ? 'SG & JP' : holidayCountry==='SG' ? 'Singapore' : 'Japan'}
+              {holidayCountry==='all' ? 'SG · JP · FR' :
+               holidayCountry==='SG' ? 'Singapore' :
+               holidayCountry==='JP' ? 'Japan' : 'France'}
             </p>
           </div>
 
@@ -5834,7 +5838,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                     });
                     return merged.map((h, i) => {
                       const isBoth = h.countries.length > 1;
-                      const accentColor = isBoth ? C.rose : (HC[h.countries[0]]||'#EF3340');
+                      const accentColor = isBoth ? C.rose : (HC[h.countries[0]]||C.rose);
                       const infoKey = `${h.name}|${date}`;
                       const isExpanded = expandedHoliday === infoKey;
                       const info = HOLIDAY_INFO[h.name];
@@ -5856,7 +5860,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                               <p style={{ margin:'0 0 2px', fontSize:15, fontWeight:700,
                                 color:accentColor }}>{h.name}</p>
                               <p style={{ margin:0, fontSize:12, color:C.muted }}>
-                                {isBoth ? 'Singapore & Japan' : h.countries[0]==='SG' ? 'Singapore' : 'Japan'}
+                                {h.countries.length > 1 ? h.countries.map(x=>({'SG':'Singapore','JP':'Japan','FR':'France'}[x]||x)).join(' & ') : ({'SG':'Singapore','JP':'Japan','FR':'France'}[h.countries[0]]||h.countries[0])}
                                 {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' · Public Holiday'}
                                 {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
                               </p>
