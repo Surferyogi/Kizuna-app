@@ -1041,6 +1041,13 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
               {actIcon || aiIcon}
             </span>
           )}
+          {/* Secondary person icon — shown when name appears in title */}
+          {(() => {
+            const t = (e.title || '').toLowerCase();
+            if (t.includes('anna')) return <span style={{ fontSize:15, flexShrink:0, lineHeight:1 }}>💕</span>;
+            if (t.includes('sophia')) return <span style={{ fontSize:15, flexShrink:0, lineHeight:1 }}>❤️</span>;
+            return null;
+          })()}
           <span style={{ fontSize:16, fontWeight:600,
             color: isCancelled ? WARN : (e.done || isFlightLanded) ? C.muted : isPastDue ? C.dim : C.text,
             textDecoration: (e.done || isCancelled || isPastDue || isFlightLanded) ? 'line-through' : 'none',
