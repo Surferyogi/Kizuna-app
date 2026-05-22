@@ -1516,7 +1516,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
   }, [entries, todayStr]);
 
   const nextFlight = useMemo(() =>
-    entries.filter(e => e.type==='flight' && e.date >= todayStr)
+    entries.filter(e => e.type==='flight' && !e.cancelled && e.date >= todayStr)
            .sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''))[0],
     [entries, todayStr]);
 
@@ -1534,7 +1534,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
     const lim = new Date(now.getTime() + 48 * 3600000);
     return entries.filter(e => {
       const d = new Date(e.date + 'T' + (e.time||'00:00'));
-      return d >= now && d <= lim && e.type !== 'task';
+      return d >= now && d <= lim && e.type !== 'task' && !e.cancelled;
     }).length;
   }, [entries, now]);
 
@@ -1622,11 +1622,11 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
         {(() => {
           const filters = [
             { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:getDTC(C).task,    icon:'✓',
-              entries: entries.filter(e=>e.type==='task'&&!e.done&&(!e.repeat||e.repeat==='none')).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
+              entries: entries.filter(e=>e.type==='task'&&!e.done&&!e.cancelled&&(!e.repeat||e.repeat==='none')).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
             { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:getDTC(C).event,   icon:'⏱',
               entries: (() => { const n=new Date(),lim=new Date(n.getTime()+48*3600000);
                 return entries.filter(e=>{ const d=new Date(e.date+'T'+(e.time||'00:00'));
-                  return d>=n&&d<=lim&&e.type!=='task'&&(!e.repeat||e.repeat==='none'); })
+                  return d>=n&&d<=lim&&e.type!=='task'&&!e.cancelled&&(!e.repeat||e.repeat==='none'); })
                   .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')); })() },
           ];
           return (<>
@@ -2038,7 +2038,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
 
   // All flights in current month — sorted by date then time
   const monthFlights = useMemo(() =>
-    entries.filter(e => e.type==='flight' &&
+    entries.filter(e => e.type==='flight' && !e.cancelled &&
       e.date?.startsWith(`${vm.y}-${p2(vm.m+1)}`))
       .sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||'')),
     [entries, vm.y, vm.m]);
@@ -8736,7 +8736,7 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
   // For 'others' traveller entries — aggregate by travellerName
   const otherNames = [...new Set(
     entries
-      .filter(e => e.type === 'flight' && e.traveller === 'other' && e.travellerName)
+      .filter(e => e.type === 'flight' && !e.cancelled && e.traveller === 'other' && e.travellerName)
       .map(e => e.travellerName)
   )];
   const allTabs = [
@@ -8768,7 +8768,7 @@ function LocationSummaryModal({ onClose, userLocations, entries, currentUserId, 
 
     // All flights for this traveller, all years (need full history for propagation)
     const flights = entries
-      .filter(e => e.type === 'flight' && e.traveller === 'other' &&
+      .filter(e => e.type === 'flight' && !e.cancelled && e.traveller === 'other' &&
         e.travellerName === travellerName && e.date && getArrC(e))
       .sort((a, b) => a.date.localeCompare(b.date));
 
