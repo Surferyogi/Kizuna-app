@@ -1212,6 +1212,14 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             e.attendees&& ['Attendees',e.attendees],
             e.flightNum&& ['Flight',   `${e.airline||''} ${e.flightNum}`],
             e.depCity  && ['Route',    `${e.depCity} → ${e.arrCity||'?'}`],
+            (e.scheduledDep||e.time) && ['Departs', (() => {
+              const base = e.scheduledDep ? pt(e.scheduledDep.split('T')[1]?.slice(0,5)) : pt(e.time);
+              const rev  = e.revisedDep   ? pt(e.revisedDep.split('T')[1]?.slice(0,5))   : null;
+              const delay = e.delayMins > 4 ? ` (${e.delayLabel})` : '';
+              return rev && rev !== base ? `${rev}${delay} (sched ${base})` : `${base}${delay}`;
+            })()],
+            e.scheduledArr && ['Arrives', pt(e.scheduledArr.split('T')[1]?.slice(0,5))],
+            e.aircraft && ['Aircraft', e.aircraft],
             e.type==='flight' && (() => {
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
               const nmap = e.travellerNamesMap||{};
@@ -1243,6 +1251,15 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             e.seat     && ['Seat',     e.seat],
             e.terminal && ['Terminal', e.terminal],
             e.gate     && ['Gate',     e.gate],
+            e.aircraft && ['Aircraft', e.aircraft],
+            e.type==='flight' && e.lastSynced && ['Last synced', (() => {
+              const d = new Date(e.lastSynced);
+              const mins = Math.floor((Date.now()-d)/60000);
+              if (mins < 1)  return 'Just now';
+              if (mins < 60) return `${mins}m ago`;
+              const hrs = Math.floor(mins/60);
+              return hrs < 24 ? `${hrs}h ago` : d.toLocaleDateString();
+            })()],
             e.tags     && ['Tags',     e.tags],
             e.repeat && e.repeat!=='none' && ['Repeats', e.repeat.charAt(0).toUpperCase()+e.repeat.slice(1)],
             e.message  && ['Message',  e.message],
@@ -1386,6 +1403,12 @@ function FlightHeroCard({ flight, todayStr }) {
               <p style={{ margin:'2px 0 0', fontSize:12, color:C.dim, lineHeight:1 }}>
                 {arrName !== flight.arrCity ? arrName : ''}
               </p>
+              {/* Scheduled arrival time */}
+              {(status?.scheduledArr || flight.scheduledArr) && (
+                <p style={{ margin:'3px 0 0', fontSize:12, color:C.dim }}>
+                  {pt((status?.scheduledArr || flight.scheduledArr).split('T')[1]?.slice(0,5))}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1410,6 +1433,7 @@ function FlightHeroCard({ flight, todayStr }) {
           ['Terminal', status?.terminal || flight.terminal],
           ['Gate',     status?.gate     || flight.gate],
           ['Seat',     flight.seat],
+          ['Aircraft', status?.aircraft || flight.aircraft],
         ].filter(([,v])=>v).map(([k,v]) => (
           <div key={k} style={{ background:'#ffffff60', borderRadius:BR.btn,
             padding:'7px 12px', backdropFilter:'blur(4px)',
@@ -9472,15 +9496,28 @@ export default function App() {
         const data = await res.json();
         if (data?.error || !data?.label) return;
         const updated = { ...e };
-        if (data.terminal)            updated.terminal    = data.terminal;
-        if (data.gate)                updated.gate        = data.gate;
-        if (data.airline)             updated.airline     = data.airlineName || e.airline;
-        if (data.delayMins !== undefined) {
-          updated.delayMins  = data.delayMins;
-          updated.delayLabel = data.delayLabel;
+        // Status fields
+        if (data.terminal)                updated.terminal     = data.terminal;
+        if (data.gate)                    updated.gate         = data.gate;
+        if (data.airlineName)             updated.airline      = data.airlineName;
+        if (data.aircraft)                updated.aircraft     = data.aircraft;
+        if (data.delayMins !== undefined) updated.delayMins    = data.delayMins;
+        if (data.delayLabel)              updated.delayLabel   = data.delayLabel;
+        if (data.onTime !== undefined)    updated.onTime       = data.onTime;
+        if (data.revisedDep)              updated.revisedDep   = data.revisedDep;
+        if (data.scheduledDep)            updated.scheduledDep = data.scheduledDep;
+        if (data.scheduledArr)            updated.scheduledArr = data.scheduledArr;
+        // Airport full names (from AviationStack)
+        if (data.depAirport)              updated.depAirport   = data.depAirport;
+        if (data.arrAirport)              updated.arrAirport   = data.arrAirport;
+        // Departure time — use scheduledDep if we don't have a time yet
+        if (data.scheduledDep && !updated.time) {
+          updated.time = data.scheduledDep.split('T')[1]?.slice(0,5) || updated.time;
         }
-        if (data.revisedDep)          updated.revisedDep  = data.revisedDep;
-        if (data.scheduledArr)        updated.scheduledArr = data.scheduledArr;
+        // Live status label+color — store so ECard can show without re-fetch
+        if (data.label)                   updated.liveLabel    = data.label;
+        if (data.color)                   updated.liveColor    = data.color;
+        updated.lastSynced = new Date().toISOString();
         setEntries(prev => prev.map(x => x.id === e.id ? updated : x));
         const ownerUserId = e.userId || user?.id;
         if (ownerUserId) dbUpsertEntry(ownerUserId, updated);
