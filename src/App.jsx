@@ -231,6 +231,9 @@ function useLiveFlightStatus(flight) {
   const [status,      setStatus]      = useState(() => flightStatusLocal(flight));
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading,     setLoading]     = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0); // increment to force re-fetch
+
+  const refresh = useCallback(() => setRefreshTick(t => t + 1), []);
 
   useEffect(() => {
     // Only fetch if we have a flight number and supabase is configured
@@ -267,9 +270,9 @@ function useLiveFlightStatus(flight) {
     const interval = setInterval(fetchStatus, 5 * 60 * 1000);
     return () => { cancelled = true; clearInterval(interval); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flight?.flightNum, flight?.date]);
+  }, [flight?.flightNum, flight?.date, refreshTick]);
 
-  return { status, lastUpdated, loading };
+  return { status, lastUpdated, loading, refresh };
 }
 
 
@@ -1102,6 +1105,18 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             {e.time      && <span style={{ fontSize:14, color:C.dim }}>{pt(e.time)}{e.endTime?` – ${pt(e.endTime)}`:''}</span>}
             {e.location  && <span style={{ fontSize:14, color:C.dim }}>📍 {e.location}</span>}
             {e.flightNum && <span style={{ fontSize:14, color:C.dim }}>{e.airline} · {e.flightNum}</span>}
+            {e.type==='flight' && e.terminal && (
+              <span style={{ fontSize:12, fontWeight:700, color:C.F,
+                background:C.F+'15', borderRadius:BR.pill, padding:'2px 8px', flexShrink:0 }}>
+                T{e.terminal}
+              </span>
+            )}
+            {e.type==='flight' && e.gate && (
+              <span style={{ fontSize:12, fontWeight:700, color:C.F,
+                background:C.F+'15', borderRadius:BR.pill, padding:'2px 8px', flexShrink:0 }}>
+                Gate {e.gate}
+              </span>
+            )}
             {e.type === 'flight' && (() => {
               const tvs = Array.isArray(e.travellers)&&e.travellers.length>0 ? e.travellers : (e.traveller ? [e.traveller] : []);
               const nmap = e.travellerNamesMap || {};
@@ -1332,10 +1347,12 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
 }
 
 // ─── FLIGHT HERO CARD ────────────────────────────────────────────
-function FlightHeroCard({ flight, todayStr }) {
+function FlightHeroCard({ flight, todayStr, onRefresh }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
-  const { status, lastUpdated, loading } = useLiveFlightStatus(flight);
+  const { status, lastUpdated, loading, refresh } = useLiveFlightStatus(flight);
+  // Expose refresh so parent can trigger after manual sync
+  useEffect(() => { if (onRefresh) onRefresh(refresh); }, [refresh]); // eslint-disable-line
   const depName = airportCity(flight.depCity);
   const arrName = airportCity(flight.arrCity);
 
@@ -1489,6 +1506,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
 
   // Auto-show Today's Schedule on launch and background return
   const [homeFilter, setHomeFilter] = useState('today');
+  const heroRefreshRef = useRef(null); // holds FlightHeroCard's refresh fn
 
   // On visibility change: reset date AND filter atomically in one setState batch.
   // React 18 batches multiple setState calls in the same event handler — 
@@ -1750,7 +1768,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
         {/* Next Flight — only shown when no filter card is active */}
         {!homeFilter && nextFlight && (<>
           <Sec label="Next Flight" />
-          <FlightHeroCard flight={nextFlight} todayStr={todayStr} />
+          <FlightHeroCard flight={nextFlight} todayStr={todayStr} onRefresh={fn => { heroRefreshRef.current = fn; }} />
         </>)}
 
         {/* Pending Tasks — only shown when no filter active */}
@@ -9525,8 +9543,14 @@ export default function App() {
     };
 
     setFlightSyncCount(upcoming.length);
+    let completed = 0;
     upcoming.forEach((e, i) => syncFlight(e, i * 1500).finally(() => {
       setFlightSyncCount(prev => Math.max(0, prev - 1));
+      completed++;
+      // After last flight syncs, refresh HeroCard live status
+      if (completed === upcoming.length) {
+        setTimeout(() => heroRefreshRef.current?.(), 500);
+      }
     }));
   }, [entries, user]); // eslint-disable-line react-hooks/exhaustive-deps
   // Fires once per TIME SLOT (morning/afternoon/evening).
