@@ -590,8 +590,8 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION    = 'v2.4.0';
-const APP_BUILD_DATE = 'May 23, 2026 · 11:00 PM';
+const APP_VERSION    = 'v2026.05.23-17:00';
+const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
 async function dbLoadEntries(userId) {
@@ -7300,7 +7300,7 @@ function SettingsTab({ onReset, userName = '', onChangeName, onSignOut, workspac
               fontFamily:'Cormorant Garamond,serif' }}>Kizuna 絆</span>
           </div>
           <p style={{ margin:0, fontSize:13, color:C.muted }}>
-            Released {APP_BUILD_DATE}<br/>
+            {APP_VERSION}<br/>
             <span style={{ color:C.rose }}>by Surferyogi</span>
           </p>
         </div>
