@@ -907,9 +907,10 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
       [['flight','fly','airport','depart','arrive'],'✈️'],
       [['hotel','resort','check in','checkin','check-in'],'🏨'],
       [['drive','road trip'],'🚗'],
-      [['train','rail','mrt','subway','metro','lrt'],'🚆'],
-      [['cruise','ship','boat','ferry'],'🚢'],
-      [['taxi','grab','uber','lyft'],'🚕'],
+      [['train','rail','mrt','subway','metro','lrt','tram','commute'],'🚂'],
+      [['cruise','ship','boat','ferry','yacht'],'🚢'],
+      [['taxi','grab','uber','lyft','cab'],'🚕'],
+      [['bus','coach','shuttle'],'🚌'],
       // Health & wellness
       [['doctor','physician','gp','checkup','check-up','clinic visit'],'🩺'],
       [['dentist','dental','teeth','orthodon'],'🦷'],
@@ -9658,6 +9659,13 @@ export default function App() {
   // All tabs receive expandedEntries so repeating birthdays/events appear everywhere
   const expandedEntries = useMemo(() => expandRepeating(entries), [entries]);
 
+  // Location map for calendar flags — keyed to current logged-in user only
+  // Recomputes when: entries change, GPS locations change, or user changes
+  const calLocationMap = useMemo(
+    () => buildCalendarLocationMap(userLocations, expandedEntries, user?.id),
+    [userLocations, expandedEntries, user?.id]
+  );
+
   const sharedStyle = {
     wrapper: { width:'100%', maxWidth:430, margin:'0 auto', height:'100vh',
       background:C.bg, display:'flex', flexDirection:'column', alignItems:'center',
@@ -9886,7 +9894,7 @@ export default function App() {
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
         {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} onLocationSummary={() => setShowLocationSummary(true)} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} showFlags={showCalFlags} locationMap={buildCalendarLocationMap(userLocations, expandedEntries, user?.id)} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} showFlags={showCalFlags} locationMap={calLocationMap} />}
         {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} isAdmin={isAdmin} setFestiveTheme={setFestiveTheme} setFestiveVisible={setFestiveVisible} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} workspace={workspace} currentUserId={user?.id} onLocationRefresh={() => loadUserLocations(user?.id)} />}
