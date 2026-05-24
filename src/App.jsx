@@ -4077,6 +4077,987 @@ function AnniversaryBackground() {
   }} />;
 }
 
+
+
+// ─── KODOMO NO HI — Children's Day · Koinobori ────────────────────────────────
+function KodomoBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = window.innerWidth, H = window.innerHeight;
+    let ctx, animId, T = 0, lastNow = null;
+
+    // ── Deterministic RNG ────────────────────────────────────────────────────
+    const mkRng = seed => { let s=seed|0; return ()=>{ s=Math.imul(s,1664525)+1013904223|0; return (s>>>0)/4294967296; }; };
+    const rng = mkRng(31415);
+
+    const setup = () => {
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width  = Math.round(W*dpr); canvas.height = Math.round(H*dpr);
+      canvas.style.width = W+'px'; canvas.style.height = H+'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    };
+    setup();
+
+    // ── Wind simulation — multi-layer Perlin-like noise ──────────────────────
+    // Base wind + gusts + turbulence
+    const windNoise = (t, freq, seed) => {
+      const s1 = Math.sin(t*freq       + seed*2.718) * 0.5;
+      const s2 = Math.sin(t*freq*2.3   + seed*1.414) * 0.25;
+      const s3 = Math.sin(t*freq*5.7   + seed*3.141) * 0.15;
+      const s4 = Math.sin(t*freq*11.3  + seed*1.732) * 0.07;
+      return s1+s2+s3+s4;
+    };
+    // Wind returns {strength:0-1, direction:angle, gust:0-1}
+    const getWind = (t) => {
+      const base   = 0.45 + windNoise(t, 0.08, 1.0) * 0.30;
+      const gust   = Math.max(0, windNoise(t, 0.22, 2.5)) * 0.55;
+      const turb   = windNoise(t, 0.55, 4.1) * 0.12;
+      const dir    = windNoise(t, 0.04, 7.3) * 0.35; // sway left-right
+      return { strength: Math.max(0.1, base+gust+turb), gust, dir };
+    };
+
+    // ── Koinobori poles ──────────────────────────────────────────────────────
+    // Each pole: position, height, 3 carp (father/mother/child)
+    const CARP_DEFS = [
+      // [colorBase, colorBelly, colorFin, length_frac, scaleName]
+      { base:'#1A1A1A', belly:'#404040', fin:'#888', accent:'#FFD700', len:1.0,  name:'father',
+        scaleRows:7, scaleColor:'#333333', eyeColor:'#FFD700', lipColor:'#FF4444' },
+      { base:'#D43A3A', belly:'#F07070', fin:'#FF8888', accent:'#FFE0E0', len:0.80, name:'mother',
+        scaleRows:6, scaleColor:'#B02020', eyeColor:'#FFD700', lipColor:'#FF8888' },
+      { base:'#2266CC', belly:'#5599EE', fin:'#88BBFF', accent:'#DDEEFF', len:0.62, name:'child1',
+        scaleRows:5, scaleColor:'#1144AA', eyeColor:'#FFFF88', lipColor:'#AADDFF' },
+      { base:'#22AA55', belly:'#55CC88', fin:'#88FFAA', accent:'#CCFFEE', len:0.50, name:'child2',
+        scaleRows:4, scaleColor:'#118833', eyeColor:'#FFFF88', lipColor:'#88FFCC' },
+    ];
+
+    const POLES = [
+      { x:W*0.18, poleH:H*0.72, carps:CARP_DEFS,         windPhase:0.0, windScale:1.0 },
+      { x:W*0.50, poleH:H*0.78, carps:CARP_DEFS.slice(0,3), windPhase:1.4, windScale:0.88 },
+      { x:W*0.82, poleH:H*0.68, carps:CARP_DEFS,         windPhase:2.9, windScale:1.12 },
+    ];
+
+    // ── Draw one koinobori carp ──────────────────────────────────────────────
+    // cx,cy = mouth position, wind = {strength, dir}, carp def, index offset
+    const drawKoi = (cx, cy, wind, carp, poleWindPhase, len_px) => {
+      const W_STR = wind.strength;
+      const DIR   = wind.dir;
+      const GUST  = wind.gust;
+
+      // Body is a bezier ribbon — inflated by wind
+      // Inflation: wind fills the sock; strong wind = more cylindrical
+      const inflation = 0.25 + W_STR * 0.55;
+      const bodyW = len_px * 0.18 * inflation;
+
+      // Body length foreshortening based on wind (headwind = fuller, no wind = drooping)
+      const bodyLen   = len_px * (0.6 + W_STR * 0.38);
+
+      // The body sways: tail swings downstream of wind
+      // Body spine modeled as 5-segment chain
+      const segments = 6;
+      const spine = [];
+      // Mouth is fixed at cx,cy
+      spine.push({x:cx, y:cy});
+      for(let i=1; i<=segments; i++){
+        const t_seg = i/segments;
+        // Each segment trails the one before with wind-driven displacement
+        const prev = spine[i-1];
+        const segLen = bodyLen/segments;
+        // Horizontal wind drag increases toward tail
+        const drag = t_seg * t_seg * W_STR * len_px * 0.45;
+        const swayAmp = t_seg * t_seg * W_STR * 18 + Math.sin(T*2.8 + poleWindPhase + t_seg*4)*4*W_STR;
+        const gravDroop = t_seg * t_seg * (1-W_STR) * segLen * 0.9;
+        spine.push({
+          x: prev.x + drag/segments + Math.sin(T*1.6 + poleWindPhase + t_seg*3.1) * swayAmp * 0.06,
+          y: prev.y + gravDroop + Math.sin(T*2.1 + poleWindPhase + t_seg*2.3 + i) * swayAmp * 0.12,
+        });
+      }
+      const tail = spine[segments];
+
+      // ── Carp body shape ──────────────────────────────────────────────────
+      // Build upper and lower profile along spine
+      const profile = (side) => {
+        const pts = [];
+        for(let i=0; i<=segments; i++){
+          const t_seg = i/segments;
+          const p = spine[i];
+          // Width tapers: wide at 30%, narrows to tail
+          const widthT = t_seg < 0.3
+            ? t_seg/0.3
+            : 1 - (t_seg-0.3)/0.7 * 0.85;
+          const w = bodyW * widthT * (0.9 + Math.sin(T*2.5+poleWindPhase+t_seg*5)*0.08*W_STR);
+          // Perpendicular offset
+          const dx = i<segments ? spine[i+1].x-p.x : p.x-spine[i-1].x;
+          const dy = i<segments ? spine[i+1].y-p.y : p.y-spine[i-1].y;
+          const len = Math.sqrt(dx*dx+dy*dy)||1;
+          const nx = -dy/len * side;
+          const ny =  dx/len * side;
+          pts.push({ x: p.x + nx*w, y: p.y + ny*w });
+        }
+        return pts;
+      };
+
+      const upper = profile(1);
+      const lower = profile(-1);
+
+      // Main body gradient
+      const grad = ctx.createLinearGradient(cx, cy-bodyW, tail.x, tail.y+bodyW);
+      grad.addColorStop(0, carp.base);
+      grad.addColorStop(0.4, carp.belly);
+      grad.addColorStop(0.7, carp.base);
+      grad.addColorStop(1, carp.base+'88');
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      upper.forEach(p => ctx.lineTo(p.x, p.y));
+      // Tail fan
+      const tailFanAmp = (0.3 + W_STR*0.5) * bodyW * 1.6;
+      const tailSway   = Math.sin(T*3.2 + poleWindPhase) * tailFanAmp * 0.8;
+      ctx.lineTo(tail.x + tailFanAmp*0.6, tail.y - tailFanAmp + tailSway);
+      ctx.lineTo(tail.x + tailFanAmp*1.1, tail.y + tailSway*0.3);
+      ctx.lineTo(tail.x, tail.y + tailSway*0.15);
+      ctx.lineTo(tail.x - tailFanAmp*0.4, tail.y + tailFanAmp*0.6 + tailSway*0.4);
+      [...lower].reverse().forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+      ctx.fillStyle = grad; ctx.fill();
+
+      // ── Scales ──────────────────────────────────────────────────────────
+      ctx.save();
+      ctx.globalAlpha = 0.28;
+      for(let row=1; row<carp.scaleRows; row++){
+        const t_row = row/carp.scaleRows * 0.85 + 0.05;
+        const si = Math.floor(t_row * segments);
+        const pCenter = spine[Math.min(si, segments)];
+        const widthT = t_row < 0.3 ? t_row/0.3 : 1-(t_row-0.3)/0.7*0.85;
+        const rowW = bodyW * widthT * 1.1;
+        const scaleW = rowW * 0.38;
+        const scaleH = scaleW * 0.55;
+        const nScales = Math.max(2, Math.round(rowW*2/scaleW));
+        for(let sc=0; sc<nScales; sc++){
+          const sOff = (sc/(nScales-1) - 0.5) * rowW * 1.8;
+          const sx2 = pCenter.x + sOff;
+          const sy2 = pCenter.y;
+          const ripple = Math.sin(T*3+poleWindPhase+row*0.8+sc*0.5)*0.9*W_STR;
+          ctx.fillStyle = carp.scaleColor;
+          ctx.beginPath();
+          ctx.arc(sx2, sy2+ripple, scaleW, Math.PI, Math.PI*2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
+      // ── Belly highlight ──────────────────────────────────────────────────
+      ctx.save(); ctx.globalAlpha = 0.22;
+      const bg2 = ctx.createLinearGradient(cx, cy, tail.x, tail.y);
+      bg2.addColorStop(0, carp.accent);
+      bg2.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = bg2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy+2);
+      lower.slice(0, Math.ceil(segments*0.6)).forEach(p => ctx.lineTo(p.x, p.y-bodyW*0.3));
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+
+      // ── Dorsal & pectoral fins ────────────────────────────────────────────
+      ctx.save();
+      // Dorsal fin
+      const dorsalT = 0.25;
+      const dSeg = Math.floor(dorsalT*segments);
+      const dP = spine[dSeg];
+      const dorsalSway = Math.sin(T*2.5+poleWindPhase+1)*4*W_STR;
+      ctx.globalAlpha=0.7;
+      ctx.fillStyle=carp.fin;
+      ctx.beginPath();
+      ctx.moveTo(upper[dSeg].x, upper[dSeg].y);
+      ctx.bezierCurveTo(
+        dP.x-8, dP.y - bodyW*1.8 + dorsalSway,
+        dP.x+12, dP.y - bodyW*2.0 + dorsalSway,
+        upper[dSeg+2]?.x||upper[dSeg].x, upper[dSeg+2]?.y||upper[dSeg].y
+      );
+      ctx.closePath(); ctx.fill();
+      // Pectoral fins
+      [0.2, 0.35].forEach((ft,fi) => {
+        const fSeg = Math.floor(ft*segments);
+        const fP = spine[fSeg];
+        const fSway = Math.sin(T*2.8+poleWindPhase+fi+2)*5*W_STR;
+        [-1,1].forEach(side=>{
+          ctx.globalAlpha=0.6;
+          ctx.fillStyle=carp.fin;
+          ctx.beginPath();
+          ctx.moveTo(fP.x, fP.y);
+          ctx.bezierCurveTo(
+            fP.x+side*bodyW*0.9, fP.y+bodyW*0.5+fSway*side,
+            fP.x+side*bodyW*1.5, fP.y+bodyW*1.1+fSway*side,
+            fP.x+side*bodyW*0.5, fP.y+bodyW*1.4
+          );
+          ctx.closePath(); ctx.fill();
+        });
+      });
+      ctx.restore();
+
+      // ── Mouth ring & eye ─────────────────────────────────────────────────
+      // Mouth ring (hoop that holds the koinobori open)
+      ctx.strokeStyle='#888888'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(cx, cy, bodyW*0.9, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle='rgba(200,200,200,0.18)';
+      ctx.beginPath(); ctx.arc(cx, cy, bodyW*0.9, 0, Math.PI*2); ctx.fill();
+
+      // Eye
+      const eyeSeg = spine[1];
+      ctx.fillStyle=carp.base;
+      ctx.beginPath(); ctx.arc(eyeSeg.x, eyeSeg.y - bodyW*0.35, bodyW*0.22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle=carp.eyeColor;
+      ctx.beginPath(); ctx.arc(eyeSeg.x+1, eyeSeg.y - bodyW*0.35, bodyW*0.13, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#000';
+      ctx.beginPath(); ctx.arc(eyeSeg.x+1, eyeSeg.y - bodyW*0.35, bodyW*0.07, 0, Math.PI*2); ctx.fill();
+      // Eye shine
+      ctx.fillStyle='rgba(255,255,255,0.8)';
+      ctx.beginPath(); ctx.arc(eyeSeg.x+bodyW*0.05, eyeSeg.y-bodyW*0.4, bodyW*0.04, 0, Math.PI*2); ctx.fill();
+
+      // ── Outline ──────────────────────────────────────────────────────────
+      ctx.save(); ctx.globalAlpha=0.35;
+      ctx.strokeStyle=carp.base; ctx.lineWidth=1.2;
+      ctx.beginPath();
+      upper.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+      [...lower].reverse().forEach(p => ctx.lineTo(p.x,p.y));
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    };
+
+    // ── Cherry blossom background tree ───────────────────────────────────────
+    const drawBlossom = (bx, by, rad, density) => {
+      const rng2 = mkRng(Math.round(bx+by));
+      for(let b=0; b<density; b++){
+        const bx2 = bx+(rng2()-0.5)*rad*2;
+        const by2 = by+(rng2()-0.5)*rad*2;
+        const dist = Math.hypot(bx2-bx, by2-by);
+        if(dist > rad) continue;
+        const fade = 1 - dist/rad;
+        ctx.globalAlpha = fade * 0.75;
+        const pinkH = 340 + rng2()*20;
+        ctx.fillStyle = `hsl(${pinkH},90%,${70+rng2()*15}%)`;
+        for(let p=0; p<5; p++){
+          const pa = (p/5)*Math.PI*2;
+          ctx.beginPath();
+          ctx.ellipse(bx2+Math.cos(pa)*3.5, by2+Math.sin(pa)*3.5, 3, 2, pa, 0, Math.PI*2);
+          ctx.fill();
+        }
+        ctx.fillStyle='#FFD700'; ctx.globalAlpha=fade*0.6;
+        ctx.beginPath(); ctx.arc(bx2, by2, 1.2, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    };
+
+    // ── Petals ────────────────────────────────────────────────────────────────
+    const rng2 = mkRng(999);
+    const petals = Array.from({length:80},()=>({
+      x:rng2()*W, y:rng2()*H,
+      vx:0.3+rng2()*0.5, vy:0.2+rng2()*0.5,
+      rot:rng2()*Math.PI*2, rotV:(rng2()-0.5)*0.04,
+      size:2.5+rng2()*4.5,
+      hue:330+rng2()*40, sat:70+rng2()*25, lit:75+rng2()*15,
+      alpha:0.4+rng2()*0.55,
+    }));
+
+    // ── Frame loop ────────────────────────────────────────────────────────────
+    const frame = (now) => {
+      const dt = lastNow ? Math.min(now-lastNow,50)/1000 : 0.016;
+      lastNow=now; T+=dt;
+
+      const wind = getWind(T);
+
+      // ── Sky ───────────────────────────────────────────────────────────────
+      const sky = ctx.createLinearGradient(0,0,0,H);
+      sky.addColorStop(0,'#6AAFE6');
+      sky.addColorStop(0.45,'#A8D8F0');
+      sky.addColorStop(0.75,'#D8EEF8');
+      sky.addColorStop(1,'#EAF5E8');
+      ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+
+      // ── Clouds ────────────────────────────────────────────────────────────
+      const clouds = [
+        {cx:W*0.12, cy:H*0.12, rx:80, ry:30, drift:0.0},
+        {cx:W*0.42, cy:H*0.08, rx:110, ry:35, drift:0.5},
+        {cx:W*0.74, cy:H*0.15, rx:90, ry:28, drift:1.2},
+        {cx:W*0.90, cy:H*0.22, rx:65, ry:22, drift:2.1},
+      ];
+      clouds.forEach(cl => {
+        const dx = Math.sin(T*0.04+cl.drift)*12;
+        const cg = ctx.createRadialGradient(cl.cx+dx, cl.cy, 0, cl.cx+dx, cl.cy, cl.rx);
+        cg.addColorStop(0,'rgba(255,255,255,0.95)');
+        cg.addColorStop(0.6,'rgba(240,248,255,0.70)');
+        cg.addColorStop(1,'rgba(220,238,255,0)');
+        ctx.fillStyle=cg;
+        ctx.beginPath(); ctx.ellipse(cl.cx+dx, cl.cy, cl.rx, cl.ry, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cl.cx+dx-cl.rx*0.3, cl.cy+cl.ry*0.1, cl.rx*0.55, cl.ry*0.7, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cl.cx+dx+cl.rx*0.3, cl.cy+cl.ry*0.15, cl.rx*0.45, cl.ry*0.6, 0, 0, Math.PI*2); ctx.fill();
+      });
+
+      // ── Background hills / trees ──────────────────────────────────────────
+      // Green rolling hills
+      const hill = ctx.createLinearGradient(0,H*0.55,0,H*0.72);
+      hill.addColorStop(0,'#5DB86A'); hill.addColorStop(1,'#3A8A48');
+      ctx.fillStyle=hill;
+      ctx.beginPath();
+      ctx.moveTo(0,H*0.72); ctx.lineTo(0,H*0.65);
+      ctx.bezierCurveTo(W*0.1,H*0.58,W*0.25,H*0.60,W*0.38,H*0.62);
+      ctx.bezierCurveTo(W*0.52,H*0.64,W*0.65,H*0.56,W*0.78,H*0.58);
+      ctx.bezierCurveTo(W*0.90,H*0.60,W*0.95,H*0.63,W,H*0.65);
+      ctx.lineTo(W,H*0.72); ctx.closePath(); ctx.fill();
+
+      // Cherry trees on hills
+      ctx.save();
+      [[W*0.08,H*0.63,45,280],[W*0.31,H*0.60,55,320],[W*0.63,H*0.57,60,350],[W*0.91,H*0.61,50,300]].forEach(([bx,by,rad,dens])=>{
+        // Trunk
+        ctx.globalAlpha=1; ctx.strokeStyle='#6B3D1A'; ctx.lineWidth=6;
+        ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx,by-rad*0.7); ctx.stroke();
+        drawBlossom(bx,by-rad*0.6,rad,dens);
+      });
+      ctx.restore();
+
+      // ── Ground ────────────────────────────────────────────────────────────
+      const ground = ctx.createLinearGradient(0,H*0.72,0,H);
+      ground.addColorStop(0,'#4A9E58'); ground.addColorStop(0.4,'#3D8B49'); ground.addColorStop(1,'#2E6E38');
+      ctx.fillStyle=ground; ctx.fillRect(0,H*0.72,W,H*0.28);
+      // Grass texture lines
+      ctx.save(); ctx.globalAlpha=0.12; ctx.strokeStyle='#2A5C30'; ctx.lineWidth=0.8;
+      for(let gx=0;gx<W;gx+=8){
+        ctx.beginPath(); ctx.moveTo(gx,H*0.72); ctx.lineTo(gx+2,H); ctx.stroke();
+      }
+      ctx.restore();
+
+      // ── Poles + koinobori ─────────────────────────────────────────────────
+      POLES.forEach(pole => {
+        const px = pole.x, groundY = H*0.72;
+        const poleTop = groundY - pole.poleH;
+
+        // Pole shadow
+        ctx.save(); ctx.globalAlpha=0.15;
+        ctx.fillStyle='#000';
+        ctx.beginPath();
+        ctx.ellipse(px+20, groundY, 12, 4, 0, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+
+        // Pole
+        const poleGrad = ctx.createLinearGradient(px-4,0,px+4,0);
+        poleGrad.addColorStop(0,'#888'); poleGrad.addColorStop(0.5,'#CCC'); poleGrad.addColorStop(1,'#777');
+        ctx.fillStyle=poleGrad; ctx.fillRect(px-4, poleTop, 8, pole.poleH);
+        // Pole cap ball
+        const capG = ctx.createRadialGradient(px-2,poleTop-6,0,px,poleTop-5,10);
+        capG.addColorStop(0,'#FFD700'); capG.addColorStop(1,'#B8860B');
+        ctx.fillStyle=capG;
+        ctx.beginPath(); ctx.arc(px,poleTop-5,10,0,Math.PI*2); ctx.fill();
+
+        // Yokki rope (horizontal rope koinobori hang from)
+        const yokkiLen = 60 + wind.strength*30;
+        ctx.strokeStyle='#888'; ctx.lineWidth=1.5;
+        // Rope droops with gravity
+        const ropeY = poleTop + 15;
+        ctx.beginPath();
+        ctx.moveTo(px, ropeY);
+        ctx.bezierCurveTo(px+yokkiLen*0.4, ropeY+8*(1-wind.strength), px+yokkiLen*0.8, ropeY+5*(1-wind.strength), px+yokkiLen, ropeY);
+        ctx.stroke();
+
+        // Carp streamers hanging from rope
+        pole.carps.forEach((carp, ci) => {
+          const hangX = px + (ci * 12) + 5;
+          const hangY = ropeY + 2;
+          const len_px = pole.poleH * 0.38 * carp.len;
+          const poleWind = wind;
+          // Attachment string
+          ctx.strokeStyle='#999'; ctx.lineWidth=0.8;
+          ctx.beginPath(); ctx.moveTo(px, ropeY); ctx.lineTo(hangX, hangY); ctx.stroke();
+          drawKoi(hangX, hangY, poleWind, carp, pole.windPhase + ci*0.8, len_px);
+        });
+
+        // Pole rope (vertical decorative rope)
+        ctx.strokeStyle='rgba(180,120,60,0.5)'; ctx.lineWidth=1;
+        ctx.setLineDash([4,6]);
+        ctx.beginPath();
+        ctx.moveTo(px, poleTop); ctx.lineTo(px, groundY);
+        ctx.stroke(); ctx.setLineDash([]);
+      });
+
+      // ── Falling petals ────────────────────────────────────────────────────
+      petals.forEach(p => {
+        p.x += p.vx * (0.8 + wind.strength*0.6);
+        p.y += p.vy;
+        p.rot += p.rotV + wind.dir*0.02;
+        if(p.x > W+20) p.x = -20;
+        if(p.y > H+20) { p.y=-20; p.x=Math.random()*W; }
+        ctx.save();
+        ctx.globalAlpha=p.alpha;
+        ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+        ctx.fillStyle=`hsl(${p.hue},${p.sat}%,${p.lit}%)`;
+        ctx.beginPath();
+        ctx.ellipse(0,0,p.size,p.size*0.55,0,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // ── Title overlay ─────────────────────────────────────────────────────
+      ctx.save();
+      const tg = ctx.createLinearGradient(0,0,0,H*0.14);
+      tg.addColorStop(0,'rgba(255,255,255,0)');
+      tg.addColorStop(0.5,'rgba(255,250,240,0.55)');
+      tg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=tg; ctx.fillRect(0,0,W,H*0.14);
+      ctx.fillStyle='#1A3A1A';
+      ctx.font=`bold ${Math.round(H*0.038)}px "Hiragino Mincho ProN","Yu Mincho","Georgia",serif`;
+      ctx.textAlign='center';
+      ctx.fillText('こどもの日', W*0.5, H*0.075);
+      ctx.font=`${Math.round(H*0.018)}px "Hiragino Mincho ProN","Georgia",serif`;
+      ctx.fillStyle='#2A5A2A';
+      ctx.fillText('KODOMO NO HI · CHILDREN\'S DAY', W*0.5, H*0.108);
+      ctx.restore();
+
+      animId = requestAnimationFrame(frame);
+    };
+
+    const onResize = () => { setup(); POLES[0].x=W*0.18; POLES[1].x=W*0.50; POLES[2].x=W*0.82; };
+    window.addEventListener('resize', onResize);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize',onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{
+      position:'fixed', top:0, left:0,
+      width:'100vw', height:'100vh',
+      pointerEvents:'none', zIndex:0,
+      background:'transparent',
+    }} />
+  );
+}
+
+
+// ─── SEIJIN NO HI — Coming of Age Day ────────────────────────────────────────
+function SeijinBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = window.innerWidth, H = window.innerHeight;
+    let ctx, animId, T = 0, lastNow = null;
+    const RNG = (seed) => { let s=seed; return () => { s=(s*16807+0)%2147483647; return (s-1)/2147483646; }; };
+    const r = RNG(42);
+
+    const setup = () => {
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width  = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    setup();
+
+    // ── Colour palettes ───────────────────────────────────────────────────────
+    const FURISODE = [
+      { base:'#C8102E', hi:'#E84060', shadow:'#8B0A1E', obi:'#F5D020' },  // Crimson
+      { base:'#7B2D8B', hi:'#9B4DAB', shadow:'#4A1A55', obi:'#F0E68C' },  // Purple
+      { base:'#1A6B3C', hi:'#2E9455', shadow:'#0F3D22', obi:'#FFD700' },  // Forest green
+      { base:'#003087', hi:'#1A52B0', shadow:'#001A4D', obi:'#F5C842' },  // Deep navy
+      { base:'#C47020', hi:'#E08C38', shadow:'#7A4510', obi:'#FFFFFF' },  // Burnt orange
+      { base:'#8B1A4A', hi:'#B03060', shadow:'#550F2C', obi:'#F0E68C' },  // Deep rose
+    ];
+    const PATTERN_COLS = ['#FFD700','#FFFFFF','#FF8C00','#98FF98','#FFB6C1','#E0E0E0'];
+
+    // ── Snow petals ───────────────────────────────────────────────────────────
+    const petals = Array.from({length:60},(_,i)=>({
+      x:r()*W, y:r()*H-H*0.2,
+      vx:(r()-0.5)*0.6, vy:0.4+r()*0.8,
+      size:2+r()*5, rot:r()*Math.PI*2, rotV:(r()-0.5)*0.04,
+      alpha:0.4+r()*0.6, col:r()>0.5?'#FFFFFF':'#FFD7E8',
+    }));
+
+    // ── Cherry blossom trees (background) ────────────────────────────────────
+    const drawTree = (cx, baseY, scale) => {
+      // Trunk
+      ctx.strokeStyle = '#5C3317'; ctx.lineWidth = 8*scale;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx, baseY); ctx.lineTo(cx, baseY-80*scale);
+      ctx.bezierCurveTo(cx, baseY-100*scale, cx+20*scale, baseY-110*scale, cx+15*scale, baseY-130*scale);
+      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, baseY-60*scale); ctx.lineTo(cx-25*scale, baseY-110*scale); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, baseY-70*scale); ctx.lineTo(cx+30*scale, baseY-115*scale); ctx.stroke();
+      // Blossoms
+      const blossomCentres = [
+        [cx, baseY-150*scale,55*scale],[cx-30*scale, baseY-130*scale,40*scale],
+        [cx+30*scale, baseY-125*scale,40*scale],[cx+15*scale, baseY-165*scale,35*scale],
+        [cx-15*scale, baseY-160*scale,38*scale],
+      ];
+      blossomCentres.forEach(([bx,by,br]) => {
+        // Green leaves
+        const lg = ctx.createRadialGradient(bx,by,0,bx,by,br*1.1);
+        lg.addColorStop(0,'#4CAF50'); lg.addColorStop(1,'#2E7D32');
+        ctx.globalAlpha = 0.35; ctx.fillStyle = lg;
+        ctx.beginPath(); ctx.arc(bx,by,br*1.1,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+        // Pink cloud
+        const pg = ctx.createRadialGradient(bx,by,0,bx,by,br);
+        pg.addColorStop(0,'rgba(255,200,210,0.95)');
+        pg.addColorStop(0.6,'rgba(255,170,190,0.80)');
+        pg.addColorStop(1,'rgba(255,150,170,0)');
+        ctx.fillStyle = pg;
+        ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fill();
+        // Individual blossoms
+        for(let b=0;b<12;b++){
+          const bx2=bx+(r()-0.5)*br*2, by2=by+(r()-0.5)*br*2;
+          ctx.fillStyle='#FFB7C5';
+          for(let p=0;p<5;p++){
+            const pa=(p/5)*Math.PI*2, px2=bx2+Math.cos(pa)*4*scale, py2=by2+Math.sin(pa)*4*scale;
+            ctx.beginPath(); ctx.ellipse(px2,py2,3*scale,2*scale,pa,0,Math.PI*2); ctx.fill();
+          }
+          ctx.fillStyle='#FFD700';
+          ctx.beginPath(); ctx.arc(bx2,by2,1.5*scale,0,Math.PI*2); ctx.fill();
+        }
+      });
+    };
+
+    // ── Draw furisode figure (woman) ──────────────────────────────────────────
+    const drawWoman = (cx, groundY, pal, flip, phase) => {
+      const S = H * 0.0011;    // scale to screen
+      const h = 165 * S;       // total figure height
+      const headR = 11 * S;
+      const headY = groundY - h;
+
+      // Shadow
+      ctx.save(); ctx.globalAlpha=0.12;
+      ctx.fillStyle='#000'; ctx.beginPath();
+      ctx.ellipse(cx, groundY, 22*S, 5*S, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // ── Furisode body ─────────────────────────────────────────────────────
+      const bodyTop = headY + headR*2;
+      const waist   = groundY - 60*S;
+      const hem     = groundY;
+
+      // Main kimono body gradient
+      const kg = ctx.createLinearGradient(cx-30*S, bodyTop, cx+30*S, bodyTop);
+      kg.addColorStop(0, pal.shadow); kg.addColorStop(0.4, pal.base); kg.addColorStop(1, pal.hi);
+      ctx.fillStyle = kg;
+      ctx.beginPath();
+      ctx.moveTo(cx-18*S, bodyTop+5*S);
+      ctx.bezierCurveTo(cx-24*S, waist, cx-32*S, hem-20*S, cx-40*S, hem);
+      ctx.lineTo(cx+40*S, hem);
+      ctx.bezierCurveTo(cx+32*S, hem-20*S, cx+24*S, waist, cx+18*S, bodyTop+5*S);
+      ctx.closePath(); ctx.fill();
+
+      // Kimono pattern (horizontal bands of geometric motifs)
+      ctx.save(); ctx.globalAlpha=0.22;
+      for(let row=0;row<6;row++){
+        const ry = bodyTop + (hem-bodyTop)*(row+0.5)/6;
+        const col = PATTERN_COLS[row%PATTERN_COLS.length];
+        ctx.strokeStyle=col; ctx.lineWidth=1.2*S;
+        for(let px=-3;px<=3;px++){
+          const rx = cx+px*11*S;
+          ctx.beginPath();
+          ctx.moveTo(rx, ry-4*S); ctx.lineTo(rx+4*S, ry); ctx.lineTo(rx, ry+4*S);
+          ctx.lineTo(rx-4*S, ry); ctx.closePath(); ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      // Collar (white)
+      ctx.fillStyle='#FAFAFA';
+      ctx.beginPath();
+      ctx.moveTo(cx, bodyTop+5*S);
+      ctx.lineTo(cx-6*S, bodyTop+25*S);
+      ctx.lineTo(cx, bodyTop+30*S);
+      ctx.lineTo(cx+6*S, bodyTop+25*S);
+      ctx.closePath(); ctx.fill();
+
+      // Obi (sash)
+      const obiG = ctx.createLinearGradient(cx-22*S, waist-8*S, cx+22*S, waist+12*S);
+      obiG.addColorStop(0,'#B8860B'); obiG.addColorStop(0.5,pal.obi); obiG.addColorStop(1,'#8B6914');
+      ctx.fillStyle=obiG;
+      ctx.fillRect(cx-22*S, waist-8*S, 44*S, 20*S);
+      // Obi knot (elaborate musubi at back — visible as side bump)
+      ctx.fillStyle=pal.obi;
+      ctx.beginPath();
+      ctx.ellipse(cx+(flip?-28*S:28*S), waist, 14*S, 18*S, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle='#8B6914'; ctx.lineWidth=1*S;
+      ctx.beginPath();
+      ctx.ellipse(cx+(flip?-28*S:28*S), waist, 14*S, 18*S, 0, 0, Math.PI*2);
+      ctx.stroke();
+
+      // ── Furisode long sleeves (hanging) ──────────────────────────────────
+      const sleeveWave = Math.sin(T*1.2 + phase) * 5 * S;
+      [-1,1].forEach((side) => {
+        const sx = cx + side*20*S;
+        const sleeveG = ctx.createLinearGradient(sx, bodyTop, sx+side*40*S, hem-10*S);
+        sleeveG.addColorStop(0, pal.hi); sleeveG.addColorStop(1, pal.shadow);
+        ctx.fillStyle = sleeveG;
+        ctx.beginPath();
+        ctx.moveTo(sx, bodyTop+10*S);
+        ctx.bezierCurveTo(
+          sx+side*25*S, bodyTop+30*S,
+          sx+side*38*S+sleeveWave, waist,
+          sx+side*35*S+sleeveWave*1.2, hem-15*S
+        );
+        ctx.bezierCurveTo(
+          sx+side*32*S, hem-5*S,
+          sx+side*18*S, hem,
+          sx, waist+5*S
+        );
+        ctx.closePath(); ctx.fill();
+        ctx.save(); ctx.globalAlpha=0.18;
+        ctx.strokeStyle=PATTERN_COLS[1]; ctx.lineWidth=1*S;
+        for(let sr=0;sr<4;sr++){
+          const srY=bodyTop+30*S+(hem-bodyTop-30*S)*sr/4;
+          ctx.beginPath();
+          ctx.moveTo(sx, srY);
+          ctx.lineTo(sx+side*30*S, srY+20*S*sr*0.2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+
+      // ── Head ─────────────────────────────────────────────────────────────
+      // Hair (elaborate kanzashi updo)
+      ctx.fillStyle='#1A1A1A';
+      ctx.beginPath();
+      ctx.ellipse(cx, headY-headR*0.3, headR*0.95, headR*1.1, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Hair ornaments (kanzashi)
+      ctx.fillStyle='#FFD700';
+      ctx.beginPath(); ctx.arc(cx-headR*0.5, headY-headR*1.2, 3*S, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#FF69B4';
+      ctx.beginPath(); ctx.arc(cx+headR*0.3, headY-headR*1.4, 2.5*S, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#FFD700'; ctx.lineWidth=1.5*S;
+      ctx.beginPath(); ctx.moveTo(cx-headR*0.5, headY-headR*1.2); ctx.lineTo(cx-headR*0.3, headY-headR*0.4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+headR*0.3, headY-headR*1.4); ctx.lineTo(cx+headR*0.2, headY-headR*0.4); ctx.stroke();
+      // Face
+      const faceG = ctx.createRadialGradient(cx, headY, 0, cx, headY, headR);
+      faceG.addColorStop(0,'#FDEBD0'); faceG.addColorStop(1,'#F0C8A0');
+      ctx.fillStyle=faceG;
+      ctx.beginPath(); ctx.arc(cx, headY, headR, 0, Math.PI*2); ctx.fill();
+      // Eyes
+      ctx.fillStyle='#1A1A1A';
+      [-1,1].forEach(s => {
+        ctx.beginPath(); ctx.ellipse(cx+s*4*S, headY-1*S, 2.2*S, 1.4*S, 0, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#FF8FA3'; ctx.lineWidth=0.8*S;
+        ctx.beginPath(); ctx.arc(cx+s*4*S, headY-3.5*S, 2.5*S, Math.PI*0.15, Math.PI*0.85); ctx.stroke();
+      });
+      // Lips
+      ctx.fillStyle='#C8566A';
+      ctx.beginPath(); ctx.ellipse(cx, headY+3.5*S, 2.5*S, 1.3*S, 0, 0, Math.PI*2); ctx.fill();
+      // White face powder shimmer
+      ctx.save(); ctx.globalAlpha=0.08;
+      ctx.fillStyle='#FFFFFF';
+      ctx.beginPath(); ctx.arc(cx, headY, headR, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // ── Zori (sandals) ────────────────────────────────────────────────────
+      ctx.fillStyle='#8B0000';
+      [-1,1].forEach(s=>{
+        ctx.beginPath();
+        ctx.ellipse(cx+s*8*S, groundY-2*S, 8*S, 3*S, -0.1*s, 0, Math.PI*2); ctx.fill();
+      });
+    };
+
+    // ── Draw man in hakama ────────────────────────────────────────────────────
+    const drawMan = (cx, groundY, suit, phase) => {
+      const S = H * 0.0011;
+      const h = 175 * S;
+      const headR = 12 * S;
+      const headY = groundY - h;
+      const shoulder = groundY - h * 0.73;
+      const waist    = groundY - h * 0.44;
+      const hem      = groundY;
+
+      // Shadow
+      ctx.save(); ctx.globalAlpha=0.12;
+      ctx.fillStyle='#000'; ctx.beginPath();
+      ctx.ellipse(cx, groundY, 20*S, 4*S, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      if (suit) {
+        // ── Western suit ────────────────────────────────────────────────────
+        // Trousers
+        ctx.fillStyle='#1C2951';
+        ctx.beginPath();
+        ctx.moveTo(cx-16*S, waist);
+        ctx.bezierCurveTo(cx-18*S, waist+30*S, cx-20*S, hem-30*S, cx-14*S, hem);
+        ctx.lineTo(cx, hem); ctx.lineTo(cx, waist);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(cx, waist); ctx.lineTo(cx, hem);
+        ctx.bezierCurveTo(cx+20*S, hem-30*S, cx+18*S, waist+30*S, cx+16*S, waist);
+        ctx.closePath(); ctx.fill();
+        // Jacket
+        const jg = ctx.createLinearGradient(cx-20*S, shoulder, cx+20*S, shoulder);
+        jg.addColorStop(0,'#0A1628'); jg.addColorStop(0.5,'#1C2951'); jg.addColorStop(1,'#0A1628');
+        ctx.fillStyle=jg;
+        ctx.beginPath();
+        ctx.moveTo(cx-20*S, shoulder);
+        ctx.lineTo(cx-22*S, waist);
+        ctx.lineTo(cx-8*S, waist);
+        ctx.lineTo(cx, headY+headR*2.5);
+        ctx.lineTo(cx+8*S, waist);
+        ctx.lineTo(cx+22*S, waist);
+        ctx.lineTo(cx+20*S, shoulder);
+        ctx.closePath(); ctx.fill();
+        // Lapels
+        ctx.fillStyle='#1C3A6B';
+        ctx.beginPath();
+        ctx.moveTo(cx, headY+headR*2.5);
+        ctx.lineTo(cx-8*S, waist);
+        ctx.lineTo(cx-3*S, waist-5*S);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(cx, headY+headR*2.5);
+        ctx.lineTo(cx+8*S, waist);
+        ctx.lineTo(cx+3*S, waist-5*S);
+        ctx.closePath(); ctx.fill();
+        // White shirt
+        ctx.fillStyle='#F8F8F8';
+        ctx.beginPath();
+        ctx.moveTo(cx-3*S, headY+headR*2.5);
+        ctx.lineTo(cx-4*S, waist-8*S);
+        ctx.lineTo(cx+4*S, waist-8*S);
+        ctx.lineTo(cx+3*S, headY+headR*2.5);
+        ctx.closePath(); ctx.fill();
+        // Tie
+        ctx.fillStyle='#8B0000';
+        ctx.beginPath();
+        ctx.moveTo(cx-1.5*S, headY+headR*2.8);
+        ctx.lineTo(cx-2.5*S, waist-12*S);
+        ctx.lineTo(cx, waist-8*S);
+        ctx.lineTo(cx+2.5*S, waist-12*S);
+        ctx.lineTo(cx+1.5*S, headY+headR*2.8);
+        ctx.closePath(); ctx.fill();
+        // Sleeve arms
+        const armSway = Math.sin(T*0.8+phase)*3*S;
+        [-1,1].forEach(side=>{
+          ctx.fillStyle=jg;
+          ctx.beginPath();
+          ctx.moveTo(cx+side*20*S, shoulder);
+          ctx.bezierCurveTo(cx+side*28*S, shoulder+15*S, cx+side*26*S+armSway, waist-5*S, cx+side*22*S+armSway, waist);
+          ctx.lineTo(cx+side*14*S+armSway, waist);
+          ctx.bezierCurveTo(cx+side*16*S, shoulder+10*S, cx+side*12*S, shoulder+5*S, cx+side*12*S, shoulder);
+          ctx.closePath(); ctx.fill();
+          // White cuff
+          ctx.fillStyle='#F0F0F0';
+          ctx.beginPath();
+          ctx.ellipse(cx+side*18*S+armSway, waist, 5*S, 3*S, 0, 0, Math.PI*2); ctx.fill();
+        });
+      } else {
+        // ── Hakama ──────────────────────────────────────────────────────────
+        // Hakama (wide pleated trousers) — dark navy/black
+        const hakG = ctx.createLinearGradient(cx-25*S, waist, cx+25*S, hem);
+        hakG.addColorStop(0,'#1A1A2E'); hakG.addColorStop(0.5,'#2A2A4A'); hakG.addColorStop(1,'#1A1A2E');
+        ctx.fillStyle=hakG;
+        ctx.beginPath();
+        ctx.moveTo(cx-22*S, waist);
+        ctx.bezierCurveTo(cx-28*S, waist+30*S, cx-25*S, hem-20*S, cx-18*S, hem);
+        ctx.lineTo(cx+18*S, hem);
+        ctx.bezierCurveTo(cx+25*S, hem-20*S, cx+28*S, waist+30*S, cx+22*S, waist);
+        ctx.closePath(); ctx.fill();
+        // Hakama pleats
+        ctx.strokeStyle='#0A0A1A'; ctx.lineWidth=1*S;
+        for(let p=-2;p<=2;p++){
+          ctx.beginPath();
+          ctx.moveTo(cx+p*7*S, waist);
+          ctx.lineTo(cx+p*7*S*1.1, hem);
+          ctx.stroke();
+        }
+        // Kimono top (haori)
+        const hg = ctx.createLinearGradient(cx-18*S, shoulder, cx+18*S, waist);
+        hg.addColorStop(0,'#1A1A2E'); hg.addColorStop(0.5,'#2C2C50'); hg.addColorStop(1,'#1A1A2E');
+        ctx.fillStyle=hg;
+        ctx.beginPath();
+        ctx.moveTo(cx-18*S, shoulder);
+        ctx.lineTo(cx-20*S, waist);
+        ctx.lineTo(cx-8*S, waist);
+        ctx.lineTo(cx, shoulder+15*S);
+        ctx.lineTo(cx+8*S, waist);
+        ctx.lineTo(cx+20*S, waist);
+        ctx.lineTo(cx+18*S, shoulder);
+        ctx.closePath(); ctx.fill();
+        // White collar
+        ctx.fillStyle='#FAFAFA';
+        ctx.beginPath();
+        ctx.moveTo(cx-5*S, shoulder+5*S);
+        ctx.lineTo(cx-4*S, waist-5*S);
+        ctx.lineTo(cx, waist);
+        ctx.lineTo(cx+4*S, waist-5*S);
+        ctx.lineTo(cx+5*S, shoulder+5*S);
+        ctx.lineTo(cx, shoulder+20*S);
+        ctx.closePath(); ctx.fill();
+        // Knotted hakama cord
+        ctx.fillStyle='#FFFFFF';
+        ctx.fillRect(cx-15*S, waist-2*S, 30*S, 4*S);
+        ctx.beginPath(); ctx.arc(cx, waist, 5*S, 0, Math.PI*2); ctx.fill();
+        // Sleeves
+        const armSway2 = Math.sin(T*0.8+phase)*3*S;
+        [-1,1].forEach(side=>{
+          ctx.fillStyle=hg;
+          ctx.beginPath();
+          ctx.moveTo(cx+side*18*S, shoulder);
+          ctx.bezierCurveTo(cx+side*32*S, shoulder+10*S, cx+side*30*S+armSway2, waist, cx+side*20*S+armSway2, waist+5*S);
+          ctx.lineTo(cx+side*10*S+armSway2, waist+5*S);
+          ctx.bezierCurveTo(cx+side*12*S, shoulder+8*S, cx+side*10*S, shoulder+3*S, cx+side*10*S, shoulder);
+          ctx.closePath(); ctx.fill();
+        });
+      }
+
+      // ── Head ─────────────────────────────────────────────────────────────
+      const faceG = ctx.createRadialGradient(cx, headY, 0, cx, headY, headR);
+      faceG.addColorStop(0,'#F5DEB3'); faceG.addColorStop(1,'#DEB887');
+      ctx.fillStyle=faceG;
+      ctx.beginPath(); ctx.arc(cx, headY, headR, 0, Math.PI*2); ctx.fill();
+      // Hair
+      ctx.fillStyle='#111111';
+      ctx.beginPath();
+      ctx.arc(cx, headY-headR*0.3, headR*0.95, Math.PI, Math.PI*2); ctx.fill();
+      ctx.fillRect(cx-headR*0.95, headY-headR*0.35, headR*1.9, headR*0.35);
+      // Eyes
+      ctx.fillStyle='#1A1A1A';
+      [-1,1].forEach(s=>{
+        ctx.beginPath(); ctx.ellipse(cx+s*4.5*S, headY-1*S, 2.5*S, 1.6*S, 0, 0, Math.PI*2); ctx.fill();
+        // Eyebrow
+        ctx.strokeStyle='#333'; ctx.lineWidth=1.2*S;
+        ctx.beginPath(); ctx.moveTo(cx+s*2.5*S, headY-4.5*S); ctx.lineTo(cx+s*6.5*S, headY-4*S); ctx.stroke();
+      });
+      ctx.fillStyle='#8B4040';
+      ctx.beginPath(); ctx.ellipse(cx, headY+4*S, 2*S, 1*S, 0, 0, Math.PI*2); ctx.fill();
+
+      // Shoes
+      ctx.fillStyle=suit?'#1A1A1A':'#1A1A1A';
+      [-1,1].forEach(s=>{
+        ctx.beginPath();
+        ctx.ellipse(cx+s*7*S, groundY-2*S, 9*S, 3.5*S, 0, 0, Math.PI*2); ctx.fill();
+      });
+    };
+
+    // ── Group arrangement ─────────────────────────────────────────────────────
+    const R2 = RNG(77);
+    // 5 women, 3 men, arranged in a semi-realistic group
+    const figures = [
+      // Back row
+      { type:'w', x:W*0.15, y:H*0.92, scale:0.88, pal:FURISODE[1], flip:false, phase:0.0 },
+      { type:'m', x:W*0.28, y:H*0.91, scale:0.90, suit:true,  phase:0.5 },
+      { type:'w', x:W*0.50, y:H*0.90, scale:0.92, pal:FURISODE[3], flip:true,  phase:1.1 },
+      { type:'m', x:W*0.72, y:H*0.91, scale:0.90, suit:false, phase:1.7 },
+      { type:'w', x:W*0.86, y:H*0.92, scale:0.88, pal:FURISODE[5], flip:false, phase:2.3 },
+      // Front row
+      { type:'w', x:W*0.34, y:H*0.97, scale:1.00, pal:FURISODE[0], flip:true,  phase:0.8 },
+      { type:'m', x:W*0.52, y:H*0.96, scale:1.02, suit:true,  phase:2.1 },
+      { type:'w', x:W*0.66, y:H*0.97, scale:1.00, pal:FURISODE[2], flip:false, phase:1.4 },
+      { type:'w', x:W*0.82, y:H*0.96, scale:0.98, pal:FURISODE[4], flip:true,  phase:2.9 },
+    ];
+
+    // ── Frame loop ────────────────────────────────────────────────────────────
+    const frame = (now) => {
+      const dt = lastNow ? Math.min(now-lastNow,50)/1000 : 0.016;
+      lastNow=now; T+=dt;
+
+      // Sky — soft pale morning light
+      const sky = ctx.createLinearGradient(0,0,0,H);
+      sky.addColorStop(0,'#B0C8F0');
+      sky.addColorStop(0.35,'#D8EAF8');
+      sky.addColorStop(0.65,'#F0E8D8');
+      sky.addColorStop(1,'#F5ECD0');
+      ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+
+      // Sun (low morning sun)
+      const sg=ctx.createRadialGradient(W*0.85,H*0.15,0,W*0.85,H*0.15,H*0.18);
+      sg.addColorStop(0,'rgba(255,230,160,0.95)');
+      sg.addColorStop(0.4,'rgba(255,200,100,0.4)');
+      sg.addColorStop(1,'rgba(255,180,80,0)');
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(W*0.85,H*0.15,H*0.18,0,Math.PI*2); ctx.fill();
+
+      // Cherry blossom trees (background)
+      ctx.save(); ctx.globalAlpha=0.7;
+      drawTree(W*0.05, H*0.82, 1.1);
+      drawTree(W*0.22, H*0.80, 0.9);
+      drawTree(W*0.78, H*0.80, 0.95);
+      drawTree(W*0.95, H*0.82, 1.0);
+      ctx.restore();
+
+      // Ground / stone plaza
+      const grd=ctx.createLinearGradient(0,H*0.88,0,H);
+      grd.addColorStop(0,'#E8DCC8'); grd.addColorStop(1,'#D4C8B0');
+      ctx.fillStyle=grd; ctx.fillRect(0,H*0.88,W,H*0.12);
+      // Stone tiles
+      ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=0.8;
+      for(let x=0;x<W;x+=50){ ctx.beginPath();ctx.moveTo(x,H*0.88);ctx.lineTo(x,H);ctx.stroke(); }
+      for(let y=H*0.88;y<H;y+=25){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+
+      // Figures (back to front)
+      figures.forEach(f => {
+        ctx.save();
+        ctx.translate(f.x, 0);
+        ctx.scale(f.scale, f.scale);
+        ctx.translate(-f.x, 0);
+        if (f.type==='w') drawWoman(f.x, f.y, f.pal, f.flip, f.phase);
+        else drawMan(f.x, f.y, f.suit, f.phase);
+        ctx.restore();
+      });
+
+      // Falling petals
+      petals.forEach(p => {
+        p.x += p.vx + Math.sin(T*0.5+p.phase??0)*0.3;
+        p.y += p.vy;
+        p.rot += p.rotV;
+        if (p.y > H+20) { p.y=-20; p.x=Math.random()*W; }
+        ctx.save();
+        ctx.globalAlpha=p.alpha*0.7;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle=p.col;
+        ctx.beginPath();
+        ctx.ellipse(0,0,p.size,p.size*0.6,0,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
+      petals.forEach(p => { if(!p.phase) p.phase = Math.random()*Math.PI*2; });
+
+      // Title overlay
+      ctx.save();
+      ctx.globalAlpha=0.88;
+      // Soft glow behind text
+      const tg=ctx.createLinearGradient(0,H*0.04,0,H*0.16);
+      tg.addColorStop(0,'rgba(255,255,255,0)');
+      tg.addColorStop(0.4,'rgba(255,240,220,0.6)');
+      tg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=tg; ctx.fillRect(0,H*0.04,W,H*0.12);
+      ctx.globalAlpha=1;
+      ctx.fillStyle='#2C1A0E';
+      ctx.font=`bold ${Math.round(H*0.036)}px "Hiragino Mincho ProN","Yu Mincho","Georgia",serif`;
+      ctx.textAlign='center';
+      ctx.fillText('成人の日', W*0.5, H*0.092);
+      ctx.font=`${Math.round(H*0.018)}px "Hiragino Mincho ProN","Georgia",serif`;
+      ctx.fillStyle='#5C3D1A';
+      ctx.letterSpacing='0.15em';
+      ctx.fillText('SEIJIN NO HI · COMING OF AGE DAY', W*0.5, H*0.125);
+      ctx.restore();
+
+      animId = requestAnimationFrame(frame);
+    };
+
+    const onResize = () => { setup(); };
+    window.addEventListener('resize', onResize);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize',onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{
+      position:'fixed', top:0, left:0,
+      width:'100vw', height:'100vh',
+      pointerEvents:'none', zIndex:0,
+    }} />
+  );
+}
+
+
 // ─── OTSUKIMI — Mid-Autumn Festival canvas scene ─────────────────────────────
 function OtsukimiBackground() {
   const canvasRef = useRef(null);
@@ -5133,7 +6114,9 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
   const isFathersDay  = label.includes("father");
   const isChristmas   = label.includes('christmas')
     || (new Date().getMonth() === 11 && new Date().getDate() === 25);
-  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay || isChristmas;
+  const isKodomo      = label.includes('kodomo') || label.includes('children\'s day') || label.includes('koinobori');
+  const isSeijin      = label.includes('seijin') || label.includes('coming of age');
+  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay || isChristmas || isSeijin || isKodomo;
   const isOtsukimi    = label.includes('otsukimi') || label.includes('mid-autumn');
 
   return (
@@ -5153,6 +6136,8 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       <style>{SPLASH_PETAL_CSS}</style>
 
       {/* Special occasion backgrounds — take priority over seasonal */}
+      {isKodomo     && <KodomoBackground />}
+      {isSeijin     && <SeijinBackground />}
       {isOtsukimi    && <OtsukimiBackground />}
       {isChristmas   && <ChristmasBackground />}
       {!isOtsukimi && !isChristmas && isMothersDay  && <MothersDayBackground />}
@@ -6914,6 +7899,8 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 // ─── Dev Panel sub-components (hooks need proper function components) ──────
 // Dev panel: special occasion background previews
 const OCCASION_DEMOS = [
+  { label:"🎏 Kodomo no Hi",  quote:{ quote:"Children do not need to be made to grow — they need space, wonder, and someone steady enough to catch them when they fall. Today we celebrate not what they will become, but everything they already are.", label:"Kodomo no Hi · Children's Day", isSpecial:true } },
+  { label:"👘 Seijin no Hi",  quote:{ quote:"Today you cross the threshold — not because you are certain, but because you are ready to become someone who can grow certain. The years ahead will shape you; how you step forward today is already the making of that person.", label:"Seijin no Hi · Coming of Age Day", isSpecial:true } },
   { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
   { label:"🎄 Christmas",   quote:{ quote:"Christmas is not a time nor a season, but a state of mind. To cherish peace and goodwill, to be plenteous in mercy, is to have the real spirit of Christmas.", label:"Christmas Day · Special Quote", isSpecial:true } },
   { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
