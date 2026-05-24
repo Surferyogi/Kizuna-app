@@ -6358,305 +6358,163 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
 // Singapore (SG) and Japan (JP) national bank holidays 2026–2035.
 // Hardcoded from official sources — no external API needed.
 const PUBLIC_HOLIDAYS = [
-  // 2026 — Mother's Day & Father's Day
-  {date:'2026-05-10',name:"Mother's Day",country:'SG'},{date:'2026-05-10',name:"Mother's Day",country:'JP'},
-  {date:'2026-06-21',name:"Father's Day",country:'SG'},{date:'2026-06-21',name:"Father's Day",country:'JP'},
-  {date:'2027-05-09',name:"Mother's Day",country:'SG'},{date:'2027-05-09',name:"Mother's Day",country:'JP'},
-  {date:'2027-06-20',name:"Father's Day",country:'SG'},{date:'2027-06-20',name:"Father's Day",country:'JP'},
-  {date:'2028-05-14',name:"Mother's Day",country:'SG'},{date:'2028-05-14',name:"Mother's Day",country:'JP'},
-  {date:'2028-06-18',name:"Father's Day",country:'SG'},{date:'2028-06-18',name:"Father's Day",country:'JP'},
-  {date:'2029-05-13',name:"Mother's Day",country:'SG'},{date:'2029-05-13',name:"Mother's Day",country:'JP'},
-  {date:'2029-06-17',name:"Father's Day",country:'SG'},{date:'2029-06-17',name:"Father's Day",country:'JP'},
-  {date:'2030-05-12',name:"Mother's Day",country:'SG'},{date:'2030-05-12',name:"Mother's Day",country:'JP'},
-  {date:'2030-06-16',name:"Father's Day",country:'SG'},{date:'2030-06-16',name:"Father's Day",country:'JP'},
-  {date:'2031-05-11',name:"Mother's Day",country:'SG'},{date:'2031-05-11',name:"Mother's Day",country:'JP'},
-  {date:'2031-06-15',name:"Father's Day",country:'SG'},{date:'2031-06-15',name:"Father's Day",country:'JP'},
-  {date:'2032-05-09',name:"Mother's Day",country:'SG'},{date:'2032-05-09',name:"Mother's Day",country:'JP'},
-  {date:'2032-06-20',name:"Father's Day",country:'SG'},{date:'2032-06-20',name:"Father's Day",country:'JP'},
-  {date:'2033-05-08',name:"Mother's Day",country:'SG'},{date:'2033-05-08',name:"Mother's Day",country:'JP'},
-  {date:'2033-06-19',name:"Father's Day",country:'SG'},{date:'2033-06-19',name:"Father's Day",country:'JP'},
-  {date:'2034-05-14',name:"Mother's Day",country:'SG'},{date:'2034-05-14',name:"Mother's Day",country:'JP'},
-  {date:'2034-06-18',name:"Father's Day",country:'SG'},{date:'2034-06-18',name:"Father's Day",country:'JP'},
-  {date:'2035-05-13',name:"Mother's Day",country:'SG'},{date:'2035-05-13',name:"Mother's Day",country:'JP'},
-  {date:'2035-06-17',name:"Father's Day",country:'SG'},{date:'2035-06-17',name:"Father's Day",country:'JP'},
-  // 2026
-  {date:'2026-01-01',name:"New Year's Day",country:'SG'},{date:'2026-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2026-01-12',name:'Coming of Age Day',country:'JP'},{date:'2026-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2026-02-17',name:'Chinese New Year',country:'SG'},{date:'2026-02-18',name:'Chinese New Year',country:'SG'},
-  {date:'2026-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2026-03-20',name:'Spring Equinox',country:'JP'},
-  {date:'2026-03-30',name:'Hari Raya Puasa',country:'SG'},{date:'2026-04-03',name:'Good Friday',country:'SG'},
-  {date:'2026-04-29',name:'Showa Day',country:'JP'},{date:'2026-05-01',name:'Labour Day',country:'SG'},
-  {date:'2026-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2026-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2026-05-05',name:"Children's Day",country:'JP'},{date:'2026-05-12',name:'Vesak Day',country:'SG'},
-  {date:'2026-06-06',name:'Hari Raya Haji',country:'SG'},{date:'2026-07-20',name:'Marine Day',country:'JP'},
-  {date:'2026-08-09',name:'National Day',country:'SG'},{date:'2026-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2026-09-21',name:'Respect for the Aged Day',country:'JP'},{date:'2026-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2026-10-12',name:'Sports Day',country:'JP'},{date:'2026-10-20',name:'Deepavali',country:'SG'},
-  {date:'2026-11-03',name:'Culture Day',country:'JP'},{date:'2026-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  // ── Singapore Public Holidays 2026–2035 ──────────────────────────────────
+  // New Year's Day
+  {date:'2026-01-01',name:"New Year's Day",country:'SG'},
+  // Chinese New Year (Year of the Horse)
+  {date:'2026-02-17',name:'Chinese New Year',country:'SG'},
+  {date:'2026-02-18',name:'Chinese New Year Day 2',country:'SG'},
+  // Hari Raya Puasa (Sat → in lieu Mon)
+  {date:'2026-03-21',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2026-03-23',name:'Hari Raya Puasa (in lieu)',country:'SG'},
+  {date:'2026-04-03',name:'Good Friday',country:'SG'},
+  {date:'2026-05-01',name:'Labour Day',country:'SG'},
+  // Hari Raya Haji
+  {date:'2026-05-27',name:'Hari Raya Haji',country:'SG'},
+  // Vesak Day (Sun → in lieu Mon)
+  {date:'2026-05-31',name:'Vesak Day',country:'SG'},
+  {date:'2026-06-01',name:'Vesak Day (in lieu)',country:'SG'},
+  // National Day (Sun → in lieu Mon)
+  {date:'2026-08-09',name:'National Day',country:'SG'},
+  {date:'2026-08-10',name:'National Day (in lieu)',country:'SG'},
+  // Deepavali (Sat → in lieu Mon)
+  {date:'2026-11-07',name:'Deepavali',country:'SG'},
+  {date:'2026-11-09',name:'Deepavali (in lieu)',country:'SG'},
   {date:'2026-12-25',name:'Christmas Day',country:'SG'},
-  // 2027
-  {date:'2027-01-01',name:"New Year's Day",country:'SG'},{date:'2027-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2027-01-11',name:'Coming of Age Day',country:'JP'},{date:'2027-02-06',name:'Chinese New Year',country:'SG'},
-  {date:'2027-02-07',name:'Chinese New Year',country:'SG'},{date:'2027-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2027-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2027-03-20',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2027-03-21',name:'Spring Equinox',country:'JP'},{date:'2027-03-26',name:'Good Friday',country:'SG'},
-  {date:'2027-04-29',name:'Showa Day',country:'JP'},{date:'2027-05-01',name:'Labour Day',country:'SG'},
-  {date:'2027-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2027-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2027-05-05',name:"Children's Day",country:'JP'},{date:'2027-05-27',name:'Hari Raya Haji',country:'SG'},
-  {date:'2027-05-31',name:'Vesak Day',country:'SG'},{date:'2027-07-19',name:'Marine Day',country:'JP'},
-  {date:'2027-08-09',name:'National Day',country:'SG'},{date:'2027-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2027-09-20',name:'Respect for the Aged Day',country:'JP'},{date:'2027-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2027-10-11',name:'Sports Day',country:'JP'},{date:'2027-11-03',name:'Culture Day',country:'JP'},
-  {date:'2027-11-08',name:'Deepavali',country:'SG'},{date:'2027-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+
+  {date:'2027-01-01',name:"New Year's Day",country:'SG'},
+  // Chinese New Year (Sat+Sun → in lieu Mon+Tue)
+  {date:'2027-02-06',name:'Chinese New Year',country:'SG'},
+  {date:'2027-02-07',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2027-02-08',name:'Chinese New Year (in lieu)',country:'SG'},
+  {date:'2027-02-09',name:'Chinese New Year Day 2 (in lieu)',country:'SG'},
+  {date:'2027-03-10',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2027-03-26',name:'Good Friday',country:'SG'},
+  // Labour Day (Sat → in lieu Mon)
+  {date:'2027-05-01',name:'Labour Day',country:'SG'},
+  {date:'2027-05-03',name:'Labour Day (in lieu)',country:'SG'},
+  {date:'2027-05-20',name:'Vesak Day',country:'SG'},
+  {date:'2027-05-28',name:'Hari Raya Haji',country:'SG'},
+  {date:'2027-08-09',name:'National Day',country:'SG'},
+  {date:'2027-10-28',name:'Deepavali',country:'SG'},
+  // Christmas (Sat → in lieu Mon)
   {date:'2027-12-25',name:'Christmas Day',country:'SG'},
-  // 2028
-  {date:'2028-01-01',name:"New Year's Day",country:'SG'},{date:'2028-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2028-01-10',name:'Coming of Age Day',country:'JP'},{date:'2028-01-24',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2028-01-26',name:'Chinese New Year',country:'SG'},{date:'2028-01-27',name:'Chinese New Year',country:'SG'},
-  {date:'2028-02-11',name:'National Foundation Day',country:'JP'},{date:'2028-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2028-03-09',name:'Hari Raya Puasa',country:'SG'},{date:'2028-03-20',name:'Spring Equinox',country:'JP'},
-  {date:'2028-04-14',name:'Good Friday',country:'SG'},{date:'2028-04-29',name:'Showa Day',country:'JP'},
-  {date:'2028-05-01',name:'Labour Day',country:'SG'},{date:'2028-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2028-05-04',name:'Greenery Day',country:'JP'},{date:'2028-05-05',name:"Children's Day",country:'JP'},
-  {date:'2028-05-16',name:'Hari Raya Haji',country:'SG'},{date:'2028-05-20',name:'Vesak Day',country:'SG'},
-  {date:'2028-07-17',name:'Marine Day',country:'JP'},{date:'2028-08-09',name:'National Day',country:'SG'},
-  {date:'2028-08-11',name:'Mountain Day',country:'JP'},{date:'2028-09-18',name:'Respect for the Aged Day',country:'JP'},
-  {date:'2028-09-22',name:'Autumnal Equinox',country:'JP'},{date:'2028-10-09',name:'Sports Day',country:'JP'},
-  {date:'2028-10-26',name:'Deepavali',country:'SG'},{date:'2028-11-03',name:'Culture Day',country:'JP'},
-  {date:'2028-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2028-12-25',name:'Christmas Day',country:'SG'},
-  // 2029
-  {date:'2029-01-01',name:"New Year's Day",country:'SG'},{date:'2029-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2029-01-08',name:'Coming of Age Day',country:'JP'},{date:'2029-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2029-02-13',name:'Chinese New Year',country:'SG'},{date:'2029-02-14',name:'Chinese New Year',country:'SG'},
-  {date:'2029-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2029-02-26',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2029-03-20',name:'Spring Equinox',country:'JP'},{date:'2029-03-30',name:'Good Friday',country:'SG'},
-  {date:'2029-04-29',name:'Showa Day',country:'JP'},{date:'2029-05-01',name:'Labour Day',country:'SG'},
-  {date:'2029-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2029-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2029-05-05',name:'Hari Raya Haji',country:'SG'},{date:'2029-05-05',name:"Children's Day",country:'JP'},
-  {date:'2029-05-08',name:'Vesak Day',country:'SG'},{date:'2029-07-16',name:'Marine Day',country:'JP'},
-  {date:'2029-08-09',name:'National Day',country:'SG'},{date:'2029-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2029-09-17',name:'Respect for the Aged Day',country:'JP'},{date:'2029-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2029-10-08',name:'Sports Day',country:'JP'},{date:'2029-11-03',name:'Culture Day',country:'JP'},
-  {date:'2029-11-14',name:'Deepavali',country:'SG'},{date:'2029-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+  {date:'2027-12-27',name:'Christmas Day (in lieu)',country:'SG'},
+
+  // New Year's Day (Sat → in lieu Mon)
+  {date:'2028-01-01',name:"New Year's Day",country:'SG'},
+  {date:'2028-01-03',name:"New Year's Day (in lieu)",country:'SG'},
+  {date:'2028-01-27',name:'Chinese New Year',country:'SG'},
+  {date:'2028-01-28',name:'Chinese New Year Day 2',country:'SG'},
+  // Hari Raya Puasa (Sat → in lieu Mon)
+  {date:'2028-02-26',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2028-02-28',name:'Hari Raya Puasa (in lieu)',country:'SG'},
+  {date:'2028-04-14',name:'Good Friday',country:'SG'},
+  {date:'2028-05-01',name:'Labour Day',country:'SG'},
+  {date:'2028-05-09',name:'Vesak Day',country:'SG'},
+  {date:'2028-05-17',name:'Hari Raya Haji',country:'SG'},
+  {date:'2028-08-09',name:'National Day',country:'SG'},
+  {date:'2028-10-16',name:'Deepavali',country:'SG'},
+  {date:'2028-12-25',name:'Christmas Day',country:'SG'},
+
+  {date:'2029-01-01',name:"New Year's Day",country:'SG'},
+  {date:'2029-02-13',name:'Chinese New Year',country:'SG'},
+  {date:'2029-02-14',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2029-02-15',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2029-03-30',name:'Good Friday',country:'SG'},
+  {date:'2029-05-01',name:'Labour Day',country:'SG'},
+  {date:'2029-05-07',name:'Hari Raya Haji',country:'SG'},
+  {date:'2029-05-28',name:'Vesak Day',country:'SG'},
+  {date:'2029-08-09',name:'National Day',country:'SG'},
+  // Deepavali (Sun → in lieu Mon)
+  {date:'2029-11-04',name:'Deepavali',country:'SG'},
+  {date:'2029-11-05',name:'Deepavali (in lieu)',country:'SG'},
   {date:'2029-12-25',name:'Christmas Day',country:'SG'},
-  // 2030
-  {date:'2030-01-01',name:"New Year's Day",country:'SG'},{date:'2030-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2030-01-14',name:'Coming of Age Day',country:'JP'},{date:'2030-02-03',name:'Chinese New Year',country:'SG'},
-  {date:'2030-02-04',name:'Chinese New Year',country:'SG'},{date:'2030-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2030-02-15',name:'Hari Raya Puasa',country:'SG'},{date:'2030-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2030-03-20',name:'Spring Equinox',country:'JP'},{date:'2030-04-19',name:'Good Friday',country:'SG'},
-  {date:'2030-04-24',name:'Hari Raya Haji',country:'SG'},{date:'2030-04-29',name:'Showa Day',country:'JP'},
-  {date:'2030-05-01',name:'Labour Day',country:'SG'},{date:'2030-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2030-05-04',name:'Greenery Day',country:'JP'},{date:'2030-05-05',name:"Children's Day",country:'JP'},
-  {date:'2030-05-15',name:'Marine Day',country:'JP'},{date:'2030-05-26',name:'Vesak Day',country:'SG'},
-  {date:'2030-08-09',name:'National Day',country:'SG'},{date:'2030-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2030-09-16',name:'Respect for the Aged Day',country:'JP'},{date:'2030-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2030-10-14',name:'Sports Day',country:'JP'},{date:'2030-11-03',name:'Culture Day',country:'JP'},
-  {date:'2030-11-03',name:'Deepavali',country:'SG'},{date:'2030-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+
+  {date:'2030-01-01',name:"New Year's Day",country:'SG'},
+  // CNY Day 1 (Sun → in lieu Mon). Day 2 = Mon Feb 4 (also Hari Raya Puasa)
+  {date:'2030-02-03',name:'Chinese New Year',country:'SG'},
+  {date:'2030-02-04',name:'Chinese New Year Day 2 / Hari Raya Puasa',country:'SG'},
+  {date:'2030-02-05',name:'Chinese New Year (in lieu)',country:'SG'},
+  {date:'2030-04-19',name:'Good Friday',country:'SG'},
+  {date:'2030-04-26',name:'Hari Raya Haji',country:'SG'},
+  {date:'2030-05-01',name:'Labour Day',country:'SG'},
+  {date:'2030-05-17',name:'Vesak Day',country:'SG'},
+  {date:'2030-08-09',name:'National Day',country:'SG'},
+  {date:'2030-10-25',name:'Deepavali',country:'SG'},
   {date:'2030-12-25',name:'Christmas Day',country:'SG'},
-  // 2031
-  {date:'2031-01-01',name:"New Year's Day",country:'SG'},{date:'2031-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2031-01-13',name:'Coming of Age Day',country:'JP'},{date:'2031-01-23',name:'Chinese New Year',country:'SG'},
-  {date:'2031-01-24',name:'Chinese New Year',country:'SG'},{date:'2031-02-04',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2031-02-11',name:'National Foundation Day',country:'JP'},{date:'2031-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2031-03-21',name:'Spring Equinox',country:'JP'},{date:'2031-04-11',name:'Good Friday',country:'SG'},
-  {date:'2031-04-13',name:'Hari Raya Haji',country:'SG'},{date:'2031-04-29',name:'Showa Day',country:'JP'},
-  {date:'2031-05-01',name:'Labour Day',country:'SG'},{date:'2031-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2031-05-04',name:'Greenery Day',country:'JP'},{date:'2031-05-05',name:"Children's Day",country:'JP'},
-  {date:'2031-05-15',name:'Vesak Day',country:'SG'},{date:'2031-07-21',name:'Marine Day',country:'JP'},
-  {date:'2031-08-09',name:'National Day',country:'SG'},{date:'2031-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2031-09-15',name:'Respect for the Aged Day',country:'JP'},{date:'2031-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2031-10-13',name:'Sports Day',country:'JP'},{date:'2031-10-23',name:'Deepavali',country:'SG'},
-  {date:'2031-11-03',name:'Culture Day',country:'JP'},{date:'2031-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+
+  {date:'2031-01-01',name:"New Year's Day",country:'SG'},
+  {date:'2031-01-23',name:'Chinese New Year',country:'SG'},
+  {date:'2031-01-24',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2031-02-04',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2031-04-11',name:'Good Friday',country:'SG'},
+  {date:'2031-04-13',name:'Hari Raya Haji',country:'SG'},
+  {date:'2031-05-01',name:'Labour Day',country:'SG'},
+  {date:'2031-05-15',name:'Vesak Day',country:'SG'},
+  {date:'2031-08-09',name:'National Day',country:'SG'},
+  {date:'2031-10-23',name:'Deepavali',country:'SG'},
   {date:'2031-12-25',name:'Christmas Day',country:'SG'},
-  // 2032
-  {date:'2032-01-01',name:"New Year's Day",country:'SG'},{date:'2032-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2032-01-12',name:'Coming of Age Day',country:'JP'},{date:'2032-01-24',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2032-02-11',name:'Chinese New Year',country:'SG'},{date:'2032-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2032-02-12',name:'Chinese New Year',country:'SG'},{date:'2032-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2032-03-20',name:'Spring Equinox',country:'JP'},{date:'2032-03-26',name:'Good Friday',country:'SG'},
-  {date:'2032-04-01',name:'Hari Raya Haji',country:'SG'},{date:'2032-04-29',name:'Showa Day',country:'JP'},
-  {date:'2032-05-01',name:'Labour Day',country:'SG'},{date:'2032-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2032-05-03',name:'Vesak Day',country:'SG'},{date:'2032-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2032-05-05',name:"Children's Day",country:'JP'},{date:'2032-07-19',name:'Marine Day',country:'JP'},
-  {date:'2032-08-09',name:'National Day',country:'SG'},{date:'2032-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2032-09-20',name:'Respect for the Aged Day',country:'JP'},{date:'2032-09-22',name:'Autumnal Equinox',country:'JP'},
-  {date:'2032-10-11',name:'Sports Day',country:'JP'},{date:'2032-11-03',name:'Culture Day',country:'JP'},
-  {date:'2032-11-10',name:'Deepavali',country:'SG'},{date:'2032-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+
+  {date:'2032-01-01',name:"New Year's Day",country:'SG'},
+  // Hari Raya Puasa (Sat → in lieu Mon)
+  {date:'2032-01-24',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2032-01-26',name:'Hari Raya Puasa (in lieu)',country:'SG'},
+  {date:'2032-02-11',name:'Chinese New Year',country:'SG'},
+  {date:'2032-02-12',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2032-03-26',name:'Good Friday',country:'SG'},
+  {date:'2032-04-01',name:'Hari Raya Haji',country:'SG'},
+  {date:'2032-05-01',name:'Labour Day',country:'SG'},
+  // Vesak Day (Sun → in lieu Mon)
+  {date:'2032-05-03',name:'Vesak Day',country:'SG'},
+  {date:'2032-05-04',name:'Vesak Day (in lieu)',country:'SG'},
+  {date:'2032-08-09',name:'National Day',country:'SG'},
+  {date:'2032-11-10',name:'Deepavali',country:'SG'},
   {date:'2032-12-25',name:'Christmas Day',country:'SG'},
-  // 2033
-  {date:'2033-01-01',name:"New Year's Day",country:'SG'},{date:'2033-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2033-01-10',name:'Coming of Age Day',country:'JP'},{date:'2033-01-12',name:'Hari Raya Puasa',country:'SG'},
-  {date:'2033-01-31',name:'Chinese New Year',country:'SG'},{date:'2033-02-01',name:'Chinese New Year',country:'SG'},
-  {date:'2033-02-11',name:'National Foundation Day',country:'JP'},{date:'2033-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2033-03-20',name:'Spring Equinox',country:'JP'},{date:'2033-03-21',name:'Hari Raya Haji',country:'SG'},
-  {date:'2033-04-15',name:'Good Friday',country:'SG'},{date:'2033-04-29',name:'Showa Day',country:'JP'},
-  {date:'2033-05-01',name:'Labour Day',country:'SG'},{date:'2033-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2033-05-04',name:'Greenery Day',country:'JP'},{date:'2033-05-05',name:"Children's Day",country:'JP'},
-  {date:'2033-05-22',name:'Vesak Day',country:'SG'},{date:'2033-07-18',name:'Marine Day',country:'JP'},
-  {date:'2033-08-09',name:'National Day',country:'SG'},{date:'2033-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2033-09-19',name:'Respect for the Aged Day',country:'JP'},{date:'2033-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2033-10-10',name:'Sports Day',country:'JP'},{date:'2033-10-30',name:'Deepavali',country:'SG'},
-  {date:'2033-11-03',name:'Culture Day',country:'JP'},{date:'2033-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+
+  {date:'2033-01-01',name:"New Year's Day",country:'SG'},
+  {date:'2033-01-12',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2033-01-31',name:'Chinese New Year',country:'SG'},
+  {date:'2033-02-01',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2033-03-21',name:'Hari Raya Haji',country:'SG'},
+  {date:'2033-04-15',name:'Good Friday',country:'SG'},
+  {date:'2033-05-01',name:'Labour Day',country:'SG'},
+  {date:'2033-05-22',name:'Vesak Day',country:'SG'},
+  {date:'2033-08-09',name:'National Day',country:'SG'},
+  {date:'2033-10-30',name:'Deepavali',country:'SG'},
   {date:'2033-12-25',name:'Christmas Day',country:'SG'},
-  // 2034
-  {date:'2034-01-01',name:"New Year's Day",country:'SG'},{date:'2034-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2034-01-01',name:'Hari Raya Puasa',country:'SG'},{date:'2034-01-09',name:'Coming of Age Day',country:'JP'},
-  {date:'2034-02-11',name:'National Foundation Day',country:'JP'},{date:'2034-02-19',name:'Chinese New Year',country:'SG'},
-  {date:'2034-02-20',name:'Chinese New Year',country:'SG'},{date:'2034-02-23',name:"Emperor's Birthday",country:'JP'},
-  {date:'2034-03-10',name:'Hari Raya Haji',country:'SG'},{date:'2034-03-21',name:'Spring Equinox',country:'JP'},
-  {date:'2034-03-31',name:'Good Friday',country:'SG'},{date:'2034-04-29',name:'Showa Day',country:'JP'},
-  {date:'2034-05-01',name:'Labour Day',country:'SG'},{date:'2034-05-03',name:'Constitution Memorial Day',country:'JP'},
-  {date:'2034-05-04',name:'Greenery Day',country:'JP'},{date:'2034-05-05',name:"Children's Day",country:'JP'},
-  {date:'2034-05-11',name:'Vesak Day',country:'SG'},{date:'2034-07-17',name:'Marine Day',country:'JP'},
-  {date:'2034-08-09',name:'National Day',country:'SG'},{date:'2034-08-11',name:'Mountain Day',country:'JP'},
-  {date:'2034-09-18',name:'Respect for the Aged Day',country:'JP'},{date:'2034-09-23',name:'Autumnal Equinox',country:'JP'},
-  {date:'2034-10-09',name:'Sports Day',country:'JP'},{date:'2034-11-03',name:'Culture Day',country:'JP'},
-  {date:'2034-11-18',name:'Deepavali',country:'SG'},{date:'2034-11-23',name:'Labour Thanksgiving Day',country:'JP'},
+
+  {date:'2034-01-01',name:"New Year's Day",country:'SG'},
+  // Hari Raya Puasa (Sun → in lieu Mon)
+  {date:'2034-01-01',name:'Hari Raya Puasa',country:'SG'},
+  {date:'2034-01-02',name:'Hari Raya Puasa (in lieu)',country:'SG'},
+  {date:'2034-02-19',name:'Chinese New Year',country:'SG'},
+  {date:'2034-02-20',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2034-03-10',name:'Hari Raya Haji',country:'SG'},
+  {date:'2034-03-31',name:'Good Friday',country:'SG'},
+  {date:'2034-05-01',name:'Labour Day',country:'SG'},
+  {date:'2034-05-11',name:'Vesak Day',country:'SG'},
+  {date:'2034-08-09',name:'National Day',country:'SG'},
+  {date:'2034-11-18',name:'Deepavali',country:'SG'},
   {date:'2034-12-25',name:'Christmas Day',country:'SG'},
-  // 2035
-  {date:'2035-01-01',name:"New Year's Day",country:'SG'},{date:'2035-01-01',name:"New Year's Day",country:'JP'},
-  {date:'2035-01-08',name:'Coming of Age Day',country:'JP'},{date:'2035-02-08',name:'Chinese New Year',country:'SG'},
-  {date:'2035-02-09',name:'Chinese New Year',country:'SG'},{date:'2035-02-11',name:'National Foundation Day',country:'JP'},
-  {date:'2035-02-23',name:"Emperor's Birthday",country:'JP'},{date:'2035-02-28',name:'Hari Raya Haji',country:'SG'},
-  {date:'2035-03-20',name:'Spring Equinox',country:'JP'},{date:'2035-04-20',name:'Good Friday',country:'SG'},
-  {date:'2035-04-29',name:'Showa Day',country:'JP'},{date:'2035-05-01',name:'Labour Day',country:'SG'},
-  {date:'2035-05-03',name:'Constitution Memorial Day',country:'JP'},{date:'2035-05-04',name:'Greenery Day',country:'JP'},
-  {date:'2035-05-05',name:"Children's Day",country:'JP'},{date:'2035-05-30',name:'Vesak Day',country:'SG'},
-  {date:'2035-07-16',name:'Marine Day',country:'JP'},{date:'2035-08-09',name:'National Day',country:'SG'},
-  {date:'2035-08-11',name:'Mountain Day',country:'JP'},{date:'2035-09-17',name:'Respect for the Aged Day',country:'JP'},
-  {date:'2035-09-23',name:'Autumnal Equinox',country:'JP'},{date:'2035-10-08',name:'Sports Day',country:'JP'},
-  {date:'2035-11-03',name:'Culture Day',country:'JP'},{date:'2035-11-07',name:'Deepavali',country:'SG'},
-  {date:'2035-11-23',name:'Labour Thanksgiving Day',country:'JP'},{date:'2035-12-21',name:'Hari Raya Puasa',country:'SG'},
+
+  {date:'2035-01-01',name:"New Year's Day",country:'SG'},
+  {date:'2035-02-08',name:'Chinese New Year',country:'SG'},
+  {date:'2035-02-09',name:'Chinese New Year Day 2',country:'SG'},
+  {date:'2035-02-28',name:'Hari Raya Haji',country:'SG'},
+  {date:'2035-04-20',name:'Good Friday',country:'SG'},
+  {date:'2035-05-01',name:'Labour Day',country:'SG'},
+  // Vesak Day (Sun → in lieu Mon)
+  {date:'2035-05-30',name:'Vesak Day',country:'SG'},
+  {date:'2035-06-01',name:'Vesak Day (in lieu)',country:'SG'},
+  {date:'2035-08-09',name:'National Day',country:'SG'},
+  {date:'2035-11-07',name:'Deepavali',country:'SG'},
+  {date:'2035-12-21',name:'Hari Raya Puasa',country:'SG'},
   {date:'2035-12-25',name:'Christmas Day',country:'SG'},
 
-  // France — Jours fériés 2026–2030
-  // Fixed public holidays (same date every year)
-  {date:'2026-01-01',name:"Jour de l'An",country:'FR'},
-  {date:'2026-05-01',name:'Fête du Travail',country:'FR'},
-  {date:'2026-05-08',name:'Victoire 1945',country:'FR'},
-  {date:'2026-07-14',name:'Fête Nationale',country:'FR'},
-  {date:'2026-08-15',name:'Assomption',country:'FR'},
-  {date:'2026-11-01',name:'Toussaint',country:'FR'},
-  {date:'2026-11-11',name:'Armistice',country:'FR'},
-  {date:'2026-12-25',name:'Noël',country:'FR'},
-  // Variable 2026 (Easter Apr 5)
-  {date:'2026-04-06',name:'Lundi de Pâques',country:'FR'},
-  {date:'2026-05-14',name:'Ascension',country:'FR'},
-  {date:'2026-05-25',name:'Lundi de Pentecôte',country:'FR'},
-  // 2027
-  {date:'2027-01-01',name:"Jour de l'An",country:'FR'},
-  {date:'2027-05-01',name:'Fête du Travail',country:'FR'},
-  {date:'2027-05-08',name:'Victoire 1945',country:'FR'},
-  {date:'2027-07-14',name:'Fête Nationale',country:'FR'},
-  {date:'2027-08-15',name:'Assomption',country:'FR'},
-  {date:'2027-11-01',name:'Toussaint',country:'FR'},
-  {date:'2027-11-11',name:'Armistice',country:'FR'},
-  {date:'2027-12-25',name:'Noël',country:'FR'},
-  // Variable 2027 (Easter Mar 28)
-  {date:'2027-03-29',name:'Lundi de Pâques',country:'FR'},
-  {date:'2027-05-06',name:'Ascension',country:'FR'},
-  {date:'2027-05-17',name:'Lundi de Pentecôte',country:'FR'},
-  // 2028
-  {date:'2028-01-01',name:"Jour de l'An",country:'FR'},
-  {date:'2028-05-01',name:'Fête du Travail',country:'FR'},
-  {date:'2028-05-08',name:'Victoire 1945',country:'FR'},
-  {date:'2028-07-14',name:'Fête Nationale',country:'FR'},
-  {date:'2028-08-15',name:'Assomption',country:'FR'},
-  {date:'2028-11-01',name:'Toussaint',country:'FR'},
-  {date:'2028-11-11',name:'Armistice',country:'FR'},
-  {date:'2028-12-25',name:'Noël',country:'FR'},
-  // Variable 2028 (Easter Apr 16)
-  {date:'2028-04-17',name:'Lundi de Pâques',country:'FR'},
-  {date:'2028-05-25',name:'Ascension',country:'FR'},
-  {date:'2028-06-05',name:'Lundi de Pentecôte',country:'FR'},
-  // 2029
-  {date:'2029-01-01',name:"Jour de l'An",country:'FR'},
-  {date:'2029-05-01',name:'Fête du Travail',country:'FR'},
-  {date:'2029-05-08',name:'Victoire 1945',country:'FR'},
-  {date:'2029-07-14',name:'Fête Nationale',country:'FR'},
-  {date:'2029-08-15',name:'Assomption',country:'FR'},
-  {date:'2029-11-01',name:'Toussaint',country:'FR'},
-  {date:'2029-11-11',name:'Armistice',country:'FR'},
-  {date:'2029-12-25',name:'Noël',country:'FR'},
-  // Variable 2029 (Easter Apr 1)
-  {date:'2029-04-02',name:'Lundi de Pâques',country:'FR'},
-  {date:'2029-05-10',name:'Ascension',country:'FR'},
-  {date:'2029-05-21',name:'Lundi de Pentecôte',country:'FR'},
-  // 2030
-  {date:'2030-01-01',name:"Jour de l'An",country:'FR'},
-  {date:'2030-05-01',name:'Fête du Travail',country:'FR'},
-  {date:'2030-05-08',name:'Victoire 1945',country:'FR'},
-  {date:'2030-07-14',name:'Fête Nationale',country:'FR'},
-  {date:'2030-08-15',name:'Assomption',country:'FR'},
-  {date:'2030-11-01',name:'Toussaint',country:'FR'},
-  {date:'2030-11-11',name:'Armistice',country:'FR'},
-  {date:'2030-12-25',name:'Noël',country:'FR'},
-  // Variable 2030 (Easter Apr 21)
-  {date:'2030-04-22',name:'Lundi de Pâques',country:'FR'},
-  {date:'2030-05-30',name:'Ascension',country:'FR'},
-  {date:'2030-06-10',name:'Lundi de Pentecôte',country:'FR'},
 ];
 
-// Fast lookup by date
-const HOLIDAYS_BY_DATE = PUBLIC_HOLIDAYS.reduce((acc, h) => {
-  if (!acc[h.date]) acc[h.date] = [];
-  acc[h.date].push(h);
-  return acc;
-}, {});
-
-// Country colours for holiday badges
-const HC = { SG:'#EF3340', JP:'#BC002D', FR:'#0055A4' }; // SG red, JP red, FR blue
-const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8', FR:'#E8EFF8' };
-
-// ─── HOLIDAY WRITEUPS ─────────────────────────────────────────────
-// Short, interesting history/origin for each SG and JP public holiday.
 const HOLIDAY_INFO = {
-  // ── Singapore ─────────────────────────────────────────────────
-  "New Year's Day": {
-    country:'SG',
-    text: "Singapore adopted January 1st as a public holiday when it joined the British Commonwealth. The midnight countdown at Marina Bay has grown into one of Asia's most spectacular fireworks displays, drawing over 100,000 revellers annually."
-  },
-  "Chinese New Year": {
-    country:'SG',
-    text: "Rooted in ancient Chinese legend, Chinese New Year wards off a mythical beast called Nian with red lanterns and loud firecrackers. Singapore uniquely celebrates two full days of public holiday — one of only a handful of countries to do so — reflecting its 74% Chinese population."
-  },
-  "Good Friday": {
-    country:'SG',
-    text: "Good Friday commemorates the crucifixion of Jesus Christ. Singapore retained it as a public holiday from its colonial era. Catholics carry out the traditional Stations of the Cross procession at Saint Joseph's Church in Victoria Street, drawing thousands."
-  },
-  "Labour Day": {
-    country:'SG',
-    text: "Celebrated globally since 1886 after the Chicago Haymarket affair, Singapore adopted May Day in 1961. The National Trades Union Congress rally at the Padang was a fixture for decades — today the day marks workers' rights with awards, speeches, and a national holiday."
-  },
-  "Hari Raya Puasa": {
-    country:'SG',
-    text: "Known as Eid al-Fitr globally, Hari Raya Puasa ('Festival of Breaking Fast') marks the end of Ramadan — 30 days of dawn-to-dusk fasting. Geylang Serai transforms into a nightly bazaar for weeks before, filled with traditional Malay kueh, batik, and lanterns."
-  },
-  "Hari Raya Haji": {
-    country:'SG',
-    text: "Eid al-Adha commemorates Ibrahim's willingness to sacrifice his son in obedience to God. Muslims who perform the Haj pilgrimage to Mecca time it to this day. In Singapore, prayers at mosques are followed by the korban — the ritual slaughter and distribution of meat to those in need."
-  },
-  "Vesak Day": {
-    country:'SG',
-    text: "Vesak honours the birth, enlightenment, and passing of the Buddha — all said to have occurred on the same day in different years. Singapore's Buddhist community releases caged birds and lanterns, and temples distribute free vegetarian food to thousands of visitors."
-  },
-  "National Day": {
-    country:'SG',
-    text: "On August 9, 1965, Singapore was unexpectedly separated from Malaysia, with founding Prime Minister Lee Kuan Yew famously weeping as he announced independence. The annual NDP parade — featuring Red Lions skydivers, fighter jet flypasts, and fireworks — remains Singapore's most watched event."
-  },
-  "Deepavali": {
-    country:'SG',
-    text: "The Festival of Lights celebrates the triumph of light over darkness, good over evil. Little India is transformed with hundreds of thousands of fairy lights weeks before the event. Hindus light oil lamps called diyas at home, exchange sweets, and wear new clothes to signal fresh beginnings."
-  },
-  "Christmas Day": {
-    country:'SG',
-    text: "Singapore's Christmas is famously a spectacle of commercialism and community. Orchard Road's Christmas light-up draws millions — Singapore was one of the first Asian cities to adopt the tradition in the 1980s. Despite Christians being only 18% of the population, Christmas is beloved by all faiths."
-  },
-  "Mother's Day": {
-    country:'SG',
-    text: "First celebrated in 1908 when Anna Jarvis held a memorial for her mother in West Virginia, Mother's Day became a US national holiday in 1914. In Singapore and Japan, children honour their mothers with flowers — carnations are the traditional symbol, white for those who have passed, red for the living."
-  },
   "Father's Day": {
     country:'SG',
     text: "Father's Day was inspired by Mother's Day and first celebrated in 1910 in Washington State. Sonora Smart Dodd wanted to honour her father who raised six children alone after his wife died. The third Sunday of June became the official US date in 1972 — now celebrated across Singapore, Japan, and over 100 countries."
