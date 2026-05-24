@@ -4079,460 +4079,556 @@ function AnniversaryBackground() {
 
 
 
-// ─── KODOMO NO HI — Children's Day · Koinobori ────────────────────────────────
+// ─── KODOMO NO HI — Children's Day · Koinobori v2 ───────────────────────────
 function KodomoBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let W = window.innerWidth, H = window.innerHeight;
-    let ctx, animId, T = 0, lastNow = null;
+    const dpr = Math.min(window.devicePixelRatio||1,2);
+    let W=window.innerWidth, H=window.innerHeight;
+    let ctx, animId, T=0, lastNow=null;
 
-    // ── Deterministic RNG ────────────────────────────────────────────────────
-    const mkRng = seed => { let s=seed|0; return ()=>{ s=Math.imul(s,1664525)+1013904223|0; return (s>>>0)/4294967296; }; };
-    const rng = mkRng(31415);
-
-    const setup = () => {
-      W = window.innerWidth; H = window.innerHeight;
-      canvas.width  = Math.round(W*dpr); canvas.height = Math.round(H*dpr);
-      canvas.style.width = W+'px'; canvas.style.height = H+'px';
-      ctx = canvas.getContext('2d');
+    const setup=()=>{
+      W=window.innerWidth; H=window.innerHeight;
+      canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
+      canvas.style.width=W+'px'; canvas.style.height=H+'px';
+      ctx=canvas.getContext('2d');
       ctx.setTransform(dpr,0,0,dpr,0,0);
     };
     setup();
 
-    // ── Wind simulation — multi-layer Perlin-like noise ──────────────────────
-    // Base wind + gusts + turbulence
-    const windNoise = (t, freq, seed) => {
-      const s1 = Math.sin(t*freq       + seed*2.718) * 0.5;
-      const s2 = Math.sin(t*freq*2.3   + seed*1.414) * 0.25;
-      const s3 = Math.sin(t*freq*5.7   + seed*3.141) * 0.15;
-      const s4 = Math.sin(t*freq*11.3  + seed*1.732) * 0.07;
-      return s1+s2+s3+s4;
-    };
-    // Wind returns {strength:0-1, direction:angle, gust:0-1}
-    const getWind = (t) => {
-      const base   = 0.45 + windNoise(t, 0.08, 1.0) * 0.30;
-      const gust   = Math.max(0, windNoise(t, 0.22, 2.5)) * 0.55;
-      const turb   = windNoise(t, 0.55, 4.1) * 0.12;
-      const dir    = windNoise(t, 0.04, 7.3) * 0.35; // sway left-right
-      return { strength: Math.max(0.1, base+gust+turb), gust, dir };
-    };
+    // ── Seeded RNG ────────────────────────────────────────────────────────
+    const mkRng=s=>{let v=s|0;return()=>{v=Math.imul(v,1664525)+1013904223|0;return(v>>>0)/4294967296;};};
 
-    // ── Koinobori poles ──────────────────────────────────────────────────────
-    // Each pole: position, height, 3 carp (father/mother/child)
-    const CARP_DEFS = [
-      // [colorBase, colorBelly, colorFin, length_frac, scaleName]
-      { base:'#1A1A1A', belly:'#404040', fin:'#888', accent:'#FFD700', len:1.0,  name:'father',
-        scaleRows:7, scaleColor:'#333333', eyeColor:'#FFD700', lipColor:'#FF4444' },
-      { base:'#D43A3A', belly:'#F07070', fin:'#FF8888', accent:'#FFE0E0', len:0.80, name:'mother',
-        scaleRows:6, scaleColor:'#B02020', eyeColor:'#FFD700', lipColor:'#FF8888' },
-      { base:'#2266CC', belly:'#5599EE', fin:'#88BBFF', accent:'#DDEEFF', len:0.62, name:'child1',
-        scaleRows:5, scaleColor:'#1144AA', eyeColor:'#FFFF88', lipColor:'#AADDFF' },
-      { base:'#22AA55', belly:'#55CC88', fin:'#88FFAA', accent:'#CCFFEE', len:0.50, name:'child2',
-        scaleRows:4, scaleColor:'#118833', eyeColor:'#FFFF88', lipColor:'#88FFCC' },
+    // ── Multi-octave wind noise ────────────────────────────────────────────
+    const wNoise=(t,f,s)=>
+      Math.sin(t*f+s*2.718)*.50+Math.sin(t*f*2.3+s*1.414)*.25+
+      Math.sin(t*f*5.7+s*3.14)*.15+Math.sin(t*f*11.3+s*1.73)*.07;
+
+    const getWind=t=>({
+      str:  Math.max(0.08, 0.42+wNoise(t,0.07,1.0)*.30+Math.max(0,wNoise(t,0.19,2.5))*.50),
+      dir:  wNoise(t,0.04,7.3)*.30,
+      turb: Math.abs(wNoise(t,0.60,4.1))*.18,
+    });
+
+    // ── 12 koinobori definitions ──────────────────────────────────────────
+    // Each kite: anchor point (pole top), length, colour set, wind phase offset
+    // Colours: [bodyDark, bodyLight, bellyLight, finColor, scaleColor, eyeColor, obiColor]
+    const KITES = [
+      // === POLE 1 — left (x≈12%) tall pole ===
+      { pole:{x:W*.115, py:H*.82}, len:H*.38, col:['#111','#2A2A2A','#555','#888','#1A1A1A','#FFD700','#CC0000'], ph:0.0,  tag:'father-1' },
+      { pole:{x:W*.115, py:H*.82}, len:H*.28, col:['#B81C1C','#D44444','#F07070','#FF9090','#8B1010','#FFE070','#FFD700'], ph:0.3,  tag:'mother-1' },
+      { pole:{x:W*.115, py:H*.82}, len:H*.21, col:['#1540A0','#2A5FCC','#5590EE','#80B0FF','#0E2E80','#FFFF88','#88CCFF'], ph:0.6,  tag:'child1-1' },
+      { pole:{x:W*.115, py:H*.82}, len:H*.15, col:['#136A30','#228844','#44BB70','#70EE99','#0C4A20','#FFFF66','#AAFFCC'], ph:0.9,  tag:'child2-1' },
+
+      // === POLE 2 — centre (x≈46%) medium pole ===
+      { pole:{x:W*.455, py:H*.85}, len:H*.44, col:['#0A0A0A','#202020','#444','#777','#111','#FFD700','#AA0000'], ph:1.5,  tag:'father-2' },
+      { pole:{x:W*.455, py:H*.85}, len:H*.32, col:['#9B1515','#CC3333','#EE6666','#FF9999','#6B0D0D','#FFD060','#FF7070'], ph:1.8,  tag:'mother-2' },
+      { pole:{x:W*.455, py:H*.85}, len:H*.23, col:['#6A2090','#9030B0','#B860D8','#D890F0','#4A1060','#FFE090','#CC88FF'], ph:2.1,  tag:'child1-2' },
+
+      // === POLE 3 — right (x≈80%) tall pole ===
+      { pole:{x:W*.805, py:H*.80}, len:H*.40, col:['#0D0D0D','#252525','#4A4A4A','#808080','#141414','#FFD700','#BB1111'], ph:2.8,  tag:'father-3' },
+      { pole:{x:W*.805, py:H*.80}, len:H*.30, col:['#C42020','#E04040','#F07878','#FF9999','#901818','#FFE060','#FFB0B0'], ph:3.1,  tag:'mother-3' },
+      { pole:{x:W*.805, py:H*.80}, len:H*.22, col:['#105090','#1A70C8','#4498E8','#78C0FF','#0A3468','#FFFF80','#90D0FF'], ph:3.4,  tag:'child1-3' },
+      { pole:{x:W*.805, py:H*.80}, len:H*.16, col:['#0A6028','#168840','#30A860','#60CC88','#084018','#FFFF60','#90FFBB'], ph:3.7,  tag:'child2-3' },
+
+      // === POLE 4 — far left (x≈2%) small accent pole ===
+      { pole:{x:W*.025, py:H*.88}, len:H*.24, col:['#7A1080','#A030A8','#C860CC','#E890EE','#520A58','#FFE888','#FF88EE'], ph:4.2,  tag:'accent-1' },
     ];
 
-    const POLES = [
-      { x:W*0.18, poleH:H*0.72, carps:CARP_DEFS,         windPhase:0.0, windScale:1.0 },
-      { x:W*0.50, poleH:H*0.78, carps:CARP_DEFS.slice(0,3), windPhase:1.4, windScale:0.88 },
-      { x:W*0.82, poleH:H*0.68, carps:CARP_DEFS,         windPhase:2.9, windScale:1.12 },
-    ];
-
-    // ── Draw one koinobori carp ──────────────────────────────────────────────
-    // cx,cy = mouth position, wind = {strength, dir}, carp def, index offset
-    const drawKoi = (cx, cy, wind, carp, poleWindPhase, len_px) => {
-      const W_STR = wind.strength;
-      const DIR   = wind.dir;
-      const GUST  = wind.gust;
-
-      // Body is a bezier ribbon — inflated by wind
-      // Inflation: wind fills the sock; strong wind = more cylindrical
-      const inflation = 0.25 + W_STR * 0.55;
-      const bodyW = len_px * 0.18 * inflation;
-
-      // Body length foreshortening based on wind (headwind = fuller, no wind = drooping)
-      const bodyLen   = len_px * (0.6 + W_STR * 0.38);
-
-      // The body sways: tail swings downstream of wind
-      // Body spine modeled as 5-segment chain
-      const segments = 6;
-      const spine = [];
-      // Mouth is fixed at cx,cy
-      spine.push({x:cx, y:cy});
-      for(let i=1; i<=segments; i++){
-        const t_seg = i/segments;
-        // Each segment trails the one before with wind-driven displacement
-        const prev = spine[i-1];
-        const segLen = bodyLen/segments;
-        // Horizontal wind drag increases toward tail
-        const drag = t_seg * t_seg * W_STR * len_px * 0.45;
-        const swayAmp = t_seg * t_seg * W_STR * 18 + Math.sin(T*2.8 + poleWindPhase + t_seg*4)*4*W_STR;
-        const gravDroop = t_seg * t_seg * (1-W_STR) * segLen * 0.9;
-        spine.push({
-          x: prev.x + drag/segments + Math.sin(T*1.6 + poleWindPhase + t_seg*3.1) * swayAmp * 0.06,
-          y: prev.y + gravDroop + Math.sin(T*2.1 + poleWindPhase + t_seg*2.3 + i) * swayAmp * 0.12,
-        });
-      }
-      const tail = spine[segments];
-
-      // ── Carp body shape ──────────────────────────────────────────────────
-      // Build upper and lower profile along spine
-      const profile = (side) => {
-        const pts = [];
-        for(let i=0; i<=segments; i++){
-          const t_seg = i/segments;
-          const p = spine[i];
-          // Width tapers: wide at 30%, narrows to tail
-          const widthT = t_seg < 0.3
-            ? t_seg/0.3
-            : 1 - (t_seg-0.3)/0.7 * 0.85;
-          const w = bodyW * widthT * (0.9 + Math.sin(T*2.5+poleWindPhase+t_seg*5)*0.08*W_STR);
-          // Perpendicular offset
-          const dx = i<segments ? spine[i+1].x-p.x : p.x-spine[i-1].x;
-          const dy = i<segments ? spine[i+1].y-p.y : p.y-spine[i-1].y;
-          const len = Math.sqrt(dx*dx+dy*dy)||1;
-          const nx = -dy/len * side;
-          const ny =  dx/len * side;
-          pts.push({ x: p.x + nx*w, y: p.y + ny*w });
-        }
-        return pts;
-      };
-
-      const upper = profile(1);
-      const lower = profile(-1);
-
-      // Main body gradient
-      const grad = ctx.createLinearGradient(cx, cy-bodyW, tail.x, tail.y+bodyW);
-      grad.addColorStop(0, carp.base);
-      grad.addColorStop(0.4, carp.belly);
-      grad.addColorStop(0.7, carp.base);
-      grad.addColorStop(1, carp.base+'88');
-
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      upper.forEach(p => ctx.lineTo(p.x, p.y));
-      // Tail fan
-      const tailFanAmp = (0.3 + W_STR*0.5) * bodyW * 1.6;
-      const tailSway   = Math.sin(T*3.2 + poleWindPhase) * tailFanAmp * 0.8;
-      ctx.lineTo(tail.x + tailFanAmp*0.6, tail.y - tailFanAmp + tailSway);
-      ctx.lineTo(tail.x + tailFanAmp*1.1, tail.y + tailSway*0.3);
-      ctx.lineTo(tail.x, tail.y + tailSway*0.15);
-      ctx.lineTo(tail.x - tailFanAmp*0.4, tail.y + tailFanAmp*0.6 + tailSway*0.4);
-      [...lower].reverse().forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.closePath();
-      ctx.fillStyle = grad; ctx.fill();
-
-      // ── Scales ──────────────────────────────────────────────────────────
-      ctx.save();
-      ctx.globalAlpha = 0.28;
-      for(let row=1; row<carp.scaleRows; row++){
-        const t_row = row/carp.scaleRows * 0.85 + 0.05;
-        const si = Math.floor(t_row * segments);
-        const pCenter = spine[Math.min(si, segments)];
-        const widthT = t_row < 0.3 ? t_row/0.3 : 1-(t_row-0.3)/0.7*0.85;
-        const rowW = bodyW * widthT * 1.1;
-        const scaleW = rowW * 0.38;
-        const scaleH = scaleW * 0.55;
-        const nScales = Math.max(2, Math.round(rowW*2/scaleW));
-        for(let sc=0; sc<nScales; sc++){
-          const sOff = (sc/(nScales-1) - 0.5) * rowW * 1.8;
-          const sx2 = pCenter.x + sOff;
-          const sy2 = pCenter.y;
-          const ripple = Math.sin(T*3+poleWindPhase+row*0.8+sc*0.5)*0.9*W_STR;
-          ctx.fillStyle = carp.scaleColor;
-          ctx.beginPath();
-          ctx.arc(sx2, sy2+ripple, scaleW, Math.PI, Math.PI*2);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-
-      // ── Belly highlight ──────────────────────────────────────────────────
-      ctx.save(); ctx.globalAlpha = 0.22;
-      const bg2 = ctx.createLinearGradient(cx, cy, tail.x, tail.y);
-      bg2.addColorStop(0, carp.accent);
-      bg2.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = bg2;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy+2);
-      lower.slice(0, Math.ceil(segments*0.6)).forEach(p => ctx.lineTo(p.x, p.y-bodyW*0.3));
-      ctx.closePath(); ctx.fill();
-      ctx.restore();
-
-      // ── Dorsal & pectoral fins ────────────────────────────────────────────
-      ctx.save();
-      // Dorsal fin
-      const dorsalT = 0.25;
-      const dSeg = Math.floor(dorsalT*segments);
-      const dP = spine[dSeg];
-      const dorsalSway = Math.sin(T*2.5+poleWindPhase+1)*4*W_STR;
-      ctx.globalAlpha=0.7;
-      ctx.fillStyle=carp.fin;
-      ctx.beginPath();
-      ctx.moveTo(upper[dSeg].x, upper[dSeg].y);
-      ctx.bezierCurveTo(
-        dP.x-8, dP.y - bodyW*1.8 + dorsalSway,
-        dP.x+12, dP.y - bodyW*2.0 + dorsalSway,
-        upper[dSeg+2]?.x||upper[dSeg].x, upper[dSeg+2]?.y||upper[dSeg].y
-      );
-      ctx.closePath(); ctx.fill();
-      // Pectoral fins
-      [0.2, 0.35].forEach((ft,fi) => {
-        const fSeg = Math.floor(ft*segments);
-        const fP = spine[fSeg];
-        const fSway = Math.sin(T*2.8+poleWindPhase+fi+2)*5*W_STR;
-        [-1,1].forEach(side=>{
-          ctx.globalAlpha=0.6;
-          ctx.fillStyle=carp.fin;
-          ctx.beginPath();
-          ctx.moveTo(fP.x, fP.y);
-          ctx.bezierCurveTo(
-            fP.x+side*bodyW*0.9, fP.y+bodyW*0.5+fSway*side,
-            fP.x+side*bodyW*1.5, fP.y+bodyW*1.1+fSway*side,
-            fP.x+side*bodyW*0.5, fP.y+bodyW*1.4
-          );
-          ctx.closePath(); ctx.fill();
-        });
-      });
-      ctx.restore();
-
-      // ── Mouth ring & eye ─────────────────────────────────────────────────
-      // Mouth ring (hoop that holds the koinobori open)
-      ctx.strokeStyle='#888888'; ctx.lineWidth=2.5;
-      ctx.beginPath(); ctx.arc(cx, cy, bodyW*0.9, 0, Math.PI*2); ctx.stroke();
-      ctx.fillStyle='rgba(200,200,200,0.18)';
-      ctx.beginPath(); ctx.arc(cx, cy, bodyW*0.9, 0, Math.PI*2); ctx.fill();
-
-      // Eye
-      const eyeSeg = spine[1];
-      ctx.fillStyle=carp.base;
-      ctx.beginPath(); ctx.arc(eyeSeg.x, eyeSeg.y - bodyW*0.35, bodyW*0.22, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle=carp.eyeColor;
-      ctx.beginPath(); ctx.arc(eyeSeg.x+1, eyeSeg.y - bodyW*0.35, bodyW*0.13, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle='#000';
-      ctx.beginPath(); ctx.arc(eyeSeg.x+1, eyeSeg.y - bodyW*0.35, bodyW*0.07, 0, Math.PI*2); ctx.fill();
-      // Eye shine
-      ctx.fillStyle='rgba(255,255,255,0.8)';
-      ctx.beginPath(); ctx.arc(eyeSeg.x+bodyW*0.05, eyeSeg.y-bodyW*0.4, bodyW*0.04, 0, Math.PI*2); ctx.fill();
-
-      // ── Outline ──────────────────────────────────────────────────────────
-      ctx.save(); ctx.globalAlpha=0.35;
-      ctx.strokeStyle=carp.base; ctx.lineWidth=1.2;
-      ctx.beginPath();
-      upper.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-      [...lower].reverse().forEach(p => ctx.lineTo(p.x,p.y));
-      ctx.closePath(); ctx.stroke();
-      ctx.restore();
-    };
-
-    // ── Cherry blossom background tree ───────────────────────────────────────
-    const drawBlossom = (bx, by, rad, density) => {
-      const rng2 = mkRng(Math.round(bx+by));
-      for(let b=0; b<density; b++){
-        const bx2 = bx+(rng2()-0.5)*rad*2;
-        const by2 = by+(rng2()-0.5)*rad*2;
-        const dist = Math.hypot(bx2-bx, by2-by);
-        if(dist > rad) continue;
-        const fade = 1 - dist/rad;
-        ctx.globalAlpha = fade * 0.75;
-        const pinkH = 340 + rng2()*20;
-        ctx.fillStyle = `hsl(${pinkH},90%,${70+rng2()*15}%)`;
-        for(let p=0; p<5; p++){
-          const pa = (p/5)*Math.PI*2;
-          ctx.beginPath();
-          ctx.ellipse(bx2+Math.cos(pa)*3.5, by2+Math.sin(pa)*3.5, 3, 2, pa, 0, Math.PI*2);
-          ctx.fill();
-        }
-        ctx.fillStyle='#FFD700'; ctx.globalAlpha=fade*0.6;
-        ctx.beginPath(); ctx.arc(bx2, by2, 1.2, 0, Math.PI*2); ctx.fill();
-      }
-      ctx.globalAlpha=1;
-    };
-
-    // ── Petals ────────────────────────────────────────────────────────────────
-    const rng2 = mkRng(999);
-    const petals = Array.from({length:80},()=>({
-      x:rng2()*W, y:rng2()*H,
-      vx:0.3+rng2()*0.5, vy:0.2+rng2()*0.5,
-      rot:rng2()*Math.PI*2, rotV:(rng2()-0.5)*0.04,
-      size:2.5+rng2()*4.5,
-      hue:330+rng2()*40, sat:70+rng2()*25, lit:75+rng2()*15,
-      alpha:0.4+rng2()*0.55,
+    // ── Per-kite state (spine nodes) ──────────────────────────────────────
+    const N_SEG=12;  // spine segments — more = more fluid
+    const kiteStates = KITES.map(k=>({
+      spine: Array.from({length:N_SEG+1},(_,i)=>({
+        x: k.pole.x, y: k.pole.py + i*(k.len/N_SEG),
+      })),
     }));
 
-    // ── Frame loop ────────────────────────────────────────────────────────────
-    const frame = (now) => {
-      const dt = lastNow ? Math.min(now-lastNow,50)/1000 : 0.016;
-      lastNow=now; T+=dt;
+    // ── Update spine physics (verlet-style) ────────────────────────────────
+    const updateSpine=(kite, state, wind)=>{
+      const SEG_LEN = kite.len/N_SEG;
+      const sp = state.spine;
+      // Node 0 fixed at pole top
+      sp[0].x = kite.pole.x;
+      sp[0].y = kite.pole.py;
 
-      const wind = getWind(T);
+      for(let i=1;i<=N_SEG;i++){
+        const t = i/N_SEG;
+        const tSq = t*t;
+        // Wind drag — stronger toward tail, more turbulence mid-body
+        const drag  = (wind.str*0.72 + wind.turb*tSq*0.25) * SEG_LEN * (0.55 + tSq*0.60);
+        const sway  = Math.sin(T*2.4 + kite.ph + t*3.8 + i*0.4) * wind.str*SEG_LEN*(0.12+tSq*0.22);
+        const grav  = (1-wind.str*0.88) * SEG_LEN * (0.18 + tSq*0.55);
+        const turb  = Math.sin(T*6.1 + kite.ph + t*7.3) * wind.turb*SEG_LEN*0.18;
+        const windDir = wind.dir * SEG_LEN * tSq * 0.45;
 
-      // ── Sky ───────────────────────────────────────────────────────────────
-      const sky = ctx.createLinearGradient(0,0,0,H);
-      sky.addColorStop(0,'#6AAFE6');
-      sky.addColorStop(0.45,'#A8D8F0');
-      sky.addColorStop(0.75,'#D8EEF8');
-      sky.addColorStop(1,'#EAF5E8');
-      ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+        // Accumulate from parent
+        const px = sp[0].x;
+        const py = sp[0].py;
+        sp[i].x = px + drag*(i) + sway + windDir + turb;
+        sp[i].y = py + grav*(i) + Math.sin(T*1.9+kite.ph+t*2.1)*sway*0.35;
+      }
+    };
 
-      // ── Clouds ────────────────────────────────────────────────────────────
-      const clouds = [
-        {cx:W*0.12, cy:H*0.12, rx:80, ry:30, drift:0.0},
-        {cx:W*0.42, cy:H*0.08, rx:110, ry:35, drift:0.5},
-        {cx:W*0.74, cy:H*0.15, rx:90, ry:28, drift:1.2},
-        {cx:W*0.90, cy:H*0.22, rx:65, ry:22, drift:2.1},
-      ];
-      clouds.forEach(cl => {
-        const dx = Math.sin(T*0.04+cl.drift)*12;
-        const cg = ctx.createRadialGradient(cl.cx+dx, cl.cy, 0, cl.cx+dx, cl.cy, cl.rx);
-        cg.addColorStop(0,'rgba(255,255,255,0.95)');
-        cg.addColorStop(0.6,'rgba(240,248,255,0.70)');
-        cg.addColorStop(1,'rgba(220,238,255,0)');
-        ctx.fillStyle=cg;
-        ctx.beginPath(); ctx.ellipse(cl.cx+dx, cl.cy, cl.rx, cl.ry, 0, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(cl.cx+dx-cl.rx*0.3, cl.cy+cl.ry*0.1, cl.rx*0.55, cl.ry*0.7, 0, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(cl.cx+dx+cl.rx*0.3, cl.cy+cl.ry*0.15, cl.rx*0.45, cl.ry*0.6, 0, 0, Math.PI*2); ctx.fill();
-      });
+    // ── Build upper/lower profile along spine ─────────────────────────────
+    const buildProfile=(sp,widthFn)=>{
+      const upper=[],lower=[];
+      for(let i=0;i<=N_SEG;i++){
+        const t=i/N_SEG;
+        const p=sp[i];
+        const w=widthFn(t);
+        const nx=i<N_SEG ? sp[i+1].x-p.x : p.x-sp[i-1].x;
+        const ny=i<N_SEG ? sp[i+1].y-p.y : p.y-sp[i-1].y;
+        const mag=Math.sqrt(nx*nx+ny*ny)||1;
+        upper.push({x:p.x-ny/mag*w, y:p.y+nx/mag*w});
+        lower.push({x:p.x+ny/mag*w, y:p.y-nx/mag*w});
+      }
+      return {upper,lower};
+    };
 
-      // ── Background hills / trees ──────────────────────────────────────────
-      // Green rolling hills
-      const hill = ctx.createLinearGradient(0,H*0.55,0,H*0.72);
-      hill.addColorStop(0,'#5DB86A'); hill.addColorStop(1,'#3A8A48');
-      ctx.fillStyle=hill;
+    // ── Draw one koinobori ────────────────────────────────────────────────
+    const drawKoi=(kite,state,wind)=>{
+      const sp=state.spine;
+      const L=kite.len;
+      const [cDark,cLight,cBelly,cFin,cScale,cEye,cObi]=kite.col;
+      const inflation=0.22+wind.str*0.58;
+
+      // Width envelope — fish shape: narrow mouth, wide at 25%, taper to tail
+      const widthFn=t=>{
+        if(t<0.06) return L*0.055*inflation*(t/0.06);
+        if(t<0.28) return L*(0.055+0.085*(t-0.06)/0.22)*inflation;
+        if(t<0.55) return L*0.14*inflation*(1-(t-0.28)/0.27*0.15);
+        return L*0.14*inflation*(1-(t-0.55)/0.45)*0.85;
+      };
+
+      const {upper,lower}=buildProfile(sp,widthFn);
+      const mouth=sp[0], tail=sp[N_SEG];
+      const bodyW0=widthFn(0.28); // max body width
+
+      // ── Drop shadow ──────────────────────────────────────────────────────
+      ctx.save(); ctx.globalAlpha=0.07;
+      ctx.filter=`blur(${Math.round(L*0.025)}px)`;
+      ctx.fillStyle='#000';
       ctx.beginPath();
-      ctx.moveTo(0,H*0.72); ctx.lineTo(0,H*0.65);
-      ctx.bezierCurveTo(W*0.1,H*0.58,W*0.25,H*0.60,W*0.38,H*0.62);
-      ctx.bezierCurveTo(W*0.52,H*0.64,W*0.65,H*0.56,W*0.78,H*0.58);
-      ctx.bezierCurveTo(W*0.90,H*0.60,W*0.95,H*0.63,W,H*0.65);
-      ctx.lineTo(W,H*0.72); ctx.closePath(); ctx.fill();
+      upper.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      [...lower].reverse().forEach(p=>ctx.lineTo(p.x,p.y));
+      ctx.closePath(); ctx.fill();
+      ctx.filter='none'; ctx.restore();
 
-      // Cherry trees on hills
-      ctx.save();
-      [[W*0.08,H*0.63,45,280],[W*0.31,H*0.60,55,320],[W*0.63,H*0.57,60,350],[W*0.91,H*0.61,50,300]].forEach(([bx,by,rad,dens])=>{
-        // Trunk
-        ctx.globalAlpha=1; ctx.strokeStyle='#6B3D1A'; ctx.lineWidth=6;
-        ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx,by-rad*0.7); ctx.stroke();
-        drawBlossom(bx,by-rad*0.6,rad,dens);
-      });
-      ctx.restore();
-
-      // ── Ground ────────────────────────────────────────────────────────────
-      const ground = ctx.createLinearGradient(0,H*0.72,0,H);
-      ground.addColorStop(0,'#4A9E58'); ground.addColorStop(0.4,'#3D8B49'); ground.addColorStop(1,'#2E6E38');
-      ctx.fillStyle=ground; ctx.fillRect(0,H*0.72,W,H*0.28);
-      // Grass texture lines
-      ctx.save(); ctx.globalAlpha=0.12; ctx.strokeStyle='#2A5C30'; ctx.lineWidth=0.8;
-      for(let gx=0;gx<W;gx+=8){
-        ctx.beginPath(); ctx.moveTo(gx,H*0.72); ctx.lineTo(gx+2,H); ctx.stroke();
+      // ── Tail fin (bifurcated, animated) ──────────────────────────────────
+      const tailSway=Math.sin(T*3.4+kite.ph)*wind.str*bodyW0*2.2;
+      const tailFurl=0.3+wind.str*0.7; // how open the tail is
+      // Upper lobe
+      ctx.fillStyle=cFin;
+      ctx.beginPath();
+      ctx.moveTo(tail.x,tail.y);
+      ctx.bezierCurveTo(
+        tail.x+L*0.07*tailFurl, tail.y-bodyW0*(1.2+tailFurl)+tailSway,
+        tail.x+L*0.14*tailFurl, tail.y-bodyW0*(1.8+tailFurl*0.5)+tailSway*0.7,
+        tail.x+L*0.20*tailFurl, tail.y-bodyW0*(0.8+tailFurl*0.3)+tailSway*0.4
+      );
+      ctx.bezierCurveTo(
+        tail.x+L*0.12*tailFurl, tail.y-bodyW0*0.3+tailSway*0.2,
+        tail.x+L*0.05, tail.y,
+        tail.x,tail.y
+      );
+      ctx.closePath(); ctx.fill();
+      // Lower lobe
+      ctx.beginPath();
+      ctx.moveTo(tail.x,tail.y);
+      ctx.bezierCurveTo(
+        tail.x+L*0.07*tailFurl, tail.y+bodyW0*(1.0+tailFurl)+tailSway*0.5,
+        tail.x+L*0.14*tailFurl, tail.y+bodyW0*(1.5+tailFurl*0.4)+tailSway*0.3,
+        tail.x+L*0.18*tailFurl, tail.y+bodyW0*(0.6+tailFurl*0.2)+tailSway*0.15
+      );
+      ctx.bezierCurveTo(
+        tail.x+L*0.10*tailFurl, tail.y+bodyW0*0.2+tailSway*0.1,
+        tail.x+L*0.04, tail.y,
+        tail.x,tail.y
+      );
+      ctx.closePath(); ctx.fill();
+      // Tail vein lines
+      ctx.save(); ctx.globalAlpha=0.35; ctx.strokeStyle=cDark; ctx.lineWidth=0.8;
+      for(let v=0;v<5;v++){
+        const vt=v/4;
+        ctx.beginPath();
+        ctx.moveTo(tail.x, tail.y);
+        ctx.lineTo(tail.x+L*0.16*tailFurl, tail.y+(-bodyW0*(1.8+tailFurl*0.5)+bodyW0*(3.3+tailFurl)*vt)+tailSway*(0.7-vt*0.6));
+        ctx.stroke();
       }
       ctx.restore();
 
-      // ── Poles + koinobori ─────────────────────────────────────────────────
-      POLES.forEach(pole => {
-        const px = pole.x, groundY = H*0.72;
-        const poleTop = groundY - pole.poleH;
+      // ── Main body ─────────────────────────────────────────────────────────
+      const bodyGrad=ctx.createLinearGradient(mouth.x,mouth.y,tail.x,tail.y);
+      bodyGrad.addColorStop(0,cDark);
+      bodyGrad.addColorStop(0.18,cLight);
+      bodyGrad.addColorStop(0.42,cLight);
+      bodyGrad.addColorStop(0.68,cDark);
+      bodyGrad.addColorStop(1,cDark+'88');
+      ctx.fillStyle=bodyGrad;
+      ctx.beginPath();
+      upper.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      // Smooth tail join
+      ctx.lineTo(tail.x,tail.y);
+      [...lower].reverse().forEach(p=>ctx.lineTo(p.x,p.y));
+      ctx.closePath(); ctx.fill();
 
-        // Pole shadow
-        ctx.save(); ctx.globalAlpha=0.15;
-        ctx.fillStyle='#000';
-        ctx.beginPath();
-        ctx.ellipse(px+20, groundY, 12, 4, 0, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
-
-        // Pole
-        const poleGrad = ctx.createLinearGradient(px-4,0,px+4,0);
-        poleGrad.addColorStop(0,'#888'); poleGrad.addColorStop(0.5,'#CCC'); poleGrad.addColorStop(1,'#777');
-        ctx.fillStyle=poleGrad; ctx.fillRect(px-4, poleTop, 8, pole.poleH);
-        // Pole cap ball
-        const capG = ctx.createRadialGradient(px-2,poleTop-6,0,px,poleTop-5,10);
-        capG.addColorStop(0,'#FFD700'); capG.addColorStop(1,'#B8860B');
-        ctx.fillStyle=capG;
-        ctx.beginPath(); ctx.arc(px,poleTop-5,10,0,Math.PI*2); ctx.fill();
-
-        // Yokki rope (horizontal rope koinobori hang from)
-        const yokkiLen = 60 + wind.strength*30;
-        ctx.strokeStyle='#888'; ctx.lineWidth=1.5;
-        // Rope droops with gravity
-        const ropeY = poleTop + 15;
-        ctx.beginPath();
-        ctx.moveTo(px, ropeY);
-        ctx.bezierCurveTo(px+yokkiLen*0.4, ropeY+8*(1-wind.strength), px+yokkiLen*0.8, ropeY+5*(1-wind.strength), px+yokkiLen, ropeY);
-        ctx.stroke();
-
-        // Carp streamers hanging from rope
-        pole.carps.forEach((carp, ci) => {
-          const hangX = px + (ci * 12) + 5;
-          const hangY = ropeY + 2;
-          const len_px = pole.poleH * 0.38 * carp.len;
-          const poleWind = wind;
-          // Attachment string
-          ctx.strokeStyle='#999'; ctx.lineWidth=0.8;
-          ctx.beginPath(); ctx.moveTo(px, ropeY); ctx.lineTo(hangX, hangY); ctx.stroke();
-          drawKoi(hangX, hangY, poleWind, carp, pole.windPhase + ci*0.8, len_px);
-        });
-
-        // Pole rope (vertical decorative rope)
-        ctx.strokeStyle='rgba(180,120,60,0.5)'; ctx.lineWidth=1;
-        ctx.setLineDash([4,6]);
-        ctx.beginPath();
-        ctx.moveTo(px, poleTop); ctx.lineTo(px, groundY);
-        ctx.stroke(); ctx.setLineDash([]);
-      });
-
-      // ── Falling petals ────────────────────────────────────────────────────
-      petals.forEach(p => {
-        p.x += p.vx * (0.8 + wind.strength*0.6);
-        p.y += p.vy;
-        p.rot += p.rotV + wind.dir*0.02;
-        if(p.x > W+20) p.x = -20;
-        if(p.y > H+20) { p.y=-20; p.x=Math.random()*W; }
-        ctx.save();
-        ctx.globalAlpha=p.alpha;
-        ctx.translate(p.x,p.y); ctx.rotate(p.rot);
-        ctx.fillStyle=`hsl(${p.hue},${p.sat}%,${p.lit}%)`;
-        ctx.beginPath();
-        ctx.ellipse(0,0,p.size,p.size*0.55,0,0,Math.PI*2);
-        ctx.fill();
-        ctx.restore();
-      });
-
-      // ── Title overlay ─────────────────────────────────────────────────────
-      ctx.save();
-      const tg = ctx.createLinearGradient(0,0,0,H*0.14);
-      tg.addColorStop(0,'rgba(255,255,255,0)');
-      tg.addColorStop(0.5,'rgba(255,250,240,0.55)');
-      tg.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle=tg; ctx.fillRect(0,0,W,H*0.14);
-      ctx.fillStyle='#1A3A1A';
-      ctx.font=`bold ${Math.round(H*0.038)}px "Hiragino Mincho ProN","Yu Mincho","Georgia",serif`;
-      ctx.textAlign='center';
-      ctx.fillText('こどもの日', W*0.5, H*0.075);
-      ctx.font=`${Math.round(H*0.018)}px "Hiragino Mincho ProN","Georgia",serif`;
-      ctx.fillStyle='#2A5A2A';
-      ctx.fillText('KODOMO NO HI · CHILDREN\'S DAY', W*0.5, H*0.108);
+      // ── Belly gradient highlight ──────────────────────────────────────────
+      ctx.save(); ctx.globalAlpha=0.35;
+      const belly_clip_end=Math.floor(N_SEG*0.72);
+      ctx.beginPath();
+      upper.slice(0,belly_clip_end+1).forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      lower.slice(0,belly_clip_end+1).reverse().forEach(p=>ctx.lineTo(p.x,p.y));
+      ctx.closePath();
+      ctx.clip();
+      const bellyGrad=ctx.createLinearGradient(mouth.x-bodyW0,mouth.y,mouth.x+bodyW0,mouth.y);
+      bellyGrad.addColorStop(0,'rgba(0,0,0,0)');
+      bellyGrad.addColorStop(0.5,cBelly);
+      bellyGrad.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=bellyGrad;
+      ctx.fillRect(mouth.x-L*0.5,mouth.y-bodyW0*3,L*1.2,bodyW0*6);
       ctx.restore();
 
-      animId = requestAnimationFrame(frame);
+      // ── Scales (arc rows, staggered, with specular) ───────────────────────
+      const n_scale_rows=8+Math.round(L/H*6);
+      for(let row=1;row<n_scale_rows;row++){
+        const t_r=0.08+row/n_scale_rows*0.80;
+        const si=Math.min(Math.floor(t_r*N_SEG),N_SEG-1);
+        const pc=sp[si];
+        const rowW=widthFn(t_r)*1.05;
+        const sw_r=rowW*0.40;  // scale arc radius
+        const n_s=Math.max(2,Math.round(rowW*2.4/sw_r));
+        const ripple=Math.sin(T*2.8+kite.ph+row*0.9)*wind.turb*sw_r*0.4;
+
+        for(let sc=0;sc<n_s;sc++){
+          const offset=(sc/(n_s-1||1)-0.5)*rowW*2.1;
+          // Stagger odd rows
+          const stagger=(row%2===0?0:sw_r*0.5);
+          const sx=pc.x+offset+stagger;
+          const sy=pc.y+ripple;
+          // Scale arc fill
+          ctx.save();
+          ctx.globalAlpha=0.32;
+          ctx.fillStyle=cScale;
+          ctx.beginPath();
+          ctx.arc(sx,sy,sw_r,Math.PI,Math.PI*2);
+          ctx.fill();
+          // Scale highlight
+          ctx.globalAlpha=0.14;
+          ctx.fillStyle='rgba(255,255,255,0.9)';
+          ctx.beginPath();
+          ctx.arc(sx,sy-sw_r*0.4,sw_r*0.45,Math.PI*1.1,Math.PI*1.9);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // ── Lateral line (realistic fish anatomy) ─────────────────────────────
+      ctx.save(); ctx.globalAlpha=0.22; ctx.strokeStyle=cLight; ctx.lineWidth=0.9;
+      ctx.beginPath();
+      for(let i=1;i<=N_SEG;i++){
+        const t=i/N_SEG;
+        if(t>0.05&&t<0.90){
+          const p=sp[i];
+          const nx=i<N_SEG?sp[i+1].x-p.x:p.x-sp[i-1].x;
+          const ny=i<N_SEG?sp[i+1].y-p.y:p.y-sp[i-1].y;
+          const mag=Math.sqrt(nx*nx+ny*ny)||1;
+          const lx=p.x-ny/mag*widthFn(t)*0.38;
+          const ly=p.y+nx/mag*widthFn(t)*0.38;
+          i===2?ctx.moveTo(lx,ly):ctx.lineTo(lx,ly);
+        }
+      }
+      ctx.stroke(); ctx.restore();
+
+      // ── Dorsal fin (tall, membranous, animated) ───────────────────────────
+      const d1t=0.22, d2t=0.50;
+      const d1=sp[Math.floor(d1t*N_SEG)], d2=sp[Math.floor(d2t*N_SEG)];
+      const dSway=Math.sin(T*2.2+kite.ph+0.8)*wind.str*bodyW0*0.7;
+      ctx.fillStyle=cFin;
+      ctx.beginPath();
+      ctx.moveTo(upper[Math.floor(d1t*N_SEG)].x, upper[Math.floor(d1t*N_SEG)].y);
+      // Sweep up to dorsal peak
+      ctx.bezierCurveTo(
+        d1.x-bodyW0*0.2, d1.y-bodyW0*(2.2+wind.str*0.8)+dSway,
+        d2.x-bodyW0*0.3, d2.y-bodyW0*(2.5+wind.str*1.0)+dSway*0.6,
+        upper[Math.floor(d2t*N_SEG)].x, upper[Math.floor(d2t*N_SEG)].y
+      );
+      ctx.closePath(); ctx.fill();
+      // Dorsal fin rays
+      ctx.save(); ctx.globalAlpha=0.28; ctx.strokeStyle=cDark; ctx.lineWidth=0.7;
+      for(let r=0;r<7;r++){
+        const rt=d1t+(d2t-d1t)*r/6;
+        const rp=sp[Math.floor(rt*N_SEG)];
+        const rup=upper[Math.floor(rt*N_SEG)];
+        ctx.beginPath();
+        ctx.moveTo(rup.x,rup.y);
+        ctx.lineTo(rp.x-bodyW0*0.25, rp.y-bodyW0*(2.35+wind.str*0.9)+dSway*(0.3+r*0.1));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // ── Pectoral + ventral + anal fins ───────────────────────────────────
+      [[0.18,1,1.4],[0.30,1,1.2],[0.42,1,1.1],[0.58,1,0.9]].forEach(([ft,side,mult])=>{
+        const fSeg=Math.floor(ft*N_SEG);
+        const fp=sp[fSeg]; const fw=widthFn(ft);
+        const fsway=Math.sin(T*2.6+kite.ph+ft*5)*wind.str*fw*0.9;
+        ctx.save(); ctx.globalAlpha=0.62; ctx.fillStyle=cFin;
+        ctx.beginPath();
+        ctx.moveTo(lower[fSeg].x, lower[fSeg].y);
+        ctx.bezierCurveTo(
+          fp.x+fw*mult,    fp.y+fw*(1.5+wind.str*0.5)+fsway,
+          fp.x+fw*mult*0.6,fp.y+fw*(2.2+wind.str*0.8)+fsway*0.7,
+          fp.x-fw*0.2,     fp.y+fw*0.4
+        );
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      });
+
+      // ── Obi (decorative band) ─────────────────────────────────────────────
+      const obiT=0.26;
+      const obiSeg=Math.floor(obiT*N_SEG);
+      const obiP=sp[obiSeg]; const obiW=widthFn(obiT)*2.3;
+      const obiGrad=ctx.createLinearGradient(obiP.x-obiW,obiP.y,obiP.x+obiW,obiP.y);
+      obiGrad.addColorStop(0,'rgba(0,0,0,0)');
+      obiGrad.addColorStop(0.3,cObi+'CC');
+      obiGrad.addColorStop(0.5,cObi);
+      obiGrad.addColorStop(0.7,cObi+'CC');
+      obiGrad.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.save(); ctx.globalAlpha=0.7;
+      ctx.fillStyle=obiGrad;
+      ctx.beginPath();
+      upper.slice(obiSeg-1,obiSeg+2).forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      [...lower.slice(obiSeg-1,obiSeg+2)].reverse().forEach(p=>ctx.lineTo(p.x,p.y));
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+
+      // ── Mouth ring (bamboo hoop) ──────────────────────────────────────────
+      const ringR=widthFn(0.03)*1.1;
+      ctx.strokeStyle='#8B7040'; ctx.lineWidth=Math.max(2, L*0.008);
+      ctx.beginPath(); ctx.arc(mouth.x,mouth.y,ringR,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='rgba(180,160,120,0.12)';
+      ctx.beginPath(); ctx.arc(mouth.x,mouth.y,ringR,0,Math.PI*2); ctx.fill();
+
+      // ── Eye (detailed) ────────────────────────────────────────────────────
+      const eyeSeg=sp[1]; const eyeW=widthFn(0.05);
+      const eyeR=Math.max(2.5, eyeW*0.35);
+      const eyeX=eyeSeg.x; const eyeY=eyeSeg.y-eyeW*0.55;
+      // Sclera
+      ctx.fillStyle='#E8E0C0';
+      ctx.beginPath(); ctx.arc(eyeX,eyeY,eyeR,0,Math.PI*2); ctx.fill();
+      // Iris gradient
+      const irisG=ctx.createRadialGradient(eyeX-eyeR*0.2,eyeY-eyeR*0.2,0,eyeX,eyeY,eyeR*0.72);
+      irisG.addColorStop(0,cEye); irisG.addColorStop(0.6,cEye+'BB'); irisG.addColorStop(1,'#333');
+      ctx.fillStyle=irisG;
+      ctx.beginPath(); ctx.arc(eyeX,eyeY,eyeR*0.72,0,Math.PI*2); ctx.fill();
+      // Pupil
+      ctx.fillStyle='#0A0A0A';
+      ctx.beginPath(); ctx.arc(eyeX,eyeY,eyeR*0.38,0,Math.PI*2); ctx.fill();
+      // Specular
+      ctx.fillStyle='rgba(255,255,255,0.88)';
+      ctx.beginPath(); ctx.arc(eyeX-eyeR*0.22,eyeY-eyeR*0.28,eyeR*0.22,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.4)';
+      ctx.beginPath(); ctx.arc(eyeX+eyeR*0.15,eyeY+eyeR*0.15,eyeR*0.12,0,Math.PI*2); ctx.fill();
+      // Outline
+      ctx.strokeStyle=cDark; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.arc(eyeX,eyeY,eyeR,0,Math.PI*2); ctx.stroke();
+
+      // ── Whiskers (barbels) ────────────────────────────────────────────────
+      const wx=mouth.x+ringR*0.3; const wy=mouth.y;
+      ctx.strokeStyle=cDark+'88'; ctx.lineWidth=0.9;
+      [[-0.7,1.5],[0.7,1.5],[-0.3,1.8],[0.3,1.8]].forEach(([dx,dy])=>{
+        const wsway=Math.sin(T*3.1+kite.ph+dx)*wind.str*eyeW*0.3;
+        ctx.beginPath();
+        ctx.moveTo(wx+dx*eyeW*0.4, wy+dy*eyeW*0.4);
+        ctx.bezierCurveTo(
+          wx+dx*eyeW*0.9+wsway, wy+dy*eyeW*0.9+wsway,
+          wx+dx*eyeW*1.4+wsway*1.5, wy+dy*eyeW*1.2+wsway*1.5,
+          wx+dx*eyeW*1.8+wsway*2, wy+dy*eyeW*1.5+wsway*2
+        );
+        ctx.stroke();
+      });
+
+      // ── Attachment string to pole rope ────────────────────────────────────
+      ctx.strokeStyle='rgba(120,100,60,0.6)'; ctx.lineWidth=0.9;
+      ctx.beginPath(); ctx.moveTo(mouth.x,mouth.y-ringR);
+      ctx.lineTo(kite.pole.x, kite.pole.py);
+      ctx.stroke();
     };
 
-    const onResize = () => { setup(); POLES[0].x=W*0.18; POLES[1].x=W*0.50; POLES[2].x=W*0.82; };
-    window.addEventListener('resize', onResize);
-    animId = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize',onResize); };
-  }, []);
+    // ── Cherry trees ──────────────────────────────────────────────────────
+    const rng3=mkRng(55555);
+    const drawBlossomTree=(bx,by,scale)=>{
+      ctx.save();
+      ctx.strokeStyle='#5C3317'; ctx.lineWidth=6*scale; ctx.lineCap='round';
+      const drawBranch=(x,y,len,angle,depth)=>{
+        if(depth===0||len<5)return;
+        const ex=x+Math.cos(angle)*len, ey=y+Math.sin(angle)*len;
+        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.stroke();
+        ctx.lineWidth=Math.max(0.8,ctx.lineWidth*0.65);
+        const spread=0.4+rng3()*0.25;
+        drawBranch(ex,ey,len*0.68,angle-spread,depth-1);
+        drawBranch(ex,ey,len*0.65,angle+spread*0.85,depth-1);
+        if(depth>2) drawBranch(ex,ey,len*0.50,angle+rng3()*0.2-0.1,depth-2);
+        // Blossoms at branch tips
+        if(depth<=2){
+          const bg=ctx.createRadialGradient(ex,ey,0,ex,ey,18*scale);
+          bg.addColorStop(0,'rgba(255,190,205,0.92)');
+          bg.addColorStop(0.5,'rgba(255,170,185,0.65)');
+          bg.addColorStop(1,'rgba(255,150,170,0)');
+          ctx.globalAlpha=0.85; ctx.fillStyle=bg;
+          ctx.beginPath(); ctx.arc(ex,ey,18*scale,0,Math.PI*2); ctx.fill();
+          ctx.globalAlpha=1;
+        }
+      };
+      ctx.lineWidth=6*scale;
+      drawBranch(bx,by,-70*scale,-Math.PI/2,5);
+      ctx.restore();
+    };
+
+    // ── Petals ────────────────────────────────────────────────────────────
+    const rng4=mkRng(77777);
+    const petals=Array.from({length:90},()=>({
+      x:rng4()*W, y:rng4()*H,
+      vx:0.25+rng4()*0.5, vy:0.15+rng4()*0.45,
+      rot:rng4()*Math.PI*2, rv:(rng4()-.5)*0.05,
+      sz:2+rng4()*5.5, a:0.35+rng4()*0.60,
+      hue:330+rng4()*30, sat:65+rng4()*30, lit:72+rng4()*18,
+    }));
+
+    // ── Frame ─────────────────────────────────────────────────────────────
+    const frame=now=>{
+      const dt=lastNow?Math.min(now-lastNow,50)/1000:0.016;
+      lastNow=now; T+=dt;
+      const wind=getWind(T);
+
+      // Sky
+      const sky=ctx.createLinearGradient(0,0,0,H);
+      sky.addColorStop(0,'#4E9DD8'); sky.addColorStop(0.38,'#87C4E8');
+      sky.addColorStop(0.68,'#C8E8F5'); sky.addColorStop(1,'#E8F5E0');
+      ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+
+      // Sun
+      const sunG=ctx.createRadialGradient(W*.78,H*.12,0,W*.78,H*.12,H*.22);
+      sunG.addColorStop(0,'rgba(255,240,170,1)');
+      sunG.addColorStop(0.3,'rgba(255,220,120,0.55)');
+      sunG.addColorStop(1,'rgba(255,200,80,0)');
+      ctx.fillStyle=sunG; ctx.beginPath(); ctx.arc(W*.78,H*.12,H*.22,0,Math.PI*2); ctx.fill();
+
+      // Clouds
+      [{cx:.14,cy:.09,w:120,h:38,d:.0},{cx:.40,cy:.06,w:160,h:45,d:.7},
+       {cx:.68,cy:.10,w:130,h:36,d:1.5},{cx:.91,cy:.18,w:90,h:30,d:2.3}].forEach(cl=>{
+        const dx=Math.sin(T*.035+cl.d)*18;
+        [0,-.28,.28].forEach((off,oi)=>{
+          const cg=ctx.createRadialGradient(cl.cx*W+dx+off*cl.w,cl.cy*H,0,cl.cx*W+dx+off*cl.w,cl.cy*H,cl.w*(0.6-Math.abs(off)*.2));
+          cg.addColorStop(0,'rgba(255,255,255,0.96)');
+          cg.addColorStop(0.65,'rgba(238,248,255,0.68)');
+          cg.addColorStop(1,'rgba(220,240,255,0)');
+          ctx.fillStyle=cg;
+          ctx.beginPath(); ctx.ellipse(cl.cx*W+dx+off*cl.w, cl.cy*H+(oi?.15:0)*cl.h, cl.w*(0.55-Math.abs(off)*.1), cl.h*(0.7-Math.abs(off)*.1), 0,0,Math.PI*2); ctx.fill();
+        });
+      });
+
+      // Hills
+      const hillG=ctx.createLinearGradient(0,H*.58,0,H*.76);
+      hillG.addColorStop(0,'#60C070'); hillG.addColorStop(1,'#3A8840');
+      ctx.fillStyle=hillG; ctx.beginPath(); ctx.moveTo(0,H*.76); ctx.lineTo(0,H*.68);
+      ctx.bezierCurveTo(W*.12,H*.58,W*.28,H*.62,W*.42,H*.64);
+      ctx.bezierCurveTo(W*.58,H*.66,W*.72,H*.58,W*.88,H*.61);
+      ctx.bezierCurveTo(W*.94,H*.63,W*.97,H*.65,W,H*.67);
+      ctx.lineTo(W,H*.76); ctx.closePath(); ctx.fill();
+
+      // Background cherry trees
+      [[W*.04,H*.68,.7],[W*.20,H*.65,.9],[W*.60,H*.64,.85],[W*.88,H*.67,.75]].forEach(([bx,by,sc])=>{
+        drawBlossomTree(bx,by,sc);
+      });
+
+      // Ground
+      const gG=ctx.createLinearGradient(0,H*.76,0,H);
+      gG.addColorStop(0,'#4AAA58'); gG.addColorStop(0.5,'#3B8A46'); gG.addColorStop(1,'#2C6A38');
+      ctx.fillStyle=gG; ctx.fillRect(0,H*.76,W,H*.24);
+      ctx.save(); ctx.globalAlpha=.10; ctx.strokeStyle='#284A30'; ctx.lineWidth=.7;
+      for(let gx=0;gx<W;gx+=9){ctx.beginPath();ctx.moveTo(gx,H*.76);ctx.lineTo(gx+2,H);ctx.stroke();}
+      ctx.restore();
+
+      // ── Poles ─────────────────────────────────────────────────────────────
+      const poles=[
+        {x:W*.115, groundY:H*.76, height:H*.72},
+        {x:W*.455, groundY:H*.76, height:H*.80},
+        {x:W*.805, groundY:H*.76, height:H*.76},
+        {x:W*.025, groundY:H*.76, height:H*.58},
+      ];
+
+      poles.forEach((pole,pi)=>{
+        const pTop=pole.groundY-pole.height;
+        // Shadow
+        ctx.save(); ctx.globalAlpha=.12; ctx.fillStyle='#000';
+        ctx.beginPath(); ctx.ellipse(pole.x+22,pole.groundY,14,5,0,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+        // Pole shaft
+        const pg=ctx.createLinearGradient(pole.x-5,0,pole.x+5,0);
+        pg.addColorStop(0,'#6A6A6A'); pg.addColorStop(.45,'#D0D0D0'); pg.addColorStop(1,'#5A5A5A');
+        ctx.fillStyle=pg; ctx.fillRect(pole.x-4,pTop,8,pole.height);
+        // Gold ball cap
+        const capG=ctx.createRadialGradient(pole.x-3,pTop-7,0,pole.x,pTop-6,11);
+        capG.addColorStop(0,'#FFEC70'); capG.addColorStop(.5,'#DAA520'); capG.addColorStop(1,'#8B6510');
+        ctx.fillStyle=capG; ctx.beginPath(); ctx.arc(pole.x,pTop-6,11,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#6B4C0A'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(pole.x,pTop-6,11,0,Math.PI*2); ctx.stroke();
+
+        // Yokki rope
+        const ropeY=pTop+18;
+        const rL=55+wind.str*25;
+        ctx.strokeStyle='#8B7050'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(pole.x,ropeY);
+        ctx.bezierCurveTo(pole.x+rL*.35,ropeY+9*(1-wind.str),pole.x+rL*.75,ropeY+6*(1-wind.str),pole.x+rL,ropeY);
+        ctx.stroke();
+      });
+
+      // ── Koinobori ─────────────────────────────────────────────────────────
+      // Update all spines then draw back-to-front
+      KITES.forEach((kite,ki)=>{ kite.pole.x=poles[Math.floor(ki/4)].x; kite.pole.py=poles[Math.floor(ki/4)].groundY-poles[Math.floor(ki/4)].height+20; updateSpine(kite,kiteStates[ki],wind); });
+      [...KITES].reverse().forEach((kite,ki)=>{ drawKoi(kite,kiteStates[KITES.length-1-ki],wind); });
+
+      // Petals
+      petals.forEach(p=>{
+        p.x+=p.vx*(0.7+wind.str*.7); p.y+=p.vy; p.rot+=p.rv+wind.dir*.03;
+        if(p.x>W+15)p.x=-15; if(p.y>H+15){p.y=-15;p.x=Math.random()*W;}
+        ctx.save(); ctx.globalAlpha=p.a; ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+        ctx.fillStyle=`hsl(${p.hue},${p.sat}%,${p.lit}%)`;
+        ctx.beginPath(); ctx.ellipse(0,0,p.sz,p.sz*.55,0,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      });
+
+      // Title
+      ctx.save();
+      const tg=ctx.createLinearGradient(0,H*.02,0,H*.14);
+      tg.addColorStop(0,'rgba(255,255,255,0)'); tg.addColorStop(.45,'rgba(255,250,235,.62)'); tg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=tg; ctx.fillRect(0,H*.02,W,H*.12);
+      ctx.fillStyle='#142814';
+      ctx.font=`bold ${Math.round(H*.040)}px "Hiragino Mincho ProN","Yu Mincho","Georgia",serif`;
+      ctx.textAlign='center'; ctx.fillText('こどもの日',W*.5,H*.083);
+      ctx.font=`${Math.round(H*.017)}px "Hiragino Mincho ProN","Georgia",serif`;
+      ctx.fillStyle='#2A5A2A';
+      ctx.fillText("KODOMO NO HI  ·  CHILDREN'S DAY",W*.5,H*.112);
+      ctx.restore();
+
+      animId=requestAnimationFrame(frame);
+    };
+
+    const onResize=()=>{
+      setup();
+    };
+    window.addEventListener('resize',onResize);
+    animId=requestAnimationFrame(frame);
+    return ()=>{ cancelAnimationFrame(animId); window.removeEventListener('resize',onResize); };
+  },[]);
 
   return (
     <canvas ref={canvasRef} style={{
-      position:'fixed', top:0, left:0,
-      width:'100vw', height:'100vh',
-      pointerEvents:'none', zIndex:0,
-      background:'transparent',
-    }} />
+      position:'fixed',top:0,left:0,width:'100vw',height:'100vh',
+      pointerEvents:'none',zIndex:0,
+    }}/>
   );
 }
-
-
 // ─── SEIJIN NO HI — Coming of Age Day ────────────────────────────────────────
 function SeijinBackground() {
   const canvasRef = useRef(null);
