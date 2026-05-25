@@ -1535,6 +1535,20 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
     const t = todayStr;
     return entries.filter(e => {
       if (e.cancelled) return false;
+      // Skip past visually-done entries on home view
+      if (!e.cancelled) {
+        if (e.type === 'task' && e.date && new Date(e.date+'T23:59').getTime() < Date.now()) return false;
+        if (e.type !== 'task' && e.type !== 'flight' && e.date) {
+          const eT = e.endTime || e.time || '23:59';
+          if (new Date(e.date+'T'+eT).getTime() < Date.now() - 60000) return false;
+        }
+        if (e.type === 'flight') {
+          const lbl=(e.liveLabel||e.label||'').toLowerCase();
+          if(lbl.includes('land')||lbl.includes('arriv')) return false;
+          if (e.date < todayStr) return false;
+        }
+      }
+
       const isTR = e.type === 'task' || e.type === 'reminder';
 
       // ── DATELESS task/reminder ───────────────────────────────────
@@ -1559,18 +1573,32 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
   }, [entries, todayStr]);
 
   const nextFlight = useMemo(() =>
-    entries.filter(e => e.type==='flight' && !e.cancelled && e.date >= todayStr)
+    entries.filter(e => {
+      if (e.type !== 'flight' || e.cancelled) return false;
+      if (e.date < todayStr) return false;
+      const lbl = (e.liveLabel || e.label || '').toLowerCase();
+      if (lbl.includes('land') || lbl.includes('arriv')) return false;
+      return true;
+    })
            .sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''))[0],
     [entries, todayStr]);
 
   const topTasks = useMemo(() =>
-    entries.filter(e => e.type==='task' && !e.done && !e.cancelled)
+    entries.filter(e => {
+      if (e.type !== 'task' || e.done || e.cancelled) return false;
+      if (e.date && new Date(e.date + 'T23:59').getTime() < Date.now()) return false;
+      return true;
+    })
            .sort((a,b) => (a.date||'9999').localeCompare(b.date||'9999'))
            .slice(0,3),
     [entries]);
 
   const openTasks = useMemo(() =>
-    entries.filter(e => e.type==='task' && !e.done && !e.cancelled).length,
+    entries.filter(e => {
+      if (e.type !== 'task' || e.done || e.cancelled) return false;
+      if (e.date && new Date(e.date + 'T23:59').getTime() < Date.now()) return false;
+      return true;
+    }).length,
     [entries]);
 
   const next48 = useMemo(() => {
@@ -1665,7 +1693,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
         {(() => {
           const filters = [
             { key:'tasks',   val:openTasks,        label:'Open Tasks', c:C.T,  dc:getDTC(C).task,    icon:'✓',
-              entries: entries.filter(e=>e.type==='task'&&!e.done&&!e.cancelled&&(!e.repeat||e.repeat==='none')).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
+              entries: entries.filter(e=>{if(e.type!=='task'||e.done||e.cancelled)return false;if(e.date&&new Date(e.date+'T23:59').getTime()<Date.now())return false;return !e.repeat||e.repeat==='none';}).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')) },
             { key:'next48',  val:next48,           label:'Next 48h',   c:C.E,  dc:getDTC(C).event,   icon:'⏱',
               entries: (() => { const n=new Date(),lim=new Date(n.getTime()+48*3600000);
                 return entries.filter(e=>{ const d=new Date(e.date+'T'+(e.time||'00:00'));
