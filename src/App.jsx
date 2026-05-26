@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.05.26-23:20';
+const APP_VERSION = 'v2026.05.26-23:24';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -4373,7 +4373,7 @@ function KodomoBackground() {
       {base:0xff1a1a,scHex:0xdd0000,sheen:0xff9999,mR:0.320,tR:0.116,L:2.00,ay:7.63,seed:4.13},
       {base:0x0055ff,scHex:0x0033cc,sheen:0x88bbff,mR:0.256,tR:0.090,L:1.60,ay:6.89,seed:8.27},
       {base:0x00cc33,scHex:0x009922,sheen:0x88ffbb,mR:0.205,tR:0.072,L:1.28,ay:8.08,seed:12.4},
-      {base:0xff6600,scHex:0xdd4400,sheen:0xffcc77,mR:0.164,tR:0.058,L:1.02,ay:6.97,seed:16.5},
+      {base:0xff6600,scHex:0xdd4400,sheen:0xffcc77,mR:0.164,tR:0.058,L:1.02,ay:7.48,seed:16.5},
     ];
     const carps=DEFS.map((def,idx)=>{
       const scaleTex=makeScaleTex(def.scHex);
