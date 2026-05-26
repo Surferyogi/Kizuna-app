@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.05.26-23:10';
+const APP_VERSION = 'v2026.05.26-23:20';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -6018,7 +6018,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
 
       {/* Special occasion backgrounds — take priority over seasonal */}
       {isKodomo     && <KodomoBackground />}
-      {isKodomo && <div style={{height:'62vh',flexShrink:0,pointerEvents:'none'}}/>}
+      {isKodomo && <div style={{height:'42vh',flexShrink:0,pointerEvents:'none'}}/>}
       {isSeijin     && <SeijinBackground />}
       {isOtsukimi    && <OtsukimiBackground />}
       {isChristmas   && <ChristmasBackground />}
