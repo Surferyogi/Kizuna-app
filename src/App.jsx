@@ -1575,6 +1575,9 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
   const nextFlight = useMemo(() =>
     entries.filter(e => {
       if (e.type !== 'flight' || e.cancelled) return false;
+      if (e.date < todayStr) return false;  // hide past-date flights
+      const _lbl = (e.liveLabel || e.label || '').toLowerCase();
+      if (_lbl.includes('land') || _lbl.includes('arriv')) return false;  // hide landed
       if (e.date < todayStr) return false;
       const lbl = (e.liveLabel || e.label || '').toLowerCase();
       if (lbl.includes('land') || lbl.includes('arriv')) return false;
@@ -1586,6 +1589,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
   const topTasks = useMemo(() =>
     entries.filter(e => {
       if (e.type !== 'task' || e.done || e.cancelled) return false;
+      if (e.date && new Date(e.date + 'T23:59').getTime() < Date.now()) return false;  // hide past tasks
       if (e.date && new Date(e.date + 'T23:59').getTime() < Date.now()) return false;
       return true;
     })
@@ -1596,6 +1600,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
   const openTasks = useMemo(() =>
     entries.filter(e => {
       if (e.type !== 'task' || e.done || e.cancelled) return false;
+      if (e.date && new Date(e.date + 'T23:59').getTime() < Date.now()) return false;  // hide past tasks
       if (e.date && new Date(e.date + 'T23:59').getTime() < Date.now()) return false;
       return true;
     }).length,
