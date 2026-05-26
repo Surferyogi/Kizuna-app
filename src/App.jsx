@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.05.26-23:50';
+const APP_VERSION = 'v2026.05.26-23:58';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -4655,15 +4655,16 @@ function SeijinBackground() {
     const rngU=rng(13579);
     const UME=Array.from({length:70},()=>({
       x:rngU()*W*1.2-W*.1, y:-30-rngU()*H,
-      vx:(rngU()-.5)*.55, vy:.4+rngU()*.8, ay:.004+rngU()*.006,
-      rot:rngU()*TAU, rv:(rngU()-.5)*.045,
+      vx:(rngU()-.5)*.18, vy:.06+rngU()*.14, ay:.0006+rngU()*.001,
+      rot:rngU()*TAU, rv:(rngU()-.5)*.016,
       r:6+rngU()*10, col:UME_COLS[Math.floor(rngU()*UME_COLS.length)],
-      a:.55+rngU()*.42, sway:rngU()*TAU, swayA:.15+rngU()*.35, swayF:.4+rngU()*.6,
+      a:.55+rngU()*.42, sway:rngU()*TAU, swayA:.50+rngU()*.80, swayF:.18+rngU()*.28,
     }));
     function updateUme(T){
       UME.forEach(u=>{
-        u.vy=Math.min(u.vy+u.ay,2.8);
-        u.x+=u.vx+Math.sin(T*u.swayF+u.sway)*u.swayA;
+        u.vy=Math.min(u.vy+u.ay,0.70);
+        // Dancing sway: primary sine + secondary harmonic = figure-8 drift
+        u.x+=u.vx+Math.sin(T*u.swayF+u.sway)*u.swayA+Math.sin(T*u.swayF*2.3+u.sway+1.2)*u.swayA*0.35;
         u.y+=u.vy; u.rot+=u.rv;
         if(u.y>H+u.r*2){u.y=-u.r*2-Math.random()*30;u.x=Math.random()*W*1.2-W*.1;u.vy=.4+Math.random()*.8;}
         if(u.x<-u.r*3)u.x=W+u.r*2; if(u.x>W+u.r*3)u.x=-u.r*2;
@@ -4732,6 +4733,7 @@ function SeijinBackground() {
   },[]);
   return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none',zIndex:0,display:'block'}}/>;
 }
+
 
 
 
