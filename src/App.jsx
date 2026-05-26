@@ -4129,9 +4129,9 @@ function KodomoBackground() {
     sc.background = new THREE.Color(0x42b0ff);
 
     const cam = new THREE.PerspectiveCamera(38, stage.clientWidth/stage.clientHeight, 0.05, 200);
-    cam.position.set(2.0,1.8,10.5); cam.lookAt(0.15,4.6,0);
-    const CAM_BASE  = new THREE.Vector3(2.0,1.8,10.5);
-    const LOOK_BASE = new THREE.Vector3(0.15,4.6,0);
+    cam.position.set(2.0,1.2,10.5); cam.lookAt(0.15,5.8,0);
+    const CAM_BASE  = new THREE.Vector3(2.0,1.2,10.5);
+    const LOOK_BASE = new THREE.Vector3(0.15,5.8,0);
     const camCur = cam.position.clone(), lookCur = LOOK_BASE.clone();
 
     sc.add(new THREE.AmbientLight(0xffffff,1.40));
