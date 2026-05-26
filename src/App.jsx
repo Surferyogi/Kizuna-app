@@ -4165,10 +4165,10 @@ function KodomoBackground() {
     const cloudMat=new THREE.MeshBasicMaterial({color:0xffffff});
     function makeCloud(cx,cy,cz,S){
       const g=new THREE.Group();
-      [[0,0,0,S],[S,.-.10,.05,S*.80],[-S*1,-.10,.05,S*.76],[S*.48,S*.50,0,S*.70],
-       [-S*.48,S*.50,0,S*.66],[0,S*.72,0,S*.60],[S*1.55,-S*.28,.10,S*.58],
-       [-S*1.55,-S*.28,.10,S*.55],[S*.90,S*.85,0,S*.48],[-S*.90,S*.85,0,S*.46],
-       [0,-S*.35,0,S*.72],[S*.25,S*1.05,0,S*.40]
+      [[0,0,0,S],[S*1,-0.10,0.05,S*0.80],[-S*1,-0.10,0.05,S*0.76],[S*0.48,S*0.50,0,S*0.70],
+       [-S*0.48,S*0.50,0,S*0.66],[0,S*0.72,0,S*0.60],[S*1.55,-S*0.28,0.10,S*0.58],
+       [-S*1.55,-S*0.28,0.10,S*0.55],[S*0.90,S*0.85,0,S*0.48],[-S*0.90,S*0.85,0,S*0.46],
+       [0,-S*0.35,0,S*0.72],[S*0.25,S*1.05,0,S*0.40]
       ].forEach(([px,py,pz,pr])=>{
         const sp=new THREE.Mesh(new THREE.SphereGeometry(pr,10,8),cloudMat);
         sp.position.set(px,py,pz); g.add(sp);
