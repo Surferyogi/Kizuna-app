@@ -4240,12 +4240,12 @@ function KodomoBackground() {
 
     // Poles + yaguruma
     const woodMat=new THREE.MeshLambertMaterial({color:0x3b2210});
-    function addPole(px){ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.063,0.108,6.0,20),woodMat); p.position.set(px,4.0,0); p.castShadow=true; sc.add(p); const b=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.30,0.16,16),woodMat); b.position.set(px,1.08,0); sc.add(b); const f=new THREE.Mesh(new THREE.SphereGeometry(0.080,14,10),new THREE.MeshLambertMaterial({color:0xeac030})); f.position.set(px,7.72,0); sc.add(f); }
+    function addPole(px){ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.063,0.108,6.0,20),woodMat); p.position.set(px,5.2,0); p.castShadow=true; sc.add(p); const b=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.30,0.16,16),woodMat); b.position.set(px,1.4,0); sc.add(b); const f=new THREE.Mesh(new THREE.SphereGeometry(0.080,14,10),new THREE.MeshLambertMaterial({color:0xeac030})); f.position.set(px,10.04,0); sc.add(f); }
     function buildWheel(outerR,innerR,n,col,y,px){ const g=new THREE.Group(); g.position.set(px,y,0); const mt=new THREE.MeshLambertMaterial({color:col}); g.add(new THREE.Mesh(new THREE.TorusGeometry(outerR,0.025,8,48),mt)); g.add(new THREE.Mesh(new THREE.TorusGeometry(innerR,0.017,8,32),mt)); const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.057,0.057,0.052,12),mt); hub.rotation.x=Math.PI/2; g.add(hub); for(let i=0;i<n;i++){ const θ=i/n*Math.PI*2,c=Math.cos(θ),s=Math.sin(θ),mid=(outerR+innerR)*.5; const sp=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.013,outerR-innerR,6),mt); sp.position.set(c*mid,s*mid,0); sp.rotation.z=θ-Math.PI*.5; g.add(sp); const arr=new THREE.Mesh(new THREE.ConeGeometry(0.040,0.090,6),mt); arr.position.set(c*outerR,s*outerR,0); arr.rotation.z=θ; g.add(arr); } sc.add(g); return g; }
     const P1X=-1.3,P2X=1.6;
     addPole(P1X); addPole(P2X);
-    const w1=buildWheel(0.50,0.22,8,0xc89820,7.42,P1X),w2=buildWheel(0.34,0.14,6,0xd4aa30,7.23,P1X); w2.rotation.z=Math.PI/5;
-    const w3=buildWheel(0.50,0.22,8,0xc89820,7.42,P2X),w4=buildWheel(0.34,0.14,6,0xd4aa30,7.23,P2X); w4.rotation.z=Math.PI/5;
+    const w1=buildWheel(0.50,0.22,8,0xc89820,9.65,P1X),w2=buildWheel(0.34,0.14,6,0xd4aa30,9.4,P1X); w2.rotation.z=Math.PI/5;
+    const w3=buildWheel(0.50,0.22,8,0xc89820,9.65,P2X),w4=buildWheel(0.34,0.14,6,0xd4aa30,9.4,P2X); w4.rotation.z=Math.PI/5;
 
     // Koinobori
     const NR=14,NS=28,POLE_X=[P1X,P1X,P1X,P2X,P2X];
@@ -4255,11 +4255,11 @@ function KodomoBackground() {
     function computeDisp(pts,T,ws,seed){ const dx=new Float32Array(NR),dz=new Float32Array(NR),wF=0.55*ws; for(let i=0;i<NR;i++){const t=i/(NR-1),wt=Math.pow(t,1.6)*0.95+0.05,swayX=cfbm(t*1.8+T*wF*0.45+seed,seed+1.1,3)*0.22,billow=cfbm(t*2.2+T*wF*0.50+seed,seed+2.3,2)*0.28,ripple=cfbm(t*4.5+T*wF*0.90+seed,seed+3.7,2)*0.14,droop=t*t*(1-Math.min(1,ws*0.65))*0.55;dx[i]=swayX*wt;dz[i]=(billow+ripple-droop)*wt;} return {dx,dz}; }
 
     const DEFS=[
-      {base:0x111122,scHex:0x2a2a55,sheen:0x8899ff,mR:0.400,tR:0.148,L:2.50,ay:7.00,seed:0.00},
-      {base:0xff1a1a,scHex:0xdd0000,sheen:0xff9999,mR:0.320,tR:0.116,L:2.00,ay:6.38,seed:4.13},
-      {base:0x0055ff,scHex:0x0033cc,sheen:0x88bbff,mR:0.256,tR:0.090,L:1.60,ay:5.76,seed:8.27},
-      {base:0x00cc33,scHex:0x009922,sheen:0x88ffbb,mR:0.205,tR:0.072,L:1.28,ay:6.80,seed:12.4},
-      {base:0xff6600,scHex:0xdd4400,sheen:0xffcc77,mR:0.164,tR:0.058,L:1.02,ay:6.14,seed:16.5},
+      {base:0x111122,scHex:0x2a2a55,sheen:0x8899ff,mR:0.400,tR:0.148,L:2.50,ay:9.1,seed:0.00},
+      {base:0xff1a1a,scHex:0xdd0000,sheen:0xff9999,mR:0.320,tR:0.116,L:2.00,ay:8.29,seed:4.13},
+      {base:0x0055ff,scHex:0x0033cc,sheen:0x88bbff,mR:0.256,tR:0.090,L:1.60,ay:7.49,seed:8.27},
+      {base:0x00cc33,scHex:0x009922,sheen:0x88ffbb,mR:0.205,tR:0.072,L:1.28,ay:8.84,seed:12.4},
+      {base:0xff6600,scHex:0xdd4400,sheen:0xffcc77,mR:0.164,tR:0.058,L:1.02,ay:7.98,seed:16.5},
     ];
     const carps=DEFS.map((def,idx)=>{
       const scaleTex=makeScaleTex(def.scHex);
@@ -4270,7 +4270,7 @@ function KodomoBackground() {
       const mesh=new THREE.Mesh(geo,bodyMat); mesh.castShadow=true;
       const pivot=new THREE.Group(); pivot.position.set(POLE_X[idx],def.ay,0); pivot.rotation.y=(idx-2)*0.14;
       const pg=new THREE.Group(); pg.rotation.z=-(Math.PI/2-0.14); pivot.add(pg); pg.add(mesh); sc.add(pivot);
-      const rLen=7.08-def.ay;
+      const rLen=9.2-def.ay;
       if(rLen>0){const rope=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,rLen,6),new THREE.MeshLambertMaterial({color:0xa08840})); rope.position.set(POLE_X[idx],def.ay+rLen*.5,0); sc.add(rope);}
       [1.06,1.09].forEach((f,k)=>{const ring=new THREE.Mesh(new THREE.TorusGeometry(def.mR*f,.016+k*.002,10,32),new THREE.MeshLambertMaterial({color:k?0x888888:0x706060})); ring.rotation.x=Math.PI/2; pg.add(ring);});
       const eyeR=def.mR*.23,eyeY=def.L*.095,eyeZ=pts[1].r*.88;
