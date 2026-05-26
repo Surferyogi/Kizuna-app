@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.05.26-21:32';
+const APP_VERSION = 'v2026.05.26-22:44';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -4275,7 +4275,7 @@ function KodomoBackground() {
     // Poles
     const woodMat=new THREE.MeshStandardMaterial({color:0x3b2210,roughness:0.88});
     function addPole(px){
-      const p=new THREE.Mesh(new THREE.CylinderGeometry(0.063,0.108,9.3,20),woodMat);
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(0.063,0.108,10.0,20),woodMat);
       p.position.set(px,4.095,0); sc.add(p);
       const b=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.30,0.16,16),woodMat);
       b.position.set(px,0.08,0); sc.add(b);
@@ -4468,6 +4468,7 @@ function KodomoBackground() {
     }}/>
   );
 }
+
 
 
 
