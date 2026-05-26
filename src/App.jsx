@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.05.26-23:24';
+const APP_VERSION = 'v2026.05.26-23:50';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -4473,470 +4473,266 @@ function KodomoBackground() {
 
 
 
-// ─── SEIJIN NO HI — Coming of Age Day L99 ───────────────────────────────────
+// ─── SEIJIN NO HI — Imperial Nishijin Kimono Background ─────────────────────
 function SeijinBackground() {
   const canvasRef = useRef(null);
   useEffect(() => {
     const cv = canvasRef.current; if (!cv) return;
-    const dpr = Math.min(window.devicePixelRatio||1,2);
-    let W=window.innerWidth, H=window.innerHeight;
-    let ctx, raf, T=0, prev=null;
-    const init=()=>{W=window.innerWidth;H=window.innerHeight;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);};
-    init();
+    const stage = cv.parentElement;
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    let W=stage.clientWidth, H=stage.clientHeight, raf;
+    const setup=()=>{ W=stage.clientWidth; H=stage.clientHeight; cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.width=W+'px'; cv.style.height=H+'px'; };
+    setup();
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const TAU=Math.PI*2;
+    const C={gold0:'#b8860b',gold1:'#daa520',gold2:'#f5d060',gold3:'#fffacd',white:'#f8f0e0'};
 
-    const rng32=s=>{let v=s|0;return()=>{v^=v<<13;v^=v>>17;v^=v<<5;return(v>>>0)/4294967296;};};
-    const rBase=rng32(0xDEAD);
+    // ── PRNG ──────────────────────────────────────────────────────────────────
+    function rng(seed){let s=seed|0;return()=>{s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296;};}
 
-    // ── Palette ───────────────────────────────────────────────────────────────
-    const FURISODE=[
-      {base:'#C0061E',hi:'#E83050',shadow:'#800010',obi:'#F5C820',accent:'#FFE0E8',pattern:'#FFD700'},
-      {base:'#6A2088',hi:'#9040B0',shadow:'#3E1050',obi:'#F0E870',accent:'#F0D8FF',pattern:'#FFFFFF'},
-      {base:'#0A5E2A',hi:'#1A8840',shadow:'#043A18',obi:'#FFD700',accent:'#C8FFDC',pattern:'#98FF98'},
-      {base:'#082680',hi:'#1848B8',shadow:'#041050',obi:'#F8C020',accent:'#C8DCFF',pattern:'#88CCFF'},
-      {base:'#B86010',hi:'#D88030',shadow:'#703808',obi:'#FFFFFF',accent:'#FFE8C0',pattern:'#FFD080'},
-      {base:'#800030',hi:'#A82050',shadow:'#4A0018',obi:'#F8E868',accent:'#FFD0E0',pattern:'#FFA8C0'},
-    ];
+    // ── BACKGROUND ────────────────────────────────────────────────────────────
+    function drawBG(){
+      const g=ctx.createRadialGradient(W*.5,H*.45,H*.05,W*.5,H*.45,H*.9);
+      g.addColorStop(0,'#1a0838'); g.addColorStop(0.35,'#0c0628'); g.addColorStop(0.70,'#060218'); g.addColorStop(1,'#020010');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      const sg=ctx.createLinearGradient(0,0,W,H);
+      sg.addColorStop(0,'rgba(180,140,20,0)'); sg.addColorStop(0.48,'rgba(255,220,80,0.07)'); sg.addColorStop(1,'rgba(180,140,20,0)');
+      ctx.fillStyle=sg; ctx.fillRect(0,0,W,H);
+    }
 
-    // ── Torii gate ────────────────────────────────────────────────────────────
-    const drawTorii=(cx,y,sc)=>{
-      const vg=ctx.createLinearGradient(0,y-120*sc,0,y+10*sc);
-      vg.addColorStop(0,'#CC2200'); vg.addColorStop(0.5,'#DD3310'); vg.addColorStop(1,'#BB1A00');
-      ctx.fillStyle=vg;
-      // pillars
-      ctx.fillRect(cx-55*sc,y-120*sc,12*sc,120*sc);
-      ctx.fillRect(cx+43*sc,y-120*sc,12*sc,120*sc);
-      // kasagi (top beam)
-      ctx.fillRect(cx-72*sc,y-128*sc,144*sc,14*sc);
-      // nuki (middle beam)
-      ctx.fillRect(cx-60*sc,y-88*sc,120*sc,10*sc);
-      // shimagi (second beam)
-      ctx.fillRect(cx-65*sc,y-108*sc,130*sc,10*sc);
-      // kasagi upward curve
-      ctx.fillStyle=vg;
-      ctx.beginPath();
-      ctx.moveTo(cx-72*sc,y-128*sc);
-      ctx.bezierCurveTo(cx-72*sc,y-138*sc,cx-50*sc,y-142*sc,cx,y-140*sc);
-      ctx.bezierCurveTo(cx+50*sc,y-142*sc,cx+72*sc,y-138*sc,cx+72*sc,y-128*sc);
-      ctx.lineTo(cx+72*sc,y-128*sc); ctx.lineTo(cx-72*sc,y-128*sc);
-      ctx.fill();
-      // shimagi ends (slight upward curve)
-      ctx.beginPath();
-      ctx.moveTo(cx-65*sc,y-108*sc); ctx.lineTo(cx-72*sc,y-112*sc);
-      ctx.lineTo(cx-72*sc,y-104*sc); ctx.lineTo(cx-65*sc,y-98*sc); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(cx+65*sc,y-108*sc); ctx.lineTo(cx+72*sc,y-112*sc);
-      ctx.lineTo(cx+72*sc,y-104*sc); ctx.lineTo(cx+65*sc,y-98*sc); ctx.fill();
-    };
-
-    // ── Stone lantern ─────────────────────────────────────────────────────────
-    const drawLantern=(cx,by,sc)=>{
-      ctx.fillStyle='#8A8070';
-      // base pedestal
-      ctx.beginPath(); ctx.ellipse(cx,by,22*sc,5*sc,0,0,Math.PI*2); ctx.fill();
-      // shaft
-      ctx.fillRect(cx-5*sc,by-35*sc,10*sc,35*sc);
-      // fire box
-      ctx.fillStyle='#9A9080';
-      ctx.beginPath(); ctx.moveTo(cx-18*sc,by-60*sc); ctx.lineTo(cx+18*sc,by-60*sc);
-      ctx.lineTo(cx+14*sc,by-35*sc); ctx.lineTo(cx-14*sc,by-35*sc); ctx.closePath(); ctx.fill();
-      // roof cap
-      ctx.fillStyle='#7A7060';
-      ctx.beginPath(); ctx.moveTo(cx-22*sc,by-60*sc); ctx.lineTo(cx+22*sc,by-60*sc);
-      ctx.lineTo(cx+28*sc,by-66*sc); ctx.lineTo(cx,by-76*sc);
-      ctx.lineTo(cx-28*sc,by-66*sc); ctx.closePath(); ctx.fill();
-      // warm glow
-      const glow=ctx.createRadialGradient(cx,by-48*sc,0,cx,by-48*sc,18*sc);
-      glow.addColorStop(0,'rgba(255,200,60,0.40)'); glow.addColorStop(1,'rgba(255,150,20,0)');
-      ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(cx,by-48*sc,18*sc,0,Math.PI*2); ctx.fill();
-    };
-
-    // ── Cherry blossom tree ───────────────────────────────────────────────────
-    const rT=rng32(9999);
-    const drawTree=(cx,by,sc)=>{
-      ctx.strokeStyle='#5C3317'; ctx.lineWidth=7*sc; ctx.lineCap='round';
-      const br=(x,y,len,ang,depth,w)=>{
-        if(depth===0||len<5)return;
-        const ex=x+Math.cos(ang)*len,ey=y+Math.sin(ang)*len;
-        ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex,ey); ctx.stroke();
-        const sp2=0.35+rT()*0.28;
-        br(ex,ey,len*(0.62+rT()*.10),ang-sp2,depth-1,w*.68);
-        br(ex,ey,len*(0.60+rT()*.10),ang+sp2*(0.8+rT()*.4),depth-1,w*.68);
-        if(depth>3)br(ex,ey,len*.45,ang+(rT()-.5)*.3,depth-2,w*.55);
-        if(depth<=2){
-          const cr=16*sc+rT()*10*sc;
-          const bg2=ctx.createRadialGradient(ex,ey,0,ex,ey,cr);
-          bg2.addColorStop(0,'rgba(255,195,210,0.93)'); bg2.addColorStop(.5,'rgba(255,172,190,0.65)'); bg2.addColorStop(1,'rgba(255,155,175,0)');
-          ctx.globalAlpha=0.84; ctx.fillStyle=bg2; ctx.beginPath(); ctx.arc(ex,ey,cr,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
-        }
-      };
-      br(cx,by,-70*sc,-Math.PI/2,6,7*sc);
-    };
-
-    // ── Kimono pattern stamper ─────────────────────────────────────────────────
-    // asanoha (hemp leaf) motif — geometric hex
-    const stampAsanoha=(px,py,sz,col)=>{
-      ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=0.7; ctx.globalAlpha=0.25;
-      for(let a=0;a<6;a++){const ang=a/6*Math.PI*2;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+Math.cos(ang)*sz,py+Math.sin(ang)*sz);ctx.stroke();}
-      ctx.beginPath();
-      for(let a=0;a<6;a++){const ang=a/6*Math.PI*2;a===0?ctx.moveTo(px+Math.cos(ang)*sz,py+Math.sin(ang)*sz):ctx.lineTo(px+Math.cos(ang)*sz,py+Math.sin(ang)*sz);}
-      ctx.closePath(); ctx.stroke();
-      ctx.restore();
-    };
-
-    // ── Draw furisode woman ────────────────────────────────────────────────────
-    const drawWoman=(cx,groundY,pal,flip,phase,sc=1.0)=>{
-      const S=H*0.0011*sc, h=165*S, headR=11*S, headY=groundY-h;
-      const bodyTop=headY+headR*2.2, waist=groundY-62*S, hem=groundY;
-
-      // drop shadow
-      ctx.save(); ctx.globalAlpha=0.10; ctx.fillStyle='#000';
-      ctx.beginPath(); ctx.ellipse(cx,groundY,24*S,5.5*S,0,0,Math.PI*2); ctx.fill(); ctx.restore();
-
-      // ── Kimono body ─────────────────────────────────────────────────────────
-      const kg=ctx.createLinearGradient(cx-32*S,bodyTop,cx+32*S,bodyTop);
-      kg.addColorStop(0,pal.shadow); kg.addColorStop(0.3,pal.base);
-      kg.addColorStop(0.7,pal.hi); kg.addColorStop(1,pal.shadow);
-      ctx.fillStyle=kg;
-      ctx.beginPath();
-      ctx.moveTo(cx-18*S,bodyTop+5*S);
-      ctx.bezierCurveTo(cx-26*S,waist-10*S, cx-34*S,hem-22*S, cx-42*S,hem);
-      ctx.lineTo(cx+42*S,hem);
-      ctx.bezierCurveTo(cx+34*S,hem-22*S, cx+26*S,waist-10*S, cx+18*S,bodyTop+5*S);
-      ctx.closePath(); ctx.fill();
-
-      // pattern overlay (asanoha motif rows)
-      const nPRow=5, nPRows=8;
-      for(let row=0;row<nPRows;row++){
-        const ry=bodyTop+(hem-bodyTop)*(row+0.5)/nPRows;
-        const rowW=16*S+row*(hem-bodyTop)/nPRows*0.3;
-        for(let col=-nPRow;col<=nPRow;col++){
-          stampAsanoha(cx+col*12*S+(row%2===0?6*S:0),ry,4*S,pal.pattern);
-        }
-      }
-
-      // white undershirt collar
-      ctx.fillStyle='#F8F8F8';
-      ctx.beginPath();
-      ctx.moveTo(cx,bodyTop+5*S); ctx.lineTo(cx-7*S,bodyTop+28*S);
-      ctx.lineTo(cx,bodyTop+36*S); ctx.lineTo(cx+7*S,bodyTop+28*S);
-      ctx.closePath(); ctx.fill();
-      // pink inner collar
-      ctx.fillStyle=pal.accent;
-      ctx.beginPath();
-      ctx.moveTo(cx,bodyTop+8*S); ctx.lineTo(cx-5*S,bodyTop+26*S);
-      ctx.lineTo(cx,bodyTop+32*S); ctx.lineTo(cx+5*S,bodyTop+26*S);
-      ctx.closePath(); ctx.fill();
-
-      // ── Obi sash ─────────────────────────────────────────────────────────
-      const obiTop=waist-9*S;
-      const og2=ctx.createLinearGradient(cx-24*S,obiTop,cx+24*S,obiTop+20*S);
-      og2.addColorStop(0,'#9A7A05'); og2.addColorStop(0.35,pal.obi);
-      og2.addColorStop(0.65,pal.obi); og2.addColorStop(1,'#7A6005');
-      ctx.fillStyle=og2; ctx.fillRect(cx-24*S,obiTop,48*S,22*S);
-      // obi musubi knot (back bow)
-      const kx=cx+(flip?-30*S:30*S);
-      const kg2=ctx.createRadialGradient(kx,waist,0,kx,waist,16*S);
-      kg2.addColorStop(0,pal.obi); kg2.addColorStop(1,'#9A7A05');
-      ctx.fillStyle=kg2;
-      ctx.beginPath(); ctx.ellipse(kx,waist,15*S,20*S,0,0,Math.PI*2); ctx.fill();
-      // obi decorative line
-      ctx.strokeStyle=pal.pattern+'88'; ctx.lineWidth=0.8;
-      ctx.beginPath(); ctx.moveTo(cx-24*S,obiTop+8*S); ctx.lineTo(cx+24*S,obiTop+8*S); ctx.stroke();
-
-      // ── Long furisode sleeves ─────────────────────────────────────────────
-      [-1,1].forEach(side=>{
-        const sx=cx+side*20*S;
-        const swayA=Math.sin(T*1.1+phase)*5*S*(w_global?.str||0.5);
-        const slG=ctx.createLinearGradient(sx,bodyTop,sx+side*42*S,hem-12*S);
-        slG.addColorStop(0,pal.hi); slG.addColorStop(0.5,pal.base); slG.addColorStop(1,pal.shadow);
-        ctx.fillStyle=slG;
-        ctx.beginPath();
-        ctx.moveTo(sx,bodyTop+12*S);
-        ctx.bezierCurveTo(sx+side*28*S,bodyTop+35*S, sx+side*40*S+swayA,waist+5*S, sx+side*38*S+swayA*1.2,hem-12*S);
-        ctx.bezierCurveTo(sx+side*34*S,hem-4*S, sx+side*20*S,hem+2*S, sx,waist+8*S);
-        ctx.closePath(); ctx.fill();
-        // sleeve pattern
-        for(let sr=0;sr<3;sr++){
-          const sry=bodyTop+35*S+(hem-bodyTop-35*S)*sr/3;
-          stampAsanoha(sx+side*25*S,sry,3*S,pal.pattern);
-        }
-      });
-
-      // ── Head & Hair ────────────────────────────────────────────────────────
-      // elaborate shimada updo
-      ctx.fillStyle='#111';
-      ctx.beginPath(); ctx.ellipse(cx,headY-headR*0.3,headR*0.95,headR*1.1,0,0,Math.PI*2); ctx.fill();
-      // bun top
-      ctx.beginPath(); ctx.ellipse(cx,headY-headR*1.2,headR*0.55,headR*0.38,0.2,0,Math.PI*2); ctx.fill();
-      // kanzashi 1 (long pin with flower)
-      ctx.strokeStyle='#DAA520'; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(cx-headR*0.5,headY-headR*1.4); ctx.lineTo(cx-headR*0.2,headY-headR*0.35); ctx.stroke();
-      ctx.fillStyle='#FF69B4'; ctx.beginPath(); ctx.arc(cx-headR*0.5,headY-headR*1.4,3.5*S,0,Math.PI*2); ctx.fill();
-      for(let p=0;p<5;p++){const pa=p/5*Math.PI*2;ctx.fillStyle=`hsl(${330+p*12},90%,70%)`;ctx.beginPath();ctx.ellipse(cx-headR*0.5+Math.cos(pa)*3.5*S,headY-headR*1.4+Math.sin(pa)*3.5*S,2*S,1.2*S,pa,0,Math.PI*2);ctx.fill();}
-      // kanzashi 2
-      ctx.strokeStyle='#C8A000'; ctx.lineWidth=1.2;
-      ctx.beginPath(); ctx.moveTo(cx+headR*0.35,headY-headR*1.5); ctx.lineTo(cx+headR*0.15,headY-headR*0.38); ctx.stroke();
-      ctx.fillStyle='#FF1493'; ctx.beginPath(); ctx.arc(cx+headR*0.35,headY-headR*1.5,2.8*S,0,Math.PI*2); ctx.fill();
-
-      // ── Face ────────────────────────────────────────────────────────────────
-      const faceG=ctx.createRadialGradient(cx-headR*.2,headY-headR*.2,0,cx,headY,headR);
-      faceG.addColorStop(0,'#FDEEDE'); faceG.addColorStop(0.65,'#F5D5BA'); faceG.addColorStop(1,'#ECDBA8');
-      ctx.fillStyle=faceG; ctx.beginPath(); ctx.arc(cx,headY,headR,0,Math.PI*2); ctx.fill();
-      // white face powder shimmer
-      ctx.save(); ctx.globalAlpha=0.15; ctx.fillStyle='#FFFFFF';
-      ctx.beginPath(); ctx.arc(cx,headY,headR,0,Math.PI*2); ctx.fill(); ctx.restore();
-      // eyebrows (thin, arched)
-      ctx.strokeStyle='#2A1A0A'; ctx.lineWidth=0.9;
-      [-1,1].forEach(s=>{ctx.beginPath();ctx.moveTo(cx+s*2*S,headY-4.5*S);ctx.quadraticCurveTo(cx+s*4*S,headY-6*S,cx+s*6.5*S,headY-4*S);ctx.stroke();});
-      // eyes with eyeliner
-      ctx.fillStyle='#F0E8D0'; ctx.strokeStyle='#111';
-      [-1,1].forEach(s=>{
-        ctx.lineWidth=0.6;
-        ctx.beginPath(); ctx.ellipse(cx+s*4.2*S,headY-1*S,2.8*S,1.8*S,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        // iris
-        const iG=ctx.createRadialGradient(cx+s*4.2*S,headY-1*S,0,cx+s*4.2*S,headY-1*S,1.8*S);
-        iG.addColorStop(0,'#4A2A10'); iG.addColorStop(0.6,'#2A1408'); iG.addColorStop(1,'#0A0808');
-        ctx.fillStyle=iG; ctx.beginPath(); ctx.ellipse(cx+s*4.2*S,headY-1*S,1.8*S,1.5*S,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#FFFFFF'; ctx.beginPath(); ctx.arc(cx+s*3.5*S,headY-2*S,0.7*S,0,Math.PI*2); ctx.fill();
-        // eyeliner
-        ctx.strokeStyle='#111'; ctx.lineWidth=0.8;
-        ctx.beginPath(); ctx.moveTo(cx+s*1.5*S,headY-1*S); ctx.lineTo(cx+s*7.2*S,headY-1.5*S); ctx.stroke();
-      });
-      // nose — subtle
-      ctx.strokeStyle='rgba(180,120,80,0.4)'; ctx.lineWidth=0.8;
-      ctx.beginPath(); ctx.arc(cx,headY+2*S,1.5*S,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
-      // lips — bow shaped
-      ctx.fillStyle='#C84060';
-      ctx.beginPath(); ctx.moveTo(cx-3*S,headY+4*S); ctx.bezierCurveTo(cx-1.5*S,headY+2.5*S,cx+1.5*S,headY+2.5*S,cx+3*S,headY+4*S);
-      ctx.bezierCurveTo(cx+1.5*S,headY+5.5*S,cx-1.5*S,headY+5.5*S,cx-3*S,headY+4*S); ctx.fill();
-
-      // ── Zori sandals ────────────────────────────────────────────────────────
-      ctx.fillStyle='#8B1A28';
-      [-1,1].forEach(s=>{ctx.beginPath();ctx.ellipse(cx+s*8*S,groundY-2.5*S,9*S,3.5*S,-0.08*s,0,Math.PI*2);ctx.fill();});
-      ctx.strokeStyle='#FFD700'; ctx.lineWidth=1;
-      [-1,1].forEach(s=>{ctx.beginPath();ctx.moveTo(cx+s*4*S,groundY-2.5*S);ctx.lineTo(cx+s*8*S,groundY-6*S);ctx.stroke();});
-    };
-
-    // ── Draw man (suit or hakama) ──────────────────────────────────────────────
-    const drawMan=(cx,groundY,suit,phase,sc=1.0)=>{
-      const S=H*0.0011*sc, h=176*S, headR=12*S, headY=groundY-h;
-      const shoulder=groundY-h*.73, waist=groundY-h*.44, hem=groundY;
-
-      ctx.save(); ctx.globalAlpha=0.10; ctx.fillStyle='#000';
-      ctx.beginPath(); ctx.ellipse(cx,groundY,22*S,5*S,0,0,Math.PI*2); ctx.fill(); ctx.restore();
-
-      if(suit){
-        // trousers
-        const tG=ctx.createLinearGradient(cx-18*S,waist,cx+18*S,waist);
-        tG.addColorStop(0,'#0A1428'); tG.addColorStop(0.5,'#162040'); tG.addColorStop(1,'#0A1428');
-        ctx.fillStyle=tG;
-        ctx.beginPath(); ctx.moveTo(cx-17*S,waist); ctx.bezierCurveTo(cx-20*S,waist+30*S,cx-22*S,hem-28*S,cx-15*S,hem); ctx.lineTo(cx,hem); ctx.lineTo(cx,waist); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(cx,waist); ctx.lineTo(cx,hem); ctx.bezierCurveTo(cx+22*S,hem-28*S,cx+20*S,waist+30*S,cx+17*S,waist); ctx.closePath(); ctx.fill();
-        // jacket
-        const jG=ctx.createLinearGradient(cx-22*S,shoulder,cx+22*S,shoulder);
-        jG.addColorStop(0,'#06101E'); jG.addColorStop(0.4,'#122038'); jG.addColorStop(0.6,'#1A2E50'); jG.addColorStop(1,'#06101E');
-        ctx.fillStyle=jG;
-        ctx.beginPath(); ctx.moveTo(cx-21*S,shoulder); ctx.lineTo(cx-24*S,waist); ctx.lineTo(cx-9*S,waist); ctx.lineTo(cx,headY+headR*2.5); ctx.lineTo(cx+9*S,waist); ctx.lineTo(cx+24*S,waist); ctx.lineTo(cx+21*S,shoulder); ctx.closePath(); ctx.fill();
-        // white shirt
-        ctx.fillStyle='#F4F4F4';
-        ctx.beginPath(); ctx.moveTo(cx-3.5*S,headY+headR*2.5); ctx.lineTo(cx-4.5*S,waist-6*S); ctx.lineTo(cx+4.5*S,waist-6*S); ctx.lineTo(cx+3.5*S,headY+headR*2.5); ctx.closePath(); ctx.fill();
-        // tie
-        ctx.fillStyle='#8B0A22';
-        ctx.beginPath(); ctx.moveTo(cx-2*S,headY+headR*2.8); ctx.lineTo(cx-3*S,waist-10*S); ctx.lineTo(cx,waist-6*S); ctx.lineTo(cx+3*S,waist-10*S); ctx.lineTo(cx+2*S,headY+headR*2.8); ctx.closePath(); ctx.fill();
-        // lapels
-        ctx.fillStyle='#0E1C38';
-        ctx.beginPath(); ctx.moveTo(cx,headY+headR*2.5); ctx.lineTo(cx-9*S,waist); ctx.lineTo(cx-3.5*S,waist-4*S); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(cx,headY+headR*2.5); ctx.lineTo(cx+9*S,waist); ctx.lineTo(cx+3.5*S,waist-4*S); ctx.closePath(); ctx.fill();
-        // arms
-        const armSway=Math.sin(T*.9+phase)*3*S*(w_global?.str||0.5);
-        [-1,1].forEach(side=>{
-          ctx.fillStyle=jG;
-          ctx.beginPath(); ctx.moveTo(cx+side*21*S,shoulder); ctx.bezierCurveTo(cx+side*30*S,shoulder+14*S,cx+side*28*S+armSway,waist-4*S,cx+side*24*S+armSway,waist); ctx.lineTo(cx+side*15*S+armSway,waist); ctx.bezierCurveTo(cx+side*17*S,shoulder+9*S,cx+side*13*S,shoulder+4*S,cx+side*13*S,shoulder); ctx.closePath(); ctx.fill();
-          ctx.fillStyle='#F0F0F0'; ctx.beginPath(); ctx.ellipse(cx+side*19*S+armSway,waist,5.5*S,3*S,0,0,Math.PI*2); ctx.fill();
-        });
-        // shoes
-        ctx.fillStyle='#111'; [-1,1].forEach(s=>{ctx.beginPath();ctx.ellipse(cx+s*8*S,groundY-2*S,10*S,4*S,0,0,Math.PI*2);ctx.fill();});
-      } else {
-        // hakama (traditional)
-        const hkG=ctx.createLinearGradient(cx-26*S,waist,cx+26*S,hem);
-        hkG.addColorStop(0,'#14142E'); hkG.addColorStop(0.5,'#22224A'); hkG.addColorStop(1,'#14142E');
-        ctx.fillStyle=hkG;
-        ctx.beginPath(); ctx.moveTo(cx-24*S,waist); ctx.bezierCurveTo(cx-30*S,waist+30*S,cx-26*S,hem-18*S,cx-19*S,hem); ctx.lineTo(cx+19*S,hem); ctx.bezierCurveTo(cx+26*S,hem-18*S,cx+30*S,waist+30*S,ctx.cx || cx+24*S,waist); ctx.closePath(); ctx.fill();
-        // pleats
-        ctx.strokeStyle='#0A0A1C'; ctx.lineWidth=1.0;
-        for(let p2=-2;p2<=2;p2++){ctx.beginPath();ctx.moveTo(cx+p2*8*S,waist);ctx.lineTo(cx+p2*8*S*1.15,hem);ctx.stroke();}
-        // haori jacket
-        const hrG=ctx.createLinearGradient(cx-20*S,shoulder,cx+20*S,waist);
-        hrG.addColorStop(0,'#14142E'); hrG.addColorStop(0.5,'#20204A'); hrG.addColorStop(1,'#14142E');
-        ctx.fillStyle=hrG;
-        ctx.beginPath(); ctx.moveTo(cx-20*S,shoulder); ctx.lineTo(cx-22*S,waist); ctx.lineTo(cx-9*S,waist); ctx.lineTo(cx,shoulder+18*S); ctx.lineTo(cx+9*S,waist); ctx.lineTo(cx+22*S,waist); ctx.lineTo(cx+20*S,shoulder); ctx.closePath(); ctx.fill();
-        // white juban collar
-        ctx.fillStyle='#FAFAFA';
-        ctx.beginPath(); ctx.moveTo(cx-6*S,shoulder+6*S); ctx.lineTo(cx-5*S,waist-3*S); ctx.lineTo(cx,waist+3*S); ctx.lineTo(cx+5*S,waist-3*S); ctx.lineTo(cx+6*S,shoulder+6*S); ctx.lineTo(cx,shoulder+22*S); ctx.closePath(); ctx.fill();
-        // hakama cord
-        ctx.fillStyle='#FFFFFF'; ctx.fillRect(cx-17*S,waist-3*S,34*S,5*S);
-        ctx.beginPath(); ctx.arc(cx,waist,5.5*S,0,Math.PI*2); ctx.fill();
-        // arms
-        const armS2=Math.sin(T*.9+phase)*3*S*(w_global?.str||0.5);
-        [-1,1].forEach(side=>{ctx.fillStyle=hrG;ctx.beginPath();ctx.moveTo(cx+side*20*S,shoulder);ctx.bezierCurveTo(cx+side*34*S,shoulder+10*S,cx+side*32*S+armS2,waist,cx+side*22*S+armS2,waist+6*S);ctx.lineTo(cx+side*12*S+armS2,waist+6*S);ctx.bezierCurveTo(cx+side*14*S,shoulder+8*S,cx+side*11*S,shoulder+3*S,cx+side*11*S,shoulder);ctx.closePath();ctx.fill();});
-        // geta sandals
-        ctx.fillStyle='#5A3A18'; [-1,1].forEach(s=>{ctx.fillRect(cx+s*14*S-8*S,groundY-6*S,16*S,6*S);ctx.fillStyle='#3A2008';ctx.fillRect(cx+s*14*S-5*S,groundY-10*S,4*S,5*S);ctx.fillRect(cx+s*14*S+1*S,groundY-10*S,4*S,5*S);ctx.fillStyle='#5A3A18';});
-      }
-
-      // ── Head ────────────────────────────────────────────────────────────────
-      const fG2=ctx.createRadialGradient(cx-headR*.15,headY-headR*.15,0,cx,headY,headR);
-      fG2.addColorStop(0,'#F5E0C0'); fG2.addColorStop(0.7,'#DEBB90'); fG2.addColorStop(1,'#C8A070');
-      ctx.fillStyle=fG2; ctx.beginPath(); ctx.arc(cx,headY,headR,0,Math.PI*2); ctx.fill();
-      // hair
-      ctx.fillStyle='#0C0C0C';
-      ctx.beginPath(); ctx.arc(cx,headY-headR*0.3,headR*0.96,Math.PI,Math.PI*2); ctx.fill();
-      ctx.fillRect(cx-headR*0.96,headY-headR*0.36,headR*1.92,headR*0.36);
-      // eyebrows
-      ctx.strokeStyle='#222'; ctx.lineWidth=1.2;
-      [-1,1].forEach(s=>{ctx.beginPath();ctx.moveTo(cx+s*2*S,headY-4.5*S);ctx.lineTo(cx+s*7*S,headY-4*S);ctx.stroke();});
-      // eyes
-      ctx.fillStyle='#F0E8D0';
-      [-1,1].forEach(s=>{ctx.beginPath();ctx.ellipse(cx+s*4.5*S,headY-1*S,2.8*S,1.8*S,0,0,Math.PI*2);ctx.fill();const iG3=ctx.createRadialGradient(cx+s*4.5*S,headY-1*S,0,cx+s*4.5*S,headY-1*S,1.8*S);iG3.addColorStop(0,'#3C2010');iG3.addColorStop(1,'#080808');ctx.fillStyle=iG3;ctx.beginPath();ctx.ellipse(cx+s*4.5*S,headY-1*S,1.8*S,1.5*S,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(cx+s*3.6*S,headY-1.8*S,.65*S,0,Math.PI*2);ctx.fill();});
-      ctx.fillStyle='#8B6040';
-      ctx.beginPath(); ctx.ellipse(cx,headY+4*S,2.5*S,1.2*S,0,0,Math.PI*2); ctx.fill();
-    };
-
-    // ── Figure arrangement ─────────────────────────────────────────────────────
-    const FIGURES = [
-      // back row (smaller)
-      {type:'w',x:W*.12,y:H*.92,sc:.86,pal:FURISODE[1],flip:false,ph:0.0},
-      {type:'m',x:W*.24,y:H*.91,sc:.88,suit:true, ph:0.5},
-      {type:'w',x:W*.48,y:H*.90,sc:.90,pal:FURISODE[3],flip:true, ph:1.1},
-      {type:'m',x:W*.70,y:H*.91,sc:.88,suit:false,ph:1.7},
-      {type:'w',x:W*.86,y:H*.91,sc:.86,pal:FURISODE[5],flip:false,ph:2.2},
-      // front row (larger)
-      {type:'w',x:W*.30,y:H*.97,sc:1.00,pal:FURISODE[0],flip:true, ph:0.8},
-      {type:'m',x:W*.48,y:H*.96,sc:1.02,suit:true, ph:2.1},
-      {type:'w',x:W*.64,y:H*.97,sc:1.00,pal:FURISODE[2],flip:false,ph:1.4},
-      {type:'w',x:W*.80,y:H*.96,sc:.98, pal:FURISODE[4],flip:true, ph:2.7},
-      {type:'m',x:W*.92,y:H*.95,sc:.96, suit:false,ph:3.2},
-    ];
-
-    let w_global = {str:0.5, dir:0, gust:0};
-
-    // ── Petals ─────────────────────────────────────────────────────────────────
-    const r2=rng32(44444);
-    const PETALS=Array.from({length:70},()=>({x:r2()*W,y:r2()*H,vx:.18+r2()*.4,vy:.15+r2()*.4,rot:r2()*Math.PI*2,rv:(r2()-.5)*.05,w:2+r2()*4.5,h:1.5+r2()*3,a:.35+r2()*.55,hue:335+r2()*22,sat:72+r2()*22,lit:74+r2()*14}));
-
-    const frame=now=>{
-      const dt=prev?Math.min(now-prev,50)/1000:0.016; prev=now; T+=dt;
-      const ww={str:Math.max(.1,.45+Math.sin(T*.08+1.2)*.2),dir:Math.sin(T*.05+7.3)*.2,gust:0};
-      w_global=ww;
-
-      // Sky: pale winter morning with warm horizon
-      const sk=ctx.createLinearGradient(0,0,0,H);
-      sk.addColorStop(0,'#A8C4E0'); sk.addColorStop(0.30,'#C8DCF0');
-      sk.addColorStop(0.60,'#E8EEF4'); sk.addColorStop(1,'#F5F0E8');
-      ctx.fillStyle=sk; ctx.fillRect(0,0,W,H);
-
-      // Low winter sun
-      const sunG=ctx.createRadialGradient(W*.82,H*.13,0,W*.82,H*.13,H*.25);
-      sunG.addColorStop(0,'rgba(255,245,200,1.0)'); sunG.addColorStop(.20,'rgba(255,225,160,.55)');
-      sunG.addColorStop(1,'rgba(255,200,120,0)');
-      ctx.fillStyle=sunG; ctx.beginPath(); ctx.arc(W*.82,H*.13,H*.25,0,Math.PI*2); ctx.fill();
-
-      // Clouds
-      [{cx:.10,cy:.08,w:110,h:32,d:0},{cx:.38,cy:.05,w:150,h:42,d:.9},
-       {cx:.66,cy:.09,w:120,h:34,d:1.7},{cx:.90,cy:.16,w:85,h:28,d:2.6}].forEach(cl=>{
-        const dx=Math.sin(T*.030+cl.d)*15;
-        const cg=ctx.createRadialGradient(cl.cx*W+dx,cl.cy*H,0,cl.cx*W+dx,cl.cy*H,cl.w);
-        cg.addColorStop(0,'rgba(255,255,255,0.94)'); cg.addColorStop(.6,'rgba(242,248,255,.65)');
-        cg.addColorStop(1,'rgba(225,238,255,0)');
-        ctx.fillStyle=cg; ctx.beginPath(); ctx.ellipse(cl.cx*W+dx,cl.cy*H,cl.w,cl.h,0,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(cl.cx*W+dx-cl.w*.28,cl.cy*H+cl.h*.12,cl.w*.55,cl.h*.68,0,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(cl.cx*W+dx+cl.w*.28,cl.cy*H+cl.h*.15,cl.w*.48,cl.h*.60,0,0,Math.PI*2); ctx.fill();
-      });
-
-      // Shrine courtyard background
-      // Stone path
-      const pgG=ctx.createLinearGradient(0,H*.60,0,H*.80);
-      pgG.addColorStop(0,'#D8D0C0'); pgG.addColorStop(1,'#C4BC8C');
-      ctx.fillStyle=pgG;
-      ctx.beginPath(); ctx.moveTo(W*.35,H*.60); ctx.lineTo(W*.65,H*.60);
-      ctx.bezierCurveTo(W*.70,H*.72,W*.75,H*.80,W*.80,H*.88);
-      ctx.lineTo(W*.20,H*.88);
-      ctx.bezierCurveTo(W*.25,H*.80,W*.30,H*.72,W*.35,H*.60);
-      ctx.fill();
-      // stone grid
-      ctx.save(); ctx.globalAlpha=0.12; ctx.strokeStyle='#888'; ctx.lineWidth=0.6;
-      for(let si=0;si<8;si++){ctx.beginPath();ctx.moveTo(W*.35+si*W*.04,H*.60);ctx.lineTo(W*.20+si*W*.075,H*.88);ctx.stroke();}
-      for(let si=0;si<5;si++){const sy=H*.60+si*(H*.88-H*.60)/4;ctx.beginPath();ctx.moveTo(W*.35+(W*.65-W*.35)*si*.05,sy);ctx.lineTo(W*.65-(W*.65-W*.35)*si*.05,sy);ctx.stroke();}
-      ctx.restore();
-
-      // Torii gate (background, faded)
-      ctx.save(); ctx.globalAlpha=0.55;
-      drawTorii(W*.50, H*.62, H*.0011*72);
-      ctx.restore();
-
-      // Stone lanterns flanking path
-      ctx.save(); ctx.globalAlpha=0.70;
-      drawLantern(W*.32, H*.82, H*.0011*60);
-      drawLantern(W*.68, H*.82, H*.0011*60);
-      ctx.restore();
-
-      // Ground (paved foreground)
-      const gg=ctx.createLinearGradient(0,H*.80,0,H);
-      gg.addColorStop(0,'#C8C0A8'); gg.addColorStop(1,'#B4AC90');
-      ctx.fillStyle=gg; ctx.fillRect(0,H*.80,W,H*.20);
-      ctx.save(); ctx.globalAlpha=0.10; ctx.strokeStyle='#888'; ctx.lineWidth=0.8;
-      for(let gx=0;gx<W;gx+=50){ctx.beginPath();ctx.moveTo(gx,H*.80);ctx.lineTo(gx,H);ctx.stroke();}
-      for(let gy=H*.80;gy<H;gy+=22){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
-      ctx.restore();
-
-      // Background cherry trees
-      const t1=rng32(111),t2=rng32(222),t3=rng32(333),t4=rng32(444);
-      [[W*.04,H*.78,.70,t1],[W*.18,H*.75,.85,t2],[W*.78,H*.74,.88,t3],[W*.95,H*.77,.72,t4]].forEach(([bx,by,sc2,rr])=>drawTree(bx,by,sc2,rr));
-
-      // Figures: back row then front
-      FIGURES.forEach(f=>{
+    // ── SEIGAIHA WAVES ────────────────────────────────────────────────────────
+    function drawSeigaiha(T){
+      const SW=38,SH=SW*0.55,cols=Math.ceil(W/SW)+2,rows=Math.ceil(H/SH)+2;
+      for(let row=0;row<rows;row++) for(let col=0;col<cols;col++){
+        const x=col*SW+(row%2===0?0:SW*0.5)-SW, y=row*SH-SH;
+        const sh=0.5+0.5*Math.sin(x*0.03+y*0.05+T*0.4);
         ctx.save();
-        ctx.translate(f.x,0); ctx.scale(f.sc,f.sc); ctx.translate(-f.x,0);
-        if(f.type==='w') drawWoman(f.x,f.y,f.pal,f.flip,f.ph,1.0);
-        else drawMan(f.x,f.y,f.suit,f.ph,1.0);
+        ctx.globalAlpha=0.18+sh*0.04;
+        const wg=ctx.createLinearGradient(x,y-SW,x,y+SW*0.1);
+        wg.addColorStop(0,'rgba(180,140,20,0.6)'); wg.addColorStop(0.5,'rgba(80,60,120,0.4)'); wg.addColorStop(1,'rgba(20,10,40,0.8)');
+        ctx.fillStyle=wg; ctx.beginPath(); ctx.arc(x+SW*0.5,y+SH,SW*0.52,Math.PI,0); ctx.fill();
+        ctx.globalAlpha=0.20+sh*0.18;
+        ctx.strokeStyle=`rgba(${180+sh*60},${130+sh*50},${20+sh*30},1)`; ctx.lineWidth=0.7;
+        ctx.beginPath(); ctx.arc(x+SW*0.5,y+SH,SW*0.50,Math.PI,0); ctx.stroke();
+        ctx.globalAlpha=sh*0.12; ctx.strokeStyle='rgba(255,240,160,1)'; ctx.lineWidth=0.5;
+        ctx.beginPath(); ctx.arc(x+SW*0.5,y+SH,SW*0.38,Math.PI*1.1,Math.PI*1.9); ctx.stroke();
         ctx.restore();
-      });
+      }
+    }
 
-      // Petals
+    // ── CHRYSANTHEMUM KIKU ────────────────────────────────────────────────────
+    function drawKiku(cx,cy,R,rot,alpha){
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy); ctx.rotate(rot);
+      const layers=[{n:16,r:R*.95,pw:R*.18,col:C.gold1},{n:20,r:R*.78,pw:R*.14,col:C.gold2},{n:16,r:R*.60,pw:R*.12,col:C.gold1},{n:12,r:R*.42,pw:R*.10,col:C.gold2},{n:8,r:R*.26,pw:R*.08,col:C.gold3}];
+      layers.forEach((lay,li)=>{
+        const {n,r,pw,col}=lay;
+        for(let i=0;i<n;i++){
+          const a=i/n*TAU+li*0.15,bx=Math.cos(a)*r*.35,by=Math.sin(a)*r*.35,ex=Math.cos(a)*r,ey=Math.sin(a)*r,px=Math.cos(a+Math.PI/2)*pw*.5,py=Math.sin(a+Math.PI/2)*pw*.5;
+          ctx.fillStyle=col; ctx.globalAlpha=alpha*(0.55+li*.08);
+          ctx.beginPath(); ctx.moveTo(bx+px*.3,by+py*.3); ctx.bezierCurveTo(bx+px,by+py,ex+px*.6,ey+py*.6,ex,ey); ctx.bezierCurveTo(ex-px*.6,ey-py*.6,bx-px,by-py,bx-px*.3,by-py*.3); ctx.closePath(); ctx.fill();
+        }
+      });
+      const cg=ctx.createRadialGradient(0,0,0,0,0,R*.18);
+      cg.addColorStop(0,C.gold3); cg.addColorStop(0.5,C.gold1); cg.addColorStop(1,C.gold0);
+      ctx.globalAlpha=alpha; ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(0,0,R*.18,0,TAU); ctx.fill();
+      ctx.strokeStyle=C.gold2; ctx.lineWidth=0.8; ctx.globalAlpha=alpha*.6;
+      ctx.beginPath(); ctx.arc(0,0,R*.22,0,TAU); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ── KARAKUSA VINE ─────────────────────────────────────────────────────────
+    function drawKarakusa(T){
+      ctx.save(); ctx.globalAlpha=0.16; ctx.strokeStyle=C.gold1; ctx.lineWidth=1.2;
+      const paths=[
+        {sx:0,sy:H*.8,ex:W*.35,ey:H*.2,cp1x:W*.1,cp1y:H*.3,cp2x:W*.2,cp2y:H*.6},
+        {sx:W*.25,sy:H,ex:W*.7,ey:H*.15,cp1x:W*.3,cp1y:H*.5,cp2x:W*.5,cp2y:H*.4},
+        {sx:W*.6,sy:H,ex:W,ey:H*.3,cp1x:W*.65,cp1y:H*.6,cp2x:W*.85,cp2y:H*.5},
+        {sx:0,sy:H*.4,ex:W*.4,ey:0,cp1x:W*.05,cp1y:H*.15,cp2x:W*.2,cp2y:H*.1},
+        {sx:W*.55,sy:0,ex:W,ey:H*.6,cp1x:W*.7,cp1y:H*.2,cp2x:W*.9,cp2y:H*.4},
+      ];
+      paths.forEach(p=>{
+        const wv=Math.sin(T*.3)*8;
+        ctx.beginPath(); ctx.moveTo(p.sx,p.sy); ctx.bezierCurveTo(p.cp1x+wv,p.cp1y+wv,p.cp2x-wv,p.cp2y-wv,p.ex,p.ey); ctx.stroke();
+        for(let s=1;s<6;s++){
+          const t=s/6,bx=Math.pow(1-t,3)*p.sx+3*Math.pow(1-t,2)*t*p.cp1x+3*(1-t)*t*t*p.cp2x+t*t*t*p.ex,by=Math.pow(1-t,3)*p.sy+3*Math.pow(1-t,2)*t*p.cp1y+3*(1-t)*t*t*p.cp2y+t*t*t*p.ey;
+          ctx.beginPath(); ctx.arc(bx,by,6+2*Math.sin(T*.5+s*1.2),0,Math.PI*1.5); ctx.stroke();
+        }
+      });
+      ctx.restore();
+    }
+
+    // ── PINE BRANCH ───────────────────────────────────────────────────────────
+    function drawPineBranch(x,y,angle,len,alpha){
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x,y); ctx.rotate(angle);
+      ctx.strokeStyle='#2a5a20'; ctx.lineWidth=2.5; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(len,0); ctx.stroke();
+      for(let i=1;i<=5;i++){
+        const bx=len*i/6;
+        [-1,1].forEach(side=>{
+          const bl=len*(0.3+0.1*(5-i)/5);
+          ctx.strokeStyle='#2a5a20'; ctx.lineWidth=1.2;
+          ctx.beginPath(); ctx.moveTo(bx,0); ctx.lineTo(bx+bl*Math.cos(side*.55),side*bl*Math.sin(.55)); ctx.stroke();
+          const tx=bx+bl*Math.cos(side*.55),ty=side*bl*Math.sin(.55);
+          ctx.strokeStyle='#3a7a28'; ctx.lineWidth=0.6;
+          for(let ni=0;ni<8;ni++){const na=ni/8*TAU; ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(tx+Math.cos(na)*8,ty+Math.sin(na)*8); ctx.stroke();}
+        });
+      }
+      ctx.restore();
+    }
+
+    // ── KIKYO BELLFLOWER ──────────────────────────────────────────────────────
+    function drawKikyo(cx,cy,r,alpha){
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy);
+      for(let i=0;i<5;i++){
+        const a=i/5*TAU-Math.PI/2,pg=ctx.createRadialGradient(Math.cos(a)*r*.4,Math.sin(a)*r*.4,0,Math.cos(a)*r*.4,Math.sin(a)*r*.4,r);
+        pg.addColorStop(0,'rgba(100,80,180,0.9)'); pg.addColorStop(1,'rgba(60,40,120,0.4)');
+        ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(Math.cos(a)*r*.5,Math.sin(a)*r*.5,r*.55,r*.35,a,0,TAU); ctx.fill();
+      }
+      ctx.fillStyle='rgba(255,250,220,0.8)'; ctx.beginPath(); ctx.arc(0,0,r*.18,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+    function drawKikyoCluster(cx,cy,alpha){
+      [{x:0,y:0},{x:18,y:-12},{x:-18,y:-12},{x:8,y:20},{x:-8,y:20}].forEach(p=>drawKikyo(cx+p.x,cy+p.y,10,alpha*.85));
+    }
+
+    // ── STATIC DECOR ──────────────────────────────────────────────────────────
+    function drawStaticDecor(){
+      [{x:W*.05,y:H*.05},{x:W*.95,y:H*.05},{x:W*.05,y:H*.95},{x:W*.95,y:H*.95}].forEach(c=>drawKikyoCluster(c.x,c.y,0.55));
+      for(let xi=0;xi<12;xi++){
+        const bx=W*xi/11;
+        ctx.save(); ctx.globalAlpha=0.22; ctx.fillStyle=C.gold1;
+        ctx.translate(bx,16); ctx.rotate(Math.PI/4); ctx.fillRect(-5,-5,10,10); ctx.restore();
+        ctx.save(); ctx.globalAlpha=0.22; ctx.fillStyle=C.gold1;
+        ctx.translate(bx,H-16); ctx.rotate(Math.PI/4); ctx.fillRect(-5,-5,10,10); ctx.restore();
+      }
+      ctx.save(); ctx.globalAlpha=0.15; ctx.strokeStyle=C.gold1; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(30,0); ctx.lineTo(30,H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W-30,0); ctx.lineTo(W-30,H); ctx.stroke();
+      ctx.restore();
+      drawPineBranch(W*.02,H*.78,-0.15,90,0.28);
+      drawPineBranch(W*.98,H*.78,Math.PI+0.15,90,0.28);
+    }
+
+    // ── MEDALLIONS ────────────────────────────────────────────────────────────
+    const MEDS=[
+      {x:W*.15,y:H*.18,r:52,alpha:0.65,rot:0.0},{x:W*.85,y:H*.22,r:46,alpha:0.60,rot:0.3},
+      {x:W*.50,y:H*.08,r:38,alpha:0.55,rot:0.6},{x:W*.08,y:H*.52,r:40,alpha:0.50,rot:0.9},
+      {x:W*.92,y:H*.55,r:42,alpha:0.52,rot:1.2},{x:W*.30,y:H*.88,r:44,alpha:0.58,rot:0.4},
+      {x:W*.70,y:H*.85,r:40,alpha:0.54,rot:0.7},{x:W*.50,y:H*.50,r:68,alpha:0.32,rot:0.0},
+    ];
+    function drawMedallions(T){ MEDS.forEach(m=>drawKiku(m.x,m.y,m.r,m.rot+T*.04,m.alpha)); }
+
+    // ── UME PLUM BLOSSOMS (gravity physics) ───────────────────────────────────
+    function drawUme(cx,cy,r,rot,col,alpha){
+      ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy); ctx.rotate(rot);
+      for(let i=0;i<5;i++){
+        const a=i/5*TAU-Math.PI/2,px=Math.cos(a)*r*.55,py=Math.sin(a)*r*.55;
+        const pg=ctx.createRadialGradient(px,py,0,px,py,r*.68);
+        pg.addColorStop(0,'rgba(255,255,255,0.95)'); pg.addColorStop(0.35,col); pg.addColorStop(1,col.replace('1)','0.4)'));
+        ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(px,py,r*.60,r*.48,a,0,TAU); ctx.fill();
+        ctx.save(); ctx.globalAlpha=0.18; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=0.5;
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(px*1.2,py*1.2); ctx.stroke(); ctx.restore();
+      }
+      for(let i=0;i<5;i++){
+        const a=(i+0.5)/5*TAU-Math.PI/2;
+        ctx.fillStyle='rgba(40,80,20,0.30)';
+        ctx.beginPath(); ctx.ellipse(Math.cos(a)*r*.28,Math.sin(a)*r*.28,r*.16,r*.10,a,0,TAU); ctx.fill();
+      }
+      ctx.strokeStyle='rgba(255,220,80,0.85)'; ctx.lineWidth=0.8;
+      for(let i=0;i<10;i++){
+        const a=i/10*TAU,sl=r*.45;
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*sl,Math.sin(a)*sl); ctx.stroke();
+        ctx.fillStyle='rgba(255,200,30,0.90)'; ctx.beginPath(); ctx.arc(Math.cos(a)*sl,Math.sin(a)*sl,1.2,0,TAU); ctx.fill();
+      }
+      const cg=ctx.createRadialGradient(0,0,0,0,0,r*.18);
+      cg.addColorStop(0,'rgba(255,240,200,1)'); cg.addColorStop(1,'rgba(200,120,40,0.7)');
+      ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(0,0,r*.18,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+
+    const UME_COLS=['rgba(180,20,60,1)','rgba(210,60,100,1)','rgba(240,120,150,1)','rgba(255,180,200,1)','rgba(200,30,80,1)','rgba(255,240,245,1)','rgba(160,10,50,1)'];
+    const rngU=rng(13579);
+    const UME=Array.from({length:70},()=>({
+      x:rngU()*W*1.2-W*.1, y:-30-rngU()*H,
+      vx:(rngU()-.5)*.55, vy:.4+rngU()*.8, ay:.004+rngU()*.006,
+      rot:rngU()*TAU, rv:(rngU()-.5)*.045,
+      r:6+rngU()*10, col:UME_COLS[Math.floor(rngU()*UME_COLS.length)],
+      a:.55+rngU()*.42, sway:rngU()*TAU, swayA:.15+rngU()*.35, swayF:.4+rngU()*.6,
+    }));
+    function updateUme(T){
+      UME.forEach(u=>{
+        u.vy=Math.min(u.vy+u.ay,2.8);
+        u.x+=u.vx+Math.sin(T*u.swayF+u.sway)*u.swayA;
+        u.y+=u.vy; u.rot+=u.rv;
+        if(u.y>H+u.r*2){u.y=-u.r*2-Math.random()*30;u.x=Math.random()*W*1.2-W*.1;u.vy=.4+Math.random()*.8;}
+        if(u.x<-u.r*3)u.x=W+u.r*2; if(u.x>W+u.r*3)u.x=-u.r*2;
+        drawUme(u.x,u.y,u.r,u.rot,u.col,u.a);
+      });
+    }
+
+    // ── GOLD DUST ─────────────────────────────────────────────────────────────
+    const rngG=rng(99999);
+    const GOLD=Array.from({length:120},()=>({x:rngG()*W,y:rngG()*H,vx:(rngG()-.5)*.15,vy:(rngG()-.5)*.10,r:.5+rngG()*2,a:.4+rngG()*.5,ph:rngG()*TAU,sp:.6+rngG()*1.2}));
+    function drawGold(T){
+      GOLD.forEach(g=>{
+        g.x+=g.vx; g.y+=g.vy;
+        if(g.x<-2)g.x=W+2; if(g.x>W+2)g.x=-2; if(g.y<-2)g.y=H+2; if(g.y>H+2)g.y=-2;
+        const sh=.5+.5*Math.sin(T*g.sp+g.ph);
+        ctx.save(); ctx.globalAlpha=g.a*sh;
+        const gg=ctx.createRadialGradient(g.x,g.y,0,g.x,g.y,g.r*2);
+        gg.addColorStop(0,'rgba(255,245,150,1)'); gg.addColorStop(1,'rgba(180,130,20,0)');
+        ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(g.x,g.y,g.r*2,0,TAU); ctx.fill(); ctx.restore();
+      });
+    }
+
+    // ── SAKURA PETALS ─────────────────────────────────────────────────────────
+    const rngP=rng(54321);
+    const PETALS=Array.from({length:40},()=>({x:rngP()*W,y:rngP()*H,vx:.12+rngP()*.22,vy:.08+rngP()*.18,rot:rngP()*TAU,rv:(rngP()-.5)*.03,w:2+rngP()*4,h:1.5+rngP()*2.5,a:.25+rngP()*.40,hue:330+rngP()*28,sat:50+rngP()*22,lit:75+rngP()*14,ph:rngP()*TAU}));
+    function drawPetals(T){
       PETALS.forEach(p=>{
-        p.x+=p.vx+ww.dir*.6; p.y+=p.vy; p.rot+=p.rv+ww.dir*.02;
+        p.x+=p.vx*(.5+.5*Math.sin(T*.2+p.ph)); p.y+=p.vy; p.rot+=p.rv;
         if(p.x>W+15)p.x=-15; if(p.y>H+15){p.y=-15;p.x=Math.random()*W;}
         ctx.save(); ctx.globalAlpha=p.a; ctx.translate(p.x,p.y); ctx.rotate(p.rot);
-        const pg3=ctx.createRadialGradient(0,0,0,0,0,p.w);
-        pg3.addColorStop(0,`hsl(${p.hue},${p.sat+12}%,${p.lit+6}%)`);
-        pg3.addColorStop(1,`hsl(${p.hue},${p.sat}%,${p.lit}%)`);
-        ctx.fillStyle=pg3; ctx.beginPath(); ctx.ellipse(0,0,p.w,p.h,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+        ctx.fillStyle=`hsl(${p.hue},${p.sat}%,${p.lit}%)`;
+        for(let pi=0;pi<5;pi++){const pa=pi/5*TAU; ctx.beginPath(); ctx.ellipse(Math.cos(pa)*p.w*.5,Math.sin(pa)*p.w*.5,p.w*.55,p.h*.45,pa,0,TAU); ctx.fill();}
+        ctx.restore();
       });
+    }
 
-      // Title with subtle glow
+    // ── TITLE ─────────────────────────────────────────────────────────────────
+    function drawTitle(){
+      const tg=ctx.createLinearGradient(0,H*.75,0,H);
+      tg.addColorStop(0,'rgba(4,2,14,0)'); tg.addColorStop(1,'rgba(4,2,14,0.55)');
+      ctx.fillStyle=tg; ctx.fillRect(0,H*.75,W,H*.25);
       ctx.save();
-      const tg2=ctx.createLinearGradient(0,H*.02,0,H*.14);
-      tg2.addColorStop(0,'rgba(255,255,255,0)'); tg2.addColorStop(.45,'rgba(255,252,245,.58)');
-      tg2.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle=tg2; ctx.fillRect(0,H*.02,W,H*.12);
-      ctx.shadowColor='rgba(255,240,220,0.7)'; ctx.shadowBlur=10;
-      ctx.fillStyle='#2C1808';
-      ctx.font=`bold ${Math.round(H*.038)}px "Hiragino Mincho ProN","Yu Mincho","Georgia",serif`;
-      ctx.textAlign='center'; ctx.fillText('成人の日',W*.5,H*.088);
-      ctx.shadowBlur=0; ctx.font=`${Math.round(H*.016)}px "Hiragino Mincho ProN","Georgia",serif`;
-      ctx.fillStyle='#5C3D1A'; ctx.letterSpacing='0.14em';
-      ctx.fillText('SEIJIN NO HI  ·  COMING OF AGE DAY',W*.5,H*.116);
+      ctx.shadowColor='rgba(220,180,40,0.6)'; ctx.shadowBlur=14;
+      ctx.fillStyle=C.gold2;
+      ctx.font=`bold ${Math.round(H*.040)}px "Hiragino Mincho ProN","Yu Mincho","Georgia",serif`;
+      ctx.textAlign='center'; ctx.fillText('\u6210\u4EBA\u306E\u65E5',W*.5,H*.088);
+      ctx.shadowBlur=0;
+      ctx.font=`${Math.round(H*.016)}px "Hiragino Mincho ProN","Georgia",serif`;
+      ctx.fillStyle=C.gold1; ctx.letterSpacing='0.16em';
+      ctx.fillText('SEIJIN NO HI \u00B7 COMING OF AGE',W*.5,H*.118);
       ctx.restore();
+    }
 
-      raf=requestAnimationFrame(frame);
-    };
-
-    const onResize=()=>init();
+    // ── RESIZE ────────────────────────────────────────────────────────────────
+    function onResize(){ setup(); ctx.setTransform(dpr,0,0,dpr,0,0); }
     window.addEventListener('resize',onResize);
-    raf=requestAnimationFrame(frame);
-    return()=>{cancelAnimationFrame(raf);window.removeEventListener('resize',onResize);};
+
+    // ── RENDER LOOP ───────────────────────────────────────────────────────────
+    let T=0;
+    function frame(){ raf=requestAnimationFrame(frame); T+=0.016;
+      drawBG(); drawSeigaiha(T); drawKarakusa(T); drawStaticDecor(); drawGold(T);
+      drawMedallions(T); drawPetals(T); updateUme(T); drawTitle();
+    }
+    frame();
+    return()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize',onResize); };
   },[]);
-  return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none',zIndex:0}}/>;
+  return <canvas ref={canvasRef} style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none',zIndex:0,display:'block'}}/>;
 }
+
 
 
 // ─── OTSUKIMI — Mid-Autumn Festival canvas scene ─────────────────────────────
