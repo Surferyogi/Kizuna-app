@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.01-17:34';
+const APP_VERSION = 'v2026.06.01-17:45';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -1648,7 +1648,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
               fontWeight:700, color:C.text,
               fontFamily:'Cormorant Garamond,serif', lineHeight:1,
               letterSpacing:'-0.01em' }}>
-              Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas)?'#F5D060':C.rose }}>絆</span>
+              Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
             </h1>
             {/* Tagline — fluid font sizes for all screen widths */}
             <p style={{ margin:'10px 0 0', fontSize:'clamp(14px, 4vw, 18px)',
