@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.01-18:02';
+const APP_VERSION = 'v2026.06.01-18:05';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -5882,7 +5882,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
-          color:(isSeijin||isOtsukimi||isChristmas)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }>
+          color:(isSeijin||isOtsukimi||isChristmas)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }}>
           Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas)?'#F5D060':C.rose }}>絆</span>
         </h1>
         <p style={{ margin:'6px 0 0', fontSize:13,
