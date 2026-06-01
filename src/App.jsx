@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.01-17:24';
+const APP_VERSION = 'v2026.06.01-17:29';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -5888,7 +5888,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
         <p style={{ margin:'6px 0 0', fontSize:13, color:C.muted,
           fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
           letterSpacing:'0.04em',
-          color:(isSeijin||isOtsukimi||isChristmas)?'#C8A040':undefined }>
+          color:(isSeijin||isOtsukimi||isChristmas)?'#C8A040':undefined }}>
           Today's Reflection
         </p>
       </div>
