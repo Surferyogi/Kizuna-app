@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.01-18:08';
+const APP_VERSION = 'v2026.06.01-18:15';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -4419,36 +4419,91 @@ function KodomoBackground() {
         pg.add(new THREE.Line(bGeo,bMat));
       });
 
-      // ── Caudal fin (forked tail) ───────────────────────────────────────
-      const tailMat=new THREE.MeshStandardMaterial({
-        color:def.finC||0x888888, roughness:0.70,
-        side:THREE.DoubleSide, transparent:true, opacity:0.88
+
+
+      // ── Dynamic koi tail — two curved lobes attached to pg ───────────
+      // Built as a THREE.Group so we can reposition each frame
+      const tailFinMat = new THREE.MeshPhysicalMaterial({
+        color: def.finC||0x888888,
+        roughness: 0.65, metalness: 0,
+        side: THREE.DoubleSide,
+        transparent: true, opacity: 0.90,
+        sheen: 0.40, sheenRoughness: 0.50,
+        sheenColor: new THREE.Color(def.sheen||0xaaaaff),
       });
-      [1,-1].forEach(side=>{
-        const ts=new THREE.Shape();
-        ts.moveTo(def.L*0.90, 0);
-        ts.bezierCurveTo(def.L*0.98, def.tR*(1.4*side),
-                         def.L*1.10, def.tR*(2.8*side),
-                         def.L*1.24, def.tR*(2.3*side));
-        ts.bezierCurveTo(def.L*1.26, def.tR*(1.8*side),
-                         def.L*1.18, def.tR*(0.8*side),
-                         def.L*0.97, def.tR*(0.3*side));
-        ts.closePath();
-        const tm=new THREE.Mesh(new THREE.ShapeGeometry(ts,18),tailMat);
-        tm.rotation.y=-Math.PI/2; pg.add(tm);
-        // Fin rays
-        for(let ri=0;ri<5;ri++){
-          const rf=ri/4;
-          const rg=new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(0,def.L*0.92,0),
-            new THREE.Vector3(0,def.L*(1.06+rf*0.16),def.tR*(0.5+rf*1.6)*side)
+      const tailGroup = new THREE.Group();
+      tailGroup.position.set(0, def.L, 0); // starts at tail end
+      pg.add(tailGroup);
+
+      // Each lobe: a large natural koi tail shape (wide fan, curved edges)
+      // The lobe lies in the local YZ plane (rotation.y = -PI/2 maps X→Z)
+      // Upper lobe (side=1) extends in +Z, lower (side=-1) in -Z
+      [1, -1].forEach(side => {
+        // Primary lobe — wide sweeping fan
+        const ls = new THREE.Shape();
+        const W  = def.tR * 3.2;  // max lobe width
+        const Lf = def.L  * 0.42; // lobe forward length
+        ls.moveTo(0, 0);
+        // sweeping upper edge
+        ls.bezierCurveTo(
+          Lf * 0.25, side * W * 0.55,
+          Lf * 0.65, side * W * 1.10,
+          Lf,        side * W * 0.85
+        );
+        // rounded tip
+        ls.bezierCurveTo(
+          Lf * 1.12, side * W * 0.60,
+          Lf * 1.08, side * W * 0.28,
+          Lf * 0.92, side * W * 0.10
+        );
+        // lower edge sweeps back to base
+        ls.bezierCurveTo(
+          Lf * 0.70, side * W * 0.06,
+          Lf * 0.30, side * W * 0.04,
+          0, 0
+        );
+        ls.closePath();
+
+        const lm = new THREE.Mesh(new THREE.ShapeGeometry(ls, 24), tailFinMat);
+        lm.rotation.y = -Math.PI / 2;
+        tailGroup.add(lm);
+
+        // Secondary inner lobe — shorter, adds volume
+        const is2 = new THREE.Shape();
+        is2.moveTo(0, 0);
+        is2.bezierCurveTo(
+          Lf * 0.20, side * W * 0.35,
+          Lf * 0.45, side * W * 0.68,
+          Lf * 0.65, side * W * 0.55
+        );
+        is2.bezierCurveTo(
+          Lf * 0.72, side * W * 0.40,
+          Lf * 0.60, side * W * 0.18,
+          Lf * 0.30, side * W * 0.05
+        );
+        is2.bezierCurveTo(Lf * 0.12, 0, 0, 0, 0, 0);
+        is2.closePath();
+
+        const im = new THREE.Mesh(new THREE.ShapeGeometry(is2, 16), tailFinMat.clone());
+        im.material.opacity = 0.60;
+        im.rotation.y = -Math.PI / 2;
+        tailGroup.add(im);
+
+        // Fin rays — 7 lines radiating from base across lobe
+        const rayMat = new THREE.LineBasicMaterial({
+          color: def.finC||0x888888, transparent:true, opacity:0.32
+        });
+        for (let ri = 0; ri < 7; ri++) {
+          const rf = ri / 6;
+          const rayGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, Lf*(0.5+rf*0.55), side*W*(0.25+rf*0.70))
           ]);
-          pg.add(new THREE.Line(rg,new THREE.LineBasicMaterial(
-            {color:def.finC||0x888888,transparent:true,opacity:0.40})));
+          tailGroup.add(new THREE.Line(rayGeo, rayMat));
         }
       });
 
-      return {pivot,pg,geo,pts,seed:def.seed,yaw:(idx-2)*0.14,def};
+      return {pivot,pg,geo,pts,seed:def.seed,yaw:(idx-2)*0.14,def,tailGroup};
     });
 
     // Resize
@@ -4472,6 +4527,23 @@ function KodomoBackground() {
         cp.pivot.rotation.y=cp.yaw;
         const {dx,dz}=computeDisp(cp.pts,T,windSpeed,cp.seed);
         updateBody(cp.geo,cp.pts,dx,dz);
+        // ── Animate tail: follow body tip + flutter ────────────────────
+        if (cp.tailGroup) {
+          const NR2 = cp.pts.length;
+          const tipDx = dx[NR2-1], tipDz = dz[NR2-1];
+          // Tail base tracks the body tip
+          cp.tailGroup.position.set(tipDx, cp.def.L, tipDz);
+          // Tail flutter: rotate around Y-axis proportional to lateral sway
+          // + high-freq flutter so it looks like it's swimming
+          const prevDx = dx[Math.max(0,NR2-3)];
+          const lateralBend = (tipDx - prevDx) * 3.5;      // body curvature
+          const flutter = Math.sin(T * 4.8 + cp.seed) * windSpeed * 0.18;
+          const slowWave = Math.sin(T * 1.6 + cp.seed + 1.2) * windSpeed * 0.12;
+          cp.tailGroup.rotation.x = lateralBend + flutter + slowWave;
+          // Also tilt tail up/down with body droop
+          const prevDz = dz[Math.max(0,NR2-3)];
+          cp.tailGroup.rotation.z = (tipDz - prevDz) * 2.0;
+        }
       });
       w1.rotation.z+=0.0040; w2.rotation.z-=0.0029;
       w3.rotation.z+=0.0040; w4.rotation.z-=0.0029;
@@ -5882,13 +5954,13 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
-          color:(isSeijin||isOtsukimi||isChristmas)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }}>
-          Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas)?'#F5D060':C.rose }}>絆</span>
+          color:(isSeijin||isOtsukimi||isChristmas||isSummer)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }}>
+          Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas||isSummer)?'#F5D060':C.rose }}>絆</span>
         </h1>
         <p style={{ margin:'6px 0 0', fontSize:13,
           fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
           letterSpacing:'0.04em',
-          color:(isSeijin||isOtsukimi||isChristmas)?'#C8A040':C.muted }}>
+          color:(isSeijin||isOtsukimi||isChristmas||isSummer)?'#C8A040':C.muted }}>
           Today's Reflection
         </p>
       </div>
