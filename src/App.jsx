@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.05.26-23:58';
+const APP_VERSION = 'v2026.06.01-17:24';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -1648,7 +1648,7 @@ function HomeTab({ entries, onToggle, onCancel, onEdit, onDelete, userName, curr
               fontWeight:700, color:C.text,
               fontFamily:'Cormorant Garamond,serif', lineHeight:1,
               letterSpacing:'-0.01em' }}>
-              Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
+              Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas)?'#F5D060':C.rose }}>絆</span>
             </h1>
             {/* Tagline — fluid font sizes for all screen widths */}
             <p style={{ margin:'10px 0 0', fontSize:'clamp(14px, 4vw, 18px)',
@@ -4418,6 +4418,36 @@ function KodomoBackground() {
         ]);
         pg.add(new THREE.Line(bGeo,bMat));
       });
+
+      // ── Caudal fin (forked tail) ───────────────────────────────────────
+      const tailMat=new THREE.MeshStandardMaterial({
+        color:def.finC||0x888888, roughness:0.70,
+        side:THREE.DoubleSide, transparent:true, opacity:0.88
+      });
+      [1,-1].forEach(side=>{
+        const ts=new THREE.Shape();
+        ts.moveTo(def.L*0.90, 0);
+        ts.bezierCurveTo(def.L*0.98, def.tR*(1.4*side),
+                         def.L*1.10, def.tR*(2.8*side),
+                         def.L*1.24, def.tR*(2.3*side));
+        ts.bezierCurveTo(def.L*1.26, def.tR*(1.8*side),
+                         def.L*1.18, def.tR*(0.8*side),
+                         def.L*0.97, def.tR*(0.3*side));
+        ts.closePath();
+        const tm=new THREE.Mesh(new THREE.ShapeGeometry(ts,18),tailMat);
+        tm.rotation.y=-Math.PI/2; pg.add(tm);
+        // Fin rays
+        for(let ri=0;ri<5;ri++){
+          const rf=ri/4;
+          const rg=new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0,def.L*0.92,0),
+            new THREE.Vector3(0,def.L*(1.06+rf*0.16),def.tR*(0.5+rf*1.6)*side)
+          ]);
+          pg.add(new THREE.Line(rg,new THREE.LineBasicMaterial(
+            {color:def.finC||0x888888,transparent:true,opacity:0.40})));
+        }
+      });
+
       return {pivot,pg,geo,pts,seed:def.seed,yaw:(idx-2)*0.14,def};
     });
 
@@ -5805,7 +5835,9 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       onTouchEnd={handleTouchEnd}
       style={{
         position:'fixed', inset:0, zIndex:200,
-        background:`linear-gradient(160deg, ${C.bg} 0%, #F2EDE5 50%, #EDE4D8 100%)`,
+        background: isSummer
+          ? 'linear-gradient(160deg, #030805 0%, #020a04 50%, #010602 100%)'
+          : `linear-gradient(160deg, ${C.bg} 0%, #F2EDE5 50%, #EDE4D8 100%)`,
         display:'flex', flexDirection:'column',
         alignItems:'center', justifyContent:'center',
         padding:'32px 24px',
@@ -5850,12 +5882,13 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
-          color:C.text, letterSpacing:'0.02em', lineHeight:1 }}>
+          color:(isSeijin||isOtsukimi||isChristmas)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }}>
           Kizuna&thinsp;<span style={{ color:C.rose }}>絆</span>
         </h1>
         <p style={{ margin:'6px 0 0', fontSize:13, color:C.muted,
           fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
-          letterSpacing:'0.04em' }}>
+          letterSpacing:'0.04em',
+          color:(isSeijin||isOtsukimi||isChristmas)?'#C8A040':undefined }>
           Today's Reflection
         </p>
       </div>
