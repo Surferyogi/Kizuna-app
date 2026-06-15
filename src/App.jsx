@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.01-18:15';
+const APP_VERSION = 'v2026.06.16-01:09';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -4421,89 +4421,65 @@ function KodomoBackground() {
 
 
 
-      // ── Dynamic koi tail — two curved lobes attached to pg ───────────
-      // Built as a THREE.Group so we can reposition each frame
+      // --- Dynamic koi tail v2: deformable forked caudal fin ---------
+      // Two lobe membranes (upper +Z / lower -Z) built as regular grids so
+      // each vertex can ripple with a travelling wind wave + gravity sag.
+      // Rest geometry continues the body axis (+Y) and forks open in +/-Z.
       const tailFinMat = new THREE.MeshPhysicalMaterial({
-        color: def.finC||0x888888,
-        roughness: 0.65, metalness: 0,
+        color: def.finC || def.base || 0x888888,
+        roughness: 0.62, metalness: 0,
         side: THREE.DoubleSide,
-        transparent: true, opacity: 0.90,
-        sheen: 0.40, sheenRoughness: 0.50,
-        sheenColor: new THREE.Color(def.sheen||0xaaaaff),
+        transparent: true, opacity: 0.92,
+        sheen: 0.55, sheenRoughness: 0.45,
+        sheenColor: new THREE.Color(def.sheen || 0xaaaaff),
       });
       const tailGroup = new THREE.Group();
-      tailGroup.position.set(0, def.L, 0); // starts at tail end
+      tailGroup.position.set(0, def.L, 0); // base sits at the body tip
       pg.add(tailGroup);
 
-      // Each lobe: a large natural koi tail shape (wide fan, curved edges)
-      // The lobe lies in the local YZ plane (rotation.y = -PI/2 maps X→Z)
-      // Upper lobe (side=1) extends in +Z, lower (side=-1) in -Z
+      const TNL = 14, TNW = 6;                              // grid: length x width
+      const rBaseT = Math.max(0.02, pts[pts.length - 1].r * 1.05); // blend w/ tube
+      const LfT    = def.L * 0.55;                          // fin length
+      const WmaxT  = def.tR * 3.0;                          // outer half-spread at tip
+      const tailLobes = [];
       [1, -1].forEach(side => {
-        // Primary lobe — wide sweeping fan
-        const ls = new THREE.Shape();
-        const W  = def.tR * 3.2;  // max lobe width
-        const Lf = def.L  * 0.42; // lobe forward length
-        ls.moveTo(0, 0);
-        // sweeping upper edge
-        ls.bezierCurveTo(
-          Lf * 0.25, side * W * 0.55,
-          Lf * 0.65, side * W * 1.10,
-          Lf,        side * W * 0.85
-        );
-        // rounded tip
-        ls.bezierCurveTo(
-          Lf * 1.12, side * W * 0.60,
-          Lf * 1.08, side * W * 0.28,
-          Lf * 0.92, side * W * 0.10
-        );
-        // lower edge sweeps back to base
-        ls.bezierCurveTo(
-          Lf * 0.70, side * W * 0.06,
-          Lf * 0.30, side * W * 0.04,
-          0, 0
-        );
-        ls.closePath();
-
-        const lm = new THREE.Mesh(new THREE.ShapeGeometry(ls, 24), tailFinMat);
-        lm.rotation.y = -Math.PI / 2;
-        tailGroup.add(lm);
-
-        // Secondary inner lobe — shorter, adds volume
-        const is2 = new THREE.Shape();
-        is2.moveTo(0, 0);
-        is2.bezierCurveTo(
-          Lf * 0.20, side * W * 0.35,
-          Lf * 0.45, side * W * 0.68,
-          Lf * 0.65, side * W * 0.55
-        );
-        is2.bezierCurveTo(
-          Lf * 0.72, side * W * 0.40,
-          Lf * 0.60, side * W * 0.18,
-          Lf * 0.30, side * W * 0.05
-        );
-        is2.bezierCurveTo(Lf * 0.12, 0, 0, 0, 0, 0);
-        is2.closePath();
-
-        const im = new THREE.Mesh(new THREE.ShapeGeometry(is2, 16), tailFinMat.clone());
-        im.material.opacity = 0.60;
-        im.rotation.y = -Math.PI / 2;
-        tailGroup.add(im);
-
-        // Fin rays — 7 lines radiating from base across lobe
-        const rayMat = new THREE.LineBasicMaterial({
-          color: def.finC||0x888888, transparent:true, opacity:0.32
-        });
-        for (let ri = 0; ri < 7; ri++) {
-          const rf = ri / 6;
-          const rayGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, Lf*(0.5+rf*0.55), side*W*(0.25+rf*0.70))
-          ]);
-          tailGroup.add(new THREE.Line(rayGeo, rayMat));
+        const cols = TNL + 1, rowsW = TNW + 1, nv = cols * rowsW;
+        const posA = new Float32Array(nv * 3);
+        const nrmA = new Float32Array(nv * 3);
+        const uvA  = new Float32Array(nv * 2);
+        const rest = new Float32Array(nv * 3);   // rest positions (deform target)
+        const prm  = new Float32Array(nv * 2);   // (u,v) per vertex
+        for (let i = 0; i < cols; i++) {
+          const u = i / TNL;
+          const halfW = rBaseT + (WmaxT - rBaseT) * u;
+          for (let j = 0; j < rowsW; j++) {
+            const v  = j / TNW;
+            const vi = i * rowsW + j;
+            const Y  = LfT * u * (0.55 + 0.45 * v);  // outer edge longer -> fork notch
+            const Z  = side * halfW * v;
+            posA[vi*3]=0; posA[vi*3+1]=Y; posA[vi*3+2]=Z;
+            rest[vi*3]=0; rest[vi*3+1]=Y; rest[vi*3+2]=Z;
+            prm[vi*2]=u;  prm[vi*2+1]=v;
+          }
         }
+        const idxA = new Uint16Array(TNL * TNW * 6);
+        let pIdx = 0;
+        for (let i = 0; i < TNL; i++) for (let j = 0; j < TNW; j++) {
+          const a=i*rowsW+j, b=(i+1)*rowsW+j, c=i*rowsW+(j+1), d=(i+1)*rowsW+(j+1);
+          if (side > 0) { idxA[pIdx++]=a; idxA[pIdx++]=b; idxA[pIdx++]=c; idxA[pIdx++]=b; idxA[pIdx++]=d; idxA[pIdx++]=c; }
+          else          { idxA[pIdx++]=a; idxA[pIdx++]=c; idxA[pIdx++]=b; idxA[pIdx++]=b; idxA[pIdx++]=c; idxA[pIdx++]=d; }
+        }
+        const tGeo = new THREE.BufferGeometry();
+        tGeo.setAttribute('position', new THREE.BufferAttribute(posA, 3));
+        tGeo.setAttribute('normal',   new THREE.BufferAttribute(nrmA, 3));
+        tGeo.setAttribute('uv',       new THREE.BufferAttribute(uvA, 2));
+        tGeo.setIndex(new THREE.BufferAttribute(idxA, 1));
+        tGeo.computeVertexNormals();
+        tailGroup.add(new THREE.Mesh(tGeo, tailFinMat));
+        tailLobes.push({ geo: tGeo, rest: rest, prm: prm, side: side });
       });
 
-      return {pivot,pg,geo,pts,seed:def.seed,yaw:(idx-2)*0.14,def,tailGroup};
+      return {pivot,pg,geo,pts,seed:def.seed,yaw:(idx-2)*0.14,def,tailGroup,tailLobes};
     });
 
     // Resize
@@ -4528,21 +4504,42 @@ function KodomoBackground() {
         const {dx,dz}=computeDisp(cp.pts,T,windSpeed,cp.seed);
         updateBody(cp.geo,cp.pts,dx,dz);
         // ── Animate tail: follow body tip + flutter ────────────────────
-        if (cp.tailGroup) {
+        if (cp.tailGroup && cp.tailLobes) {
           const NR2 = cp.pts.length;
           const tipDx = dx[NR2-1], tipDz = dz[NR2-1];
-          // Tail base tracks the body tip
+          // Base tracks the body tip
           cp.tailGroup.position.set(tipDx, cp.def.L, tipDz);
-          // Tail flutter: rotate around Y-axis proportional to lateral sway
-          // + high-freq flutter so it looks like it's swimming
-          const prevDx = dx[Math.max(0,NR2-3)];
-          const lateralBend = (tipDx - prevDx) * 3.5;      // body curvature
-          const flutter = Math.sin(T * 4.8 + cp.seed) * windSpeed * 0.18;
-          const slowWave = Math.sin(T * 1.6 + cp.seed + 1.2) * windSpeed * 0.12;
-          cp.tailGroup.rotation.x = lateralBend + flutter + slowWave;
-          // Also tilt tail up/down with body droop
-          const prevDz = dz[Math.max(0,NR2-3)];
-          cp.tailGroup.rotation.z = (tipDz - prevDz) * 2.0;
+          // Continue the body's tip tangent (clamped) so the fin joins smoothly
+          const _dY = Math.max(1e-4, cp.pts[NR2-1].y - cp.pts[NR2-2].y);
+          const _cl = (x) => Math.max(-0.6, Math.min(0.6, x));
+          const slopeX = _cl((dx[NR2-1] - dx[NR2-2]) / _dY);
+          const slopeZ = _cl((dz[NR2-1] - dz[NR2-2]) / _dY);
+          cp.tailGroup.rotation.set(slopeZ, 0, -slopeX);
+          // World-down expressed in the fin's local frame -> true gravity sag
+          cp.tailGroup.updateWorldMatrix(true, false);
+          const _q = cp.tailGroup.getWorldQuaternion(new THREE.Quaternion()).invert();
+          const _down = new THREE.Vector3(0, -1, 0).applyQuaternion(_q);
+          // Wind-driven flutter grows toward the free tip; gravity lifts w/ wind
+          const _omega = 5.2, _lag = 2.4, _baseAmp = 0.012, _windAmp = 0.052;
+          const _sagMax = cp.def.L * 0.42, _windLift = 0.62;
+          const _sagF = _sagMax * (1 - Math.min(1, windSpeed * _windLift));
+          cp.tailLobes.forEach(lobe => {
+            const pa = lobe.geo.attributes.position.array;
+            const rest = lobe.rest, prm = lobe.prm, side = lobe.side;
+            const n = rest.length / 3;
+            for (let k = 0; k < n; k++) {
+              const u = prm[k*2], v = prm[k*2+1];
+              const phase = T * windSpeed * _omega - u * _lag + cp.seed + side * 0.6;
+              const amp   = (_baseAmp + windSpeed * _windAmp) * Math.pow(u, 1.3) * (0.7 + 0.5 * v);
+              const flutter = Math.sin(phase) * amp + Math.sin(phase * 2.3 + v * 1.7) * amp * 0.35;
+              const sag = _sagF * (u * u);
+              pa[k*3]   = rest[k*3]   + flutter             + _down.x * sag;
+              pa[k*3+1] = rest[k*3+1]                       + _down.y * sag;
+              pa[k*3+2] = rest[k*3+2] + flutter * 0.28 * side + _down.z * sag;
+            }
+            lobe.geo.attributes.position.needsUpdate = true;
+            lobe.geo.computeVertexNormals();
+          });
         }
       });
       w1.rotation.z+=0.0040; w2.rotation.z-=0.0029;
