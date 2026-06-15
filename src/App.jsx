@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.16-01:09';
+const APP_VERSION = 'v2026.06.16-01:20';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -6047,6 +6047,49 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
 // Verified: MOM.gov.sg (SG 2026), singaporeholiday.com.sg, publicholidays.jp.
 // Hari Raya dates subject to moon sighting (+/-1 day).
 const PUBLIC_HOLIDAYS = [
+  // --- Mother's Day (2nd Sun May) & Father's Day (3rd Sun Jun) | SG+JP | 2026-2035 ---
+  // Recurring festive days (not public holidays). Feed calendar grid, flight
+  // banners, and the Upcoming Festive list. Dates computed by Nth-Sunday rule.
+  {date:'2026-05-10',name:"Mother's Day",country:'SG'},
+  {date:'2026-05-10',name:"Mother's Day",country:'JP'},
+  {date:'2027-05-09',name:"Mother's Day",country:'SG'},
+  {date:'2027-05-09',name:"Mother's Day",country:'JP'},
+  {date:'2028-05-14',name:"Mother's Day",country:'SG'},
+  {date:'2028-05-14',name:"Mother's Day",country:'JP'},
+  {date:'2029-05-13',name:"Mother's Day",country:'SG'},
+  {date:'2029-05-13',name:"Mother's Day",country:'JP'},
+  {date:'2030-05-12',name:"Mother's Day",country:'SG'},
+  {date:'2030-05-12',name:"Mother's Day",country:'JP'},
+  {date:'2031-05-11',name:"Mother's Day",country:'SG'},
+  {date:'2031-05-11',name:"Mother's Day",country:'JP'},
+  {date:'2032-05-09',name:"Mother's Day",country:'SG'},
+  {date:'2032-05-09',name:"Mother's Day",country:'JP'},
+  {date:'2033-05-08',name:"Mother's Day",country:'SG'},
+  {date:'2033-05-08',name:"Mother's Day",country:'JP'},
+  {date:'2034-05-14',name:"Mother's Day",country:'SG'},
+  {date:'2034-05-14',name:"Mother's Day",country:'JP'},
+  {date:'2035-05-13',name:"Mother's Day",country:'SG'},
+  {date:'2035-05-13',name:"Mother's Day",country:'JP'},
+  {date:'2026-06-21',name:"Father's Day",country:'SG'},
+  {date:'2026-06-21',name:"Father's Day",country:'JP'},
+  {date:'2027-06-20',name:"Father's Day",country:'SG'},
+  {date:'2027-06-20',name:"Father's Day",country:'JP'},
+  {date:'2028-06-18',name:"Father's Day",country:'SG'},
+  {date:'2028-06-18',name:"Father's Day",country:'JP'},
+  {date:'2029-06-17',name:"Father's Day",country:'SG'},
+  {date:'2029-06-17',name:"Father's Day",country:'JP'},
+  {date:'2030-06-16',name:"Father's Day",country:'SG'},
+  {date:'2030-06-16',name:"Father's Day",country:'JP'},
+  {date:'2031-06-15',name:"Father's Day",country:'SG'},
+  {date:'2031-06-15',name:"Father's Day",country:'JP'},
+  {date:'2032-06-20',name:"Father's Day",country:'SG'},
+  {date:'2032-06-20',name:"Father's Day",country:'JP'},
+  {date:'2033-06-19',name:"Father's Day",country:'SG'},
+  {date:'2033-06-19',name:"Father's Day",country:'JP'},
+  {date:'2034-06-18',name:"Father's Day",country:'SG'},
+  {date:'2034-06-18',name:"Father's Day",country:'JP'},
+  {date:'2035-06-17',name:"Father's Day",country:'SG'},
+  {date:'2035-06-17',name:"Father's Day",country:'JP'},
   // ── Singapore ───────────────────────────────────────────
   // 2026
   {date:'2026-01-01',name:"New Year's Day",country:'SG'},
