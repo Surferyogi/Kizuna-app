@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.16-01:20';
+const APP_VERSION = 'v2026.06.16-01:36';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -2285,6 +2285,13 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                     <div style={{ position:'absolute', top:2, right:2,
                       width:6, height:6, borderRadius:3,
                       background: isPast ? C.F+'80' : C.F,
+                      boxShadow:`0 0 4px ${C.F}60` }} />
+                  )}
+                  {/* Upcoming-flight blue dot - normal view, any flight (either user), today or later */}
+                  {!showFlights && hasFlight && !isPast && !isSel && (
+                    <div style={{ position:'absolute', top:2, right:2,
+                      width:6, height:6, borderRadius:3,
+                      background: C.F,
                       boxShadow:`0 0 4px ${C.F}60` }} />
                   )}
                   {/* Holiday indicator dot */}
