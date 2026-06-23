@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.16-01:36';
+const APP_VERSION = 'v2026.06.23-09:27';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -3281,6 +3281,250 @@ function MomijiOverlay({ isVisible = true, intensity = 'medium' }) {
   );
 }
 
+// ─── HYDRANGEA OVERLAY — rainy-dusk ajisai (紫陽花), wind-blown rain ──────────
+function HydrangeaOverlay({ isVisible=true, zIndex=0 }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!isVisible) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx, staticLayer, rain = [], mist = [], animId = 0;
+
+    // twilight palette — indigo-violet hydrangea tones
+    const HYDRANGEA = [
+      { h:210, s:55, l:60 }, { h:224, s:45, l:52 },
+      { h:250, s:38, l:62 }, { h:266, s:40, l:58 },
+    ];
+    // clusters anchored to corners, clear of centre card
+    const CLUSTERS = [
+      { fx:0.13, fy:0.15, size:1.15, base:0 },
+      { fx:0.87, fy:0.84, size:1.20, base:1 },
+      { fx:0.09, fy:0.76, size:0.85, base:2 },
+      { fx:0.91, fy:0.18, size:0.82, base:3 },
+    ];
+
+    // ── draw one 4-petal hydrangea floret ──────────────────────────
+    function drawFloret(c, x, y, r, hsl) {
+      const col = `hsl(${hsl.h},${hsl.s}%,${hsl.l}%)`;
+      const dark = `hsl(${hsl.h},${hsl.s}%,${Math.max(hsl.l-18,10)}%)`;
+      // 4 petals at 0°/90°/180°/270°
+      for (let p = 0; p < 4; p++) {
+        const a = p / 4 * Math.PI * 2;
+        const px = x + Math.cos(a) * r * 0.55, py = y + Math.sin(a) * r * 0.55;
+        const pg = c.createRadialGradient(px, py, 0, px, py, r * 0.92);
+        pg.addColorStop(0, `hsl(${hsl.h},${hsl.s}%,${Math.min(hsl.l+12,92)}%)`);
+        pg.addColorStop(1, col);
+        c.fillStyle = pg;
+        c.beginPath();
+        c.ellipse(px, py, r * 0.72, r * 0.52, a, 0, Math.PI * 2);
+        c.fill();
+      }
+      // sepal outline
+      c.strokeStyle = dark; c.lineWidth = 0.6;
+      for (let p = 0; p < 4; p++) {
+        const a = p / 4 * Math.PI * 2;
+        c.beginPath();
+        c.ellipse(x + Math.cos(a)*r*0.55, y + Math.sin(a)*r*0.55, r*0.72, r*0.52, a, 0, Math.PI*2);
+        c.stroke();
+      }
+      // centre dot
+      const cg = c.createRadialGradient(x,y,0,x,y,r*0.28);
+      cg.addColorStop(0,'rgba(255,255,240,0.95)'); cg.addColorStop(1,col);
+      c.fillStyle = cg; c.beginPath(); c.arc(x, y, r*0.28, 0, Math.PI*2); c.fill();
+    }
+
+    // ── draw one leaf ───────────────────────────────────────────────
+    function drawLeaf(c, x, y, len, ang, col) {
+      c.save(); c.translate(x, y); c.rotate(ang);
+      c.beginPath();
+      c.moveTo(0, 0);
+      c.quadraticCurveTo(len*0.5, -len*0.34, len, 0);
+      c.quadraticCurveTo(len*0.5,  len*0.34, 0, 0);
+      c.fillStyle = col; c.fill();
+      c.strokeStyle = 'rgba(20,40,20,0.25)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(len, 0); c.stroke();
+      c.restore();
+    }
+
+    // ── draw one cluster: halo + leaves + dome of florets ──────────
+    function drawCluster(c, cx, cy, scale, baseIdx, glow) {
+      const unit = Math.min(VW, VH) * 0.16 * scale;
+      const base = HYDRANGEA[baseIdx];
+      // soft glow halo
+      const halo = c.createRadialGradient(cx, cy, unit*0.1, cx, cy, unit*1.15);
+      halo.addColorStop(0, `hsla(${base.h},${base.s}%,${base.l}%,${0.16*glow})`);
+      halo.addColorStop(1, `hsla(${base.h},${base.s}%,${base.l}%,0)`);
+      c.fillStyle = halo; c.beginPath(); c.arc(cx, cy, unit*1.15, 0, Math.PI*2); c.fill();
+      // leaves
+      const lc = 'hsl(120,26%,30%)';
+      drawLeaf(c, cx-unit*0.55, cy+unit*0.45, unit*0.80, 2.7, lc);
+      drawLeaf(c, cx+unit*0.45, cy+unit*0.55, unit*0.85, 0.5, lc);
+      drawLeaf(c, cx+unit*0.15, cy+unit*0.70, unit*0.70, 1.6, lc);
+      // dome of florets
+      const fr = unit * 0.16; let n = 0;
+      for (let ring = 0; ring < 4; ring++) {
+        const rr = unit * (0.18 + ring * 0.2), count = 4 + ring * 3;
+        for (let i = 0; i < count; i++) {
+          const a = (i / count) * Math.PI * 2 + ring * 0.5;
+          const fx = cx + Math.cos(a) * rr;
+          const fy = cy + Math.sin(a) * rr * 0.82 - unit * 0.05;
+          const hsl = HYDRANGEA[(baseIdx + ((n*7+ring) % HYDRANGEA.length)) % HYDRANGEA.length];
+          const jit = ((n*53) % 7) - 3;
+          drawFloret(c, fx, fy, fr, { h:hsl.h, s:hsl.s, l:hsl.l+jit });
+          n++;
+        }
+      }
+    }
+
+    // ── pre-render flowers to offscreen canvas ──────────────────────
+    function buildStatic() {
+      staticLayer = document.createElement('canvas');
+      staticLayer.width  = Math.round(VW*dpr);
+      staticLayer.height = Math.round(VH*dpr);
+      const c = staticLayer.getContext('2d');
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // rainy-dusk indigo sky
+      const g = c.createLinearGradient(0, 0, 0, VH);
+      g.addColorStop(0,   '#1a2747');
+      g.addColorStop(0.45,'#15203d');
+      g.addColorStop(1,   '#0c1730');
+      c.fillStyle = g; c.fillRect(0, 0, VW, VH);
+      // subtle horizon glow
+      const band = c.createLinearGradient(0, VH*0.18, 0, VH*0.6);
+      band.addColorStop(0, 'rgba(150,175,215,0)');
+      band.addColorStop(0.5,'rgba(150,175,215,0.06)');
+      band.addColorStop(1, 'rgba(150,175,215,0)');
+      c.fillStyle = band; c.fillRect(0, 0, VW, VH);
+      // draw 4 clusters
+      for (const cl of CLUSTERS) {
+        drawCluster(c, cl.fx*VW, cl.fy*VH, cl.size, cl.base, 1);
+      }
+    }
+
+    // ── seed rain drops ─────────────────────────────────────────────
+    function seedWeather() {
+      const drops = Math.round(Math.min(VW, 1100) / 5);
+      rain = Array.from({ length: drops }, () => {
+        const depth = Math.random();
+        return {
+          x:   -VW*0.15 + Math.random()*VW*1.3,
+          y:   Math.random()*VH,
+          len: 14 + depth*22,
+          v:   9  + depth*12,
+          w:   0.8 + depth*1.0,
+          a:   0.14 + depth*0.34,
+          jit: (Math.random()-0.5)*0.12,
+        };
+      });
+      mist = Array.from({ length: 3 }, (_, i) => ({
+        x: Math.random()*VW,
+        y: VH*(0.25 + i*0.22),
+        r: Math.min(VW, VH)*(0.3 + Math.random()*0.2),
+        v: 0.15 + Math.random()*0.2,
+      }));
+    }
+
+    // ── draw mist halos ─────────────────────────────────────────────
+    function drawMist() {
+      for (const m of mist) {
+        const mg = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+        mg.addColorStop(0, 'rgba(175,198,232,0.05)');
+        mg.addColorStop(1, 'rgba(175,198,232,0)');
+        ctx.fillStyle = mg;
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI*2); ctx.fill();
+        if (!reduce) { m.x += m.v; if (m.x - m.r > VW) m.x = -m.r; }
+      }
+    }
+
+    // ── draw rain — direction follows wind ──────────────────────────
+    function drawRain(wind) {
+      const lean = wind * 0.6;
+      ctx.strokeStyle = 'rgba(200,218,245,0.62)';
+      for (const d of rain) {
+        const vy = d.v, vx = vy * (lean + d.jit);
+        const vlen = Math.hypot(vx, vy) || 1;
+        const ux = vx/vlen, uy = vy/vlen;
+        ctx.lineWidth = d.w; ctx.globalAlpha = d.a;
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x - ux*d.len, d.y - uy*d.len);
+        ctx.stroke();
+        if (!reduce) {
+          d.x += vx; d.y += vy;
+          if (d.y > VH+d.len || d.x < -VW*0.2 || d.x > VW*1.2) {
+            d.y = -d.len - Math.random()*VH*0.2;
+            d.x = -VW*0.15 + Math.random()*VW*1.3;
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── setup / resize ──────────────────────────────────────────────
+    const setup = () => {
+      VW = window.innerWidth; VH = window.innerHeight;
+      canvas.width  = Math.round(VW*dpr);
+      canvas.height = Math.round(VH*dpr);
+      canvas.style.width  = VW+'px';
+      canvas.style.height = VH+'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildStatic();
+      seedWeather();
+    };
+
+    // ── render loop ─────────────────────────────────────────────────
+    const frame = (ts) => {
+      const t = ts / 1000;
+      // same gust model as Kodomo no Hi koinobori — tanh holds near extremes
+      const wind = reduce ? 0.3 : Math.tanh(Math.sin(t/7) * 3.5);
+      ctx.clearRect(0, 0, VW, VH);
+      // blit static flower layer
+      ctx.drawImage(staticLayer, 0, 0, VW, VH);
+      drawMist();
+      // clusters breathe gently in the wind
+      const windBias = wind * (Math.min(VW,VH) * 0.004);
+      for (const cl of CLUSTERS) {
+        const sway   = reduce ? windBias : Math.sin(t*0.6 + cl.base)*(Math.min(VW,VH)*0.005) + windBias;
+        const pulse  = 0.85 + (reduce ? 0.15 : 0.15*Math.sin(t*0.9 + cl.base*1.4));
+        // redraw halo + gently displaced cluster centre each frame
+        const cx = cl.fx*VW + sway, cy = cl.fy*VH;
+        const unit = Math.min(VW,VH)*0.16*cl.size;
+        const base = HYDRANGEA[cl.base];
+        const halo = ctx.createRadialGradient(cx, cy, unit*0.1, cx, cy, unit*1.15);
+        halo.addColorStop(0, `hsla(${base.h},${base.s}%,${base.l}%,${0.10*pulse})`);
+        halo.addColorStop(1, `hsla(${base.h},${base.s}%,${base.l}%,0)`);
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(cx, cy, unit*1.15, 0, Math.PI*2); ctx.fill();
+      }
+      drawRain(wind);
+      animId = requestAnimationFrame(frame);
+    };
+
+    setup();
+    window.addEventListener('resize', setup);
+    animId = requestAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', setup);
+    };
+  }, [isVisible]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed', inset: 0,
+        width: '100vw', height: '100vh',
+        display: 'block', pointerEvents: 'none',
+        zIndex,
+      }}
+    />
+  );
+}
+
 // ─── HOTARU OVERLAY — elegant colorful fireflies, no trail ──────────────────
 function HotaruOverlay({ isVisible=true, count=22, zIndex=9999 }) {
   const canvasRef = useRef(null);
@@ -5869,7 +6113,7 @@ function WinterSnowBackground() {
   }}/>;
 }
 
-function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
+function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, sceneOverride }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   const [swiping,     setSwiping]     = useState(false);
@@ -5892,6 +6136,14 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
   const isAutumn      = season === 'autumn';
   const isSummer      = season === 'summer';
   const isWinter      = season === 'winter';
+      // ── Summer scene by date window ─────────────────────────────────────
+      // Jun 15–Jul 31 → hydrangea (tsuyu rainy season)
+      // Jun 01–14 + Aug → fireflies
+      const _qd = new Date();
+      const _qm   = _qd.getMonth();   // 0-based: 5=Jun, 6=Jul, 7=Aug
+      const _qday = _qd.getDate();
+      const summerScene = sceneOverride
+        || (((_qm === 5 && _qday >= 15) || _qm === 6) ? 'hydrangea' : 'firefly');
   const label         = quoteData?.label?.toLowerCase() || '';
   const isBirthday    = label.includes('birthday');
   const isAnniversary = label.includes('anniversary');
@@ -5933,7 +6185,11 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride }) {
       {!isOtsukimi && !isChristmas && isAnniversary && !isBirthday && <AnniversaryBackground />}
       {!isOtsukimi && !isChristmas && isBirthday    && !isAnniversary && <BirthdayBackground />}
       {/* Seasonal backgrounds — only when no special occasion */}
-      {!hasSpecialBg && !isOtsukimi && isSummer && <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />}
+      {!hasSpecialBg && !isOtsukimi && isSummer && (
+        summerScene === 'hydrangea'
+          ? <HydrangeaOverlay isVisible zIndex={0} />
+          : <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />
+      )}
       {!hasSpecialBg && !isOtsukimi && isWinter && <WinterSnowBackground />}
       {!hasSpecialBg && !isOtsukimi && isAutumn && <MomijiOverlay isVisible intensity="medium" />}
 
