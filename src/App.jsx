@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.23-09:27';
+const APP_VERSION = 'v2026.06.28-16:22';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -2513,7 +2513,7 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                         color:accentColor }}>{h.name}</span>
                       <span style={{ fontSize:11, color:C.muted, marginLeft:6 }}>
                         {h.countries.length > 1 ? h.countries.map(x=>({'SG':'Singapore','JP':'Japan','FR':'France'}[x]||x)).join(' & ') : ({'SG':'Singapore','JP':'Japan','FR':'France'}[h.countries[0]]||h.countries[0])}
-                        {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' · Public Holiday'}
+                        {h.name!=="Mother's Day" && h.name!=="Father's Day" && h.name!=="Tanabata" && h.name!=="Obon" && ' · Public Holiday'}
                         {info && !isExpanded && <span style={{ color:C.rose }}> · Tap</span>}
                       </span>
                     </div>
@@ -3278,6 +3278,277 @@ function MomijiOverlay({ isVisible = true, intensity = 'medium' }) {
       <canvas ref={bgRef} style={{ ...s, filter:'blur(1.5px)', opacity:0.85 }} />
       <canvas ref={fgRef} style={s} />
     </>
+  );
+}
+
+// ─── TANABATA OVERLAY — 七夕 star-festival night (Amanogawa · Orihime & Hikoboshi) ──
+function TanabataOverlay({ isVisible=true, zIndex=0 }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!isVisible) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx, staticLayer, animId = 0, last = 0;
+    let stars = [], mwDots = [], mwGlow = [], bridge = [];
+    let bamboo = [], tanzaku = [], streamers = [], wishes = [];
+    let orihime = null, hikoboshi = null;
+    let shoot = null, nextShoot = 3;
+
+    // shared gust model — identical to Kodomo no Hi & Hydrangea
+    const wind  = (t, phase) => Math.tanh(Math.sin(t/7 + (phase||0)) * 3.5);
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+    // five traditional tanzaku colours (goshiki) + two festive extras
+    const TANZAKU_COLS = ['#3fae6b','#e8504e','#f2c14e','#f3efe2','#9b72cf','#ef88b3','#4f9fe0'];
+
+    function makeBranch(x0, y0, x1, y1, sx) {
+      const cx = x0 + (x1 - x0) * 0.5;
+      const cy = y0 + (y1 - y0) * 0.5 - Math.min(VW, VH) * 0.06;
+      const pts = [], leaves = [], hangs = [], seg = 26;
+      for (let i = 0; i <= seg; i++) {
+        const u = i / seg;
+        pts.push({ x: (1-u)*(1-u)*x0 + 2*(1-u)*u*cx + u*u*x1,
+                   y: (1-u)*(1-u)*y0 + 2*(1-u)*u*cy + u*u*y1 });
+      }
+      for (let i = 3; i < seg; i += 3) {
+        const p = pts[i], q = pts[i+1] || pts[i];
+        const ang = Math.atan2(q.y - p.y, q.x - p.x);
+        const nLeaf = 2 + (i % 2);
+        for (let j = 0; j < nLeaf; j++)
+          leaves.push({ x: p.x, y: p.y, ang: ang + sx*(0.5 + j*0.55) - 0.3,
+                        len: Math.min(VW,VH)*(0.05 + Math.random()*0.035) });
+        if (i % 2 === 0 && i > 3 && i < seg - 2) hangs.push({ x: p.x, y: p.y + 2 });
+      }
+      return { pts, leaves, hangs, sx };
+    }
+
+    function buildScene() {
+      const minWH = Math.min(VW, VH);
+      const starN = Math.min(190, Math.round((VW*VH)/8600));
+      stars = Array.from({ length: starN }, () => {
+        const tint = Math.random();
+        return { x: Math.random()*VW, y: Math.random()*VH*0.92, r: 0.4+Math.random()*1.5,
+          base: 0.30+Math.random()*0.6, sp: 0.6+Math.random()*1.8, ph: Math.random()*Math.PI*2,
+          col: tint<0.7?'255,255,255':(tint<0.85?'207,224,255':'255,240,205') };
+      });
+      const A = { x: VW*0.03, y: VH*0.15 }, B = { x: VW*0.99, y: VH*0.50 };
+      const L = Math.hypot(B.x-A.x, B.y-A.y);
+      const dir = { x:(B.x-A.x)/L, y:(B.y-A.y)/L };
+      const nrm = { x:-dir.y, y:dir.x };
+      const half = minWH*0.135;
+      const mwN = Math.min(460, Math.round(VW/2.6));
+      mwDots = Array.from({ length: mwN }, () => {
+        const tt = Math.random(), off = gauss()*half;
+        const near = 1 - Math.min(Math.abs(off)/half, 1), tint = Math.random();
+        return { x: A.x+dir.x*L*tt+nrm.x*off, y: A.y+dir.y*L*tt+nrm.y*off,
+          r:0.4+Math.random()*1.3, a:(0.12+near*0.55)*(0.5+Math.random()*0.5),
+          sp:0.5+Math.random()*1.6, ph:Math.random()*Math.PI*2,
+          col: tint<0.6?'255,255,255':(tint<0.8?'200,210,255':'228,205,255') };
+      });
+      const glowCols = ['150,172,255','200,176,255','255,186,214','176,200,255'];
+      mwGlow = [];
+      for (let i = 0; i < 9; i++) {
+        const tt = i/8, off = gauss()*half*0.5;
+        mwGlow.push({ x:A.x+dir.x*L*tt+nrm.x*off, y:A.y+dir.y*L*tt+nrm.y*off,
+          r:half*(1.8+Math.random()*1.0), col:glowCols[i%glowCols.length], a:0.05+Math.random()*0.045 });
+      }
+      const onAxis = (tt, m) => ({ x:A.x+dir.x*L*tt+nrm.x*half*m, y:A.y+dir.y*L*tt+nrm.y*half*m });
+      const oP = onAxis(0.31, 1.9), hP = onAxis(0.69, -1.9);
+      orihime   = { x:oP.x, y:oP.y, col:'175,205,255', label:'織姫', romaji:'Orihime · Vega', r:3.2 };
+      hikoboshi = { x:hP.x, y:hP.y, col:'255,238,205', label:'彦星', romaji:'Hikoboshi · Altair', r:3.0 };
+      bridge = [];
+      const bN = 22, mid = { x:(oP.x+hP.x)/2, y:(oP.y+hP.y)/2 - minWH*0.10 };
+      for (let i = 0; i <= bN; i++) {
+        const u = i/bN;
+        bridge.push({ x:(1-u)*(1-u)*oP.x+2*(1-u)*u*mid.x+u*u*hP.x,
+                      y:(1-u)*(1-u)*oP.y+2*(1-u)*u*mid.y+u*u*hP.y, ph:u*7 });
+      }
+      bamboo = [ makeBranch(-VW*0.02,-VH*0.03,VW*0.30,VH*0.20,1),
+                 makeBranch(VW*1.02,-VH*0.03,VW*0.70,VH*0.20,-1) ];
+      tanzaku = []; let ci = 0;
+      bamboo.forEach(br => br.hangs.forEach(p => {
+        const len = minWH*(0.085+Math.random()*0.05);
+        tanzaku.push({ ax:p.x, ay:p.y, thread:minWH*(0.02+Math.random()*0.025), w:len*0.30, h:len,
+          col:TANZAKU_COLS[ci%TANZAKU_COLS.length], ph:Math.random()*Math.PI*2, amp:0.10+Math.random()*0.10 });
+        ci++;
+      }));
+      streamers = [];
+      [{x:VW*0.18,y:VH*0.045},{x:VW*0.82,y:VH*0.045}].forEach((a,k) => {
+        streamers.push({ x:a.x, y:a.y, len:minWH*(0.16+Math.random()*0.05),
+          ribs:[TANZAKU_COLS[(k*2)%7],TANZAKU_COLS[(k*2+2)%7],TANZAKU_COLS[(k*2+4)%7],TANZAKU_COLS[(k*2+6)%7]],
+          ph:Math.random()*Math.PI*2 });
+      });
+      const wN = reduce ? 14 : Math.min(34, Math.round(VW/30));
+      wishes = Array.from({ length: wN }, () => ({ x:Math.random()*VW, y:VH*(0.5+Math.random()*0.6),
+        r:1.0+Math.random()*1.8, vy:0.18+Math.random()*0.42, drift:0.2+Math.random()*0.5,
+        ph:Math.random()*Math.PI*2, sp:0.8+Math.random()*1.6, warm:Math.random()<0.78 }));
+    }
+
+    function buildStatic() {
+      staticLayer = document.createElement('canvas');
+      staticLayer.width = Math.round(VW*dpr); staticLayer.height = Math.round(VH*dpr);
+      const c = staticLayer.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
+      const g = c.createLinearGradient(0,0,0,VH);
+      g.addColorStop(0.00,'#05071c'); g.addColorStop(0.35,'#0d1338');
+      g.addColorStop(0.70,'#172052'); g.addColorStop(1.00,'#241a46');
+      c.fillStyle = g; c.fillRect(0,0,VW,VH);
+      c.globalCompositeOperation = 'lighter';
+      for (const b of mwGlow) {
+        const rg = c.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+        rg.addColorStop(0,'rgba('+b.col+','+b.a.toFixed(3)+')');
+        rg.addColorStop(1,'rgba('+b.col+',0)');
+        c.fillStyle = rg; c.beginPath(); c.arc(b.x,b.y,b.r,0,Math.PI*2); c.fill();
+      }
+      c.globalCompositeOperation = 'source-over';
+    }
+
+    function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y);
+      c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+      c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+
+    function drawDots(t){
+      ctx.globalCompositeOperation='lighter';
+      for (const d of mwDots){ const tw = reduce?1:(0.6+0.4*Math.sin(t*d.sp+d.ph));
+        ctx.fillStyle='rgba('+d.col+','+(d.a*tw).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.fill(); }
+      ctx.globalCompositeOperation='source-over';
+    }
+    function drawStars(t){
+      for (const s of stars){ const tw = reduce?s.base:s.base*(0.45+0.55*Math.sin(t*s.sp+s.ph));
+        ctx.fillStyle='rgba('+s.col+','+Math.max(tw,0).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+    }
+    function drawCentreDim(){
+      const g = ctx.createRadialGradient(VW*0.5,VH*0.54,0,VW*0.5,VH*0.54,Math.min(VW,VH)*0.85);
+      g.addColorStop(0,'rgba(5,8,26,0.34)'); g.addColorStop(0.55,'rgba(5,8,26,0.14)'); g.addColorStop(1,'rgba(5,8,26,0)');
+      ctx.fillStyle = g; ctx.fillRect(0,0,VW,VH);
+    }
+    function drawBridge(t){
+      ctx.globalCompositeOperation='lighter';
+      for (const p of bridge){ const a = 0.10+0.22*(0.5+0.5*Math.sin(t*1.6 - p.ph));
+        ctx.fillStyle='rgba(255,246,214,'+a.toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(p.x,p.y,0.9,0,Math.PI*2); ctx.fill(); }
+      ctx.globalCompositeOperation='source-over';
+    }
+    function drawNamedStar(st,t){
+      const pulse = reduce?1:(0.78+0.22*Math.sin(t*1.4)), R = st.r*pulse;
+      const halo = ctx.createRadialGradient(st.x,st.y,0,st.x,st.y,R*8);
+      halo.addColorStop(0,'rgba('+st.col+',0.55)'); halo.addColorStop(0.3,'rgba('+st.col+',0.18)'); halo.addColorStop(1,'rgba('+st.col+',0)');
+      ctx.fillStyle=halo; ctx.beginPath(); ctx.arc(st.x,st.y,R*8,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba('+st.col+',0.7)'; ctx.lineWidth=1; const gl=R*6;
+      ctx.beginPath(); ctx.moveTo(st.x-gl,st.y); ctx.lineTo(st.x+gl,st.y); ctx.moveTo(st.x,st.y-gl); ctx.lineTo(st.x,st.y+gl); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(st.x,st.y,R,0,Math.PI*2); ctx.fill();
+      ctx.textAlign='center';
+      ctx.fillStyle='rgba('+st.col+',0.85)'; ctx.font="600 15px 'Hiragino Sans','Noto Sans JP',sans-serif"; ctx.fillText(st.label, st.x, st.y - R*8 - 8);
+      ctx.fillStyle='rgba(210,222,255,0.5)'; ctx.font='500 10px -apple-system,sans-serif'; ctx.fillText(st.romaji, st.x, st.y + R*8 + 16);
+      ctx.textAlign='left';
+    }
+    function drawShoot(t,dt){
+      if (!shoot){ nextShoot -= dt; if (nextShoot<=0 && !reduce){ const fromLeft=Math.random()<0.5;
+        shoot={ x:fromLeft?-40:VW+40, y:VH*(0.06+Math.random()*0.3), vx:(fromLeft?1:-1)*(VW*0.55+Math.random()*VW*0.25), vy:VH*(0.12+Math.random()*0.1), life:0, max:0.9+Math.random()*0.4 };
+        nextShoot=5+Math.random()*7; } return; }
+      shoot.life+=dt; shoot.x+=shoot.vx*dt; shoot.y+=shoot.vy*dt;
+      const k=1-shoot.life/shoot.max;
+      if (k<=0 || shoot.x<-80 || shoot.x>VW+80){ shoot=null; return; }
+      const len=90, ang=Math.atan2(shoot.vy,shoot.vx);
+      const tx=shoot.x-Math.cos(ang)*len, ty=shoot.y-Math.sin(ang)*len;
+      const grad=ctx.createLinearGradient(shoot.x,shoot.y,tx,ty);
+      grad.addColorStop(0,'rgba(255,255,255,'+(0.9*k).toFixed(3)+')'); grad.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(shoot.x,shoot.y); ctx.lineTo(tx,ty); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,'+k.toFixed(3)+')'; ctx.beginPath(); ctx.arc(shoot.x,shoot.y,1.8,0,Math.PI*2); ctx.fill();
+    }
+    function drawStreamers(t){
+      for (const s of streamers){
+        const bg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,9);
+        bg.addColorStop(0,'rgba(255,236,180,0.95)'); bg.addColorStop(1,'rgba(240,190,120,0.7)');
+        ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(s.x,s.y,8,0,Math.PI*2); ctx.fill();
+        const rN=s.ribs.length;
+        for (let r=0;r<rN;r++){ const baseX=s.x+(r-(rN-1)/2)*5; ctx.strokeStyle=s.ribs[r]; ctx.lineWidth=3.4; ctx.lineCap='round';
+          ctx.beginPath(); const steps=16;
+          for (let i=0;i<=steps;i++){ const u=i/steps, yy=s.y+8+u*s.len;
+            const wv = reduce?0:Math.sin(u*6+t*1.8+s.ph+r)*(6*u)*(0.5+0.5*Math.abs(wind(t,s.ph)));
+            const xx=baseX+wv; if(i===0)ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy); }
+          ctx.stroke(); }
+      }
+    }
+    function drawBamboo(t){
+      for (const br of bamboo){
+        const swayBase = reduce?0:wind(t,br.sx)*(Math.min(VW,VH)*0.006);
+        for (const lf of br.leaves){
+          const fl = reduce?0:Math.sin(t*1.3+lf.x*0.01)*0.10;
+          ctx.save(); ctx.translate(lf.x+swayBase, lf.y); ctx.rotate(lf.ang+fl);
+          const lg=ctx.createLinearGradient(0,0,lf.len,0); lg.addColorStop(0,'#2f6b3c'); lg.addColorStop(1,'#4f9a55');
+          ctx.fillStyle=lg; ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(lf.len*0.5,-lf.len*0.14,lf.len,0); ctx.quadraticCurveTo(lf.len*0.5,lf.len*0.14,0,0); ctx.fill();
+          ctx.strokeStyle='rgba(20,50,25,0.4)'; ctx.lineWidth=0.8; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(lf.len,0); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.strokeStyle='#37663f'; ctx.lineWidth=Math.max(2.4,Math.min(VW,VH)*0.006); ctx.lineCap='round';
+        ctx.beginPath(); br.pts.forEach((p,i)=>{ const sx=p.x+swayBase*(i/br.pts.length); if(i===0)ctx.moveTo(sx,p.y); else ctx.lineTo(sx,p.y); }); ctx.stroke();
+        ctx.strokeStyle='rgba(28,58,34,0.8)'; ctx.lineWidth=1.4;
+        for (let i=4;i<br.pts.length;i+=4){ const p=br.pts[i]; ctx.beginPath(); ctx.arc(p.x+swayBase*(i/br.pts.length),p.y,ctx.lineWidth+1.5,0,Math.PI*2); ctx.stroke(); }
+      }
+    }
+    function drawTanzaku(t){
+      for (const z of tanzaku){
+        const ang=(reduce?0.05:wind(t,z.ph)*z.amp)+Math.sin(t*0.9+z.ph)*0.03;
+        const tipX=z.ax+Math.sin(ang)*z.thread, tipY=z.ay+Math.cos(ang)*z.thread;
+        ctx.strokeStyle='rgba(230,235,255,0.35)'; ctx.lineWidth=0.8; ctx.beginPath(); ctx.moveTo(z.ax,z.ay); ctx.lineTo(tipX,tipY); ctx.stroke();
+        ctx.save(); ctx.translate(tipX,tipY); ctx.rotate(ang);
+        ctx.fillStyle=z.col; roundRect(ctx,-z.w/2,0,z.w,z.h,2); ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.22)'; roundRect(ctx,-z.w/2,0,z.w,z.h*0.16,2); ctx.fill();
+        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=0.7;
+        for (let k=1;k<=3;k++){ const yy=z.h*(0.3+k*0.18); ctx.beginPath(); ctx.moveTo(-z.w*0.22,yy); ctx.lineTo(z.w*0.22,yy); ctx.stroke(); }
+        ctx.restore();
+      }
+    }
+    function drawWishes(t){
+      ctx.globalCompositeOperation='lighter';
+      for (const w of wishes){
+        const tw=0.4+0.6*Math.abs(Math.sin(t*w.sp+w.ph));
+        const col=w.warm?'255,226,150':'200,220,255';
+        const g=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,w.r*4);
+        g.addColorStop(0,'rgba('+col+','+(0.85*tw).toFixed(3)+')'); g.addColorStop(1,'rgba('+col+',0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(w.x,w.y,w.r*4,0,Math.PI*2); ctx.fill();
+        if (!reduce){ w.y-=w.vy; w.x+=Math.sin(t*0.8+w.ph)*w.drift*0.4; if (w.y<-12){ w.y=VH+12; w.x=Math.random()*VW; } }
+      }
+      ctx.globalCompositeOperation='source-over';
+    }
+
+    const setup = () => {
+      VW = window.innerWidth; VH = window.innerHeight;
+      canvas.width = Math.round(VW*dpr); canvas.height = Math.round(VH*dpr);
+      canvas.style.width = VW+'px'; canvas.style.height = VH+'px';
+      ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+      buildScene(); buildStatic();
+    };
+    const frame = (ts) => {
+      const t = ts/1000, dt = Math.min(0.05, last?t-last:0.016); last = t;
+      ctx.clearRect(0,0,VW,VH);
+      ctx.drawImage(staticLayer, 0, 0, VW, VH);
+      drawDots(t); drawStars(t); drawCentreDim(); drawBridge(t);
+      drawNamedStar(orihime,t); drawNamedStar(hikoboshi,t);
+      drawShoot(t,dt); drawStreamers(t); drawBamboo(t); drawTanzaku(t); drawWishes(t);
+      animId = requestAnimationFrame(frame);
+    };
+
+    setup();
+    window.addEventListener('resize', setup);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', setup); };
+  }, [isVisible]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed', inset: 0,
+        width: '100vw', height: '100vh',
+        display: 'block', pointerEvents: 'none',
+        zIndex,
+      }}
+    />
   );
 }
 
@@ -6143,7 +6414,8 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
       const _qm   = _qd.getMonth();   // 0-based: 5=Jun, 6=Jul, 7=Aug
       const _qday = _qd.getDate();
       const summerScene = sceneOverride
-        || (((_qm === 5 && _qday >= 15) || _qm === 6) ? 'hydrangea' : 'firefly');
+        || ((_qm === 6 && _qday >= 1 && _qday <= 7) ? 'tanabata'
+           : (((_qm === 5 && _qday >= 15) || _qm === 6) ? 'hydrangea' : 'firefly'));
   const label         = quoteData?.label?.toLowerCase() || '';
   const isBirthday    = label.includes('birthday');
   const isAnniversary = label.includes('anniversary');
@@ -6186,7 +6458,9 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
       {!isOtsukimi && !isChristmas && isBirthday    && !isAnniversary && <BirthdayBackground />}
       {/* Seasonal backgrounds — only when no special occasion */}
       {!hasSpecialBg && !isOtsukimi && isSummer && (
-        summerScene === 'hydrangea'
+        summerScene === 'tanabata'
+          ? <TanabataOverlay isVisible zIndex={0} />
+          : summerScene === 'hydrangea'
           ? <HydrangeaOverlay isVisible zIndex={0} />
           : <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />
       )}
@@ -6353,6 +6627,47 @@ const PUBLIC_HOLIDAYS = [
   {date:'2034-06-18',name:"Father's Day",country:'JP'},
   {date:'2035-06-17',name:"Father's Day",country:'SG'},
   {date:'2035-06-17',name:"Father's Day",country:'JP'},
+  // ── Japanese festive days (not public holidays) — Tanabata 七夕 (Jul 7) & Obon お盆 (Aug 13–15) ──
+  {date:'2026-07-07',name:'Tanabata',country:'JP'},
+  {date:'2027-07-07',name:'Tanabata',country:'JP'},
+  {date:'2028-07-07',name:'Tanabata',country:'JP'},
+  {date:'2029-07-07',name:'Tanabata',country:'JP'},
+  {date:'2030-07-07',name:'Tanabata',country:'JP'},
+  {date:'2031-07-07',name:'Tanabata',country:'JP'},
+  {date:'2032-07-07',name:'Tanabata',country:'JP'},
+  {date:'2033-07-07',name:'Tanabata',country:'JP'},
+  {date:'2034-07-07',name:'Tanabata',country:'JP'},
+  {date:'2035-07-07',name:'Tanabata',country:'JP'},
+  {date:'2026-08-13',name:'Obon',country:'JP'},
+  {date:'2026-08-14',name:'Obon',country:'JP'},
+  {date:'2026-08-15',name:'Obon',country:'JP'},
+  {date:'2027-08-13',name:'Obon',country:'JP'},
+  {date:'2027-08-14',name:'Obon',country:'JP'},
+  {date:'2027-08-15',name:'Obon',country:'JP'},
+  {date:'2028-08-13',name:'Obon',country:'JP'},
+  {date:'2028-08-14',name:'Obon',country:'JP'},
+  {date:'2028-08-15',name:'Obon',country:'JP'},
+  {date:'2029-08-13',name:'Obon',country:'JP'},
+  {date:'2029-08-14',name:'Obon',country:'JP'},
+  {date:'2029-08-15',name:'Obon',country:'JP'},
+  {date:'2030-08-13',name:'Obon',country:'JP'},
+  {date:'2030-08-14',name:'Obon',country:'JP'},
+  {date:'2030-08-15',name:'Obon',country:'JP'},
+  {date:'2031-08-13',name:'Obon',country:'JP'},
+  {date:'2031-08-14',name:'Obon',country:'JP'},
+  {date:'2031-08-15',name:'Obon',country:'JP'},
+  {date:'2032-08-13',name:'Obon',country:'JP'},
+  {date:'2032-08-14',name:'Obon',country:'JP'},
+  {date:'2032-08-15',name:'Obon',country:'JP'},
+  {date:'2033-08-13',name:'Obon',country:'JP'},
+  {date:'2033-08-14',name:'Obon',country:'JP'},
+  {date:'2033-08-15',name:'Obon',country:'JP'},
+  {date:'2034-08-13',name:'Obon',country:'JP'},
+  {date:'2034-08-14',name:'Obon',country:'JP'},
+  {date:'2034-08-15',name:'Obon',country:'JP'},
+  {date:'2035-08-13',name:'Obon',country:'JP'},
+  {date:'2035-08-14',name:'Obon',country:'JP'},
+  {date:'2035-08-15',name:'Obon',country:'JP'},
   // ── Singapore ───────────────────────────────────────────
   // 2026
   {date:'2026-01-01',name:"New Year's Day",country:'SG'},
@@ -6748,6 +7063,15 @@ const HC_LIGHT = { SG:'#FEE8EA', JP:'#FBE8E8', FR:'#E8EFF8' };
 // ─── HOLIDAY WRITEUPS ─────────────────────────────────────────────
 // Short, interesting history/origin for each SG and JP public holiday.
 const HOLIDAY_INFO = {
+  // ── Japanese festive days ──
+  "Tanabata": {
+    country:'JP',
+    text: "Tanabata (七夕), the Star Festival, celebrates the once-a-year reunion of the weaver star Orihime (Vega) and the cowherd Hikoboshi (Altair), lovers kept apart by the Milky Way. People write wishes on colourful tanzaku strips and tie them to bamboo branches. Brought from China's Qixi festival in the 8th century, it is one of Japan's five seasonal sekku."
+  },
+  "Obon": {
+    country:'JP',
+    text: "Obon (お盆) is a Buddhist observance honouring ancestral spirits, believed to return home for these days. Families clean graves, light welcoming and farewell fires (mukaebi and okuribi), and dance the bon odori. Though not a public holiday, mid-August Obon (around the 13th–15th) is one of Japan's three great travel seasons, alongside New Year and Golden Week."
+  },
   // ── Singapore ─────────────────────────────────────────────────
   "New Year's Day": {
     country:'SG',
@@ -7284,7 +7608,7 @@ function SearchTab({ entries, onToggle, onCancel, onEdit, onDelete, currentUserI
                                 color:accentColor }}>{h.name}</p>
                               <p style={{ margin:0, fontSize:12, color:C.muted }}>
                                 {h.countries.length > 1 ? h.countries.map(x=>({'SG':'Singapore','JP':'Japan','FR':'France'}[x]||x)).join(' & ') : ({'SG':'Singapore','JP':'Japan','FR':'France'}[h.countries[0]]||h.countries[0])}
-                                {h.name!=="Mother's Day" && h.name!=="Father's Day" && ' · Public Holiday'}
+                                {h.name!=="Mother's Day" && h.name!=="Father's Day" && h.name!=="Tanabata" && h.name!=="Obon" && ' · Public Holiday'}
                                 {info && <span style={{ color:C.rose }}> · Tap to learn more</span>}
                               </p>
                             </div>
@@ -8134,6 +8458,7 @@ const OCCASION_DEMOS = [
   { label:"🎏 Kodomo no Hi",  quote:{ quote:"Children do not need to be made to grow — they need space, wonder, and someone steady enough to catch them when they fall.", label:"Kodomo no Hi · Children's Day", isSpecial:true } },
   { label:"👘 Seijin no Hi",  quote:{ quote:"Today you cross the threshold — not because you are certain, but because you are ready to become someone who can grow certain.", label:"Seijin no Hi · Coming of Age Day", isSpecial:true } },
   { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
+  { label:"🎋 Tanabata",    quote:{ quote:"Once a year the celestial lovers cross the river of stars to meet — a reminder that love, given time, always finds its way home.", label:"Tanabata · 七夕 Star Festival", isSpecial:true }, season:'summer', scene:'tanabata' },
   { label:"🎄 Christmas",   quote:{ quote:"Christmas is not a time nor a season, but a state of mind. To cherish peace and goodwill, to be plenteous in mercy, is to have the real spirit of Christmas.", label:"Christmas Day · Special Quote", isSpecial:true } },
   { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
   { label:"🌸 Mother's Day", quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
@@ -8144,19 +8469,23 @@ const OCCASION_DEMOS = [
 function DevOccasionTester() {
   const C = useContext(ThemeContext);
   const [testQuote, setTestQuote] = useState(null);
+  const [testSeason, setTestSeason] = useState(null);
+  const [testScene, setTestScene] = useState(null);
   return (
     <>
       {testQuote && (
         <DailyQuoteScreen
           quoteData={testQuote}
           loading={false}
-          onDismiss={() => setTestQuote(null)}
+          seasonOverride={testSeason}
+          sceneOverride={testScene}
+          onDismiss={() => { setTestQuote(null); setTestSeason(null); setTestScene(null); }}
         />
       )}
       <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-        {OCCASION_DEMOS.map(({ label, quote }) => (
+        {OCCASION_DEMOS.map(({ label, quote, season, scene }) => (
           <button key={label}
-            onClick={() => setTestQuote(quote)}
+            onClick={() => { setTestQuote(quote); setTestSeason(season||null); setTestScene(scene||null); }}
             style={{ padding:'9px 12px', borderRadius:BR.input,
               background:C.elevated, border:`1px solid ${C.border}`,
               color:C.text, fontFamily:'inherit', fontSize:13,
