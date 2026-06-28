@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.28-16:22';
+const APP_VERSION = 'v2026.06.28-18:24';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -3552,6 +3552,183 @@ function TanabataOverlay({ isVisible=true, zIndex=0 }) {
   );
 }
 
+// ─── OBON OVERLAY — お盆 lantern night (chōchin 提灯 · tōrō nagashi 灯籠流し · moon) ──
+function ObonOverlay({ isVisible=true, zIndex=0 }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!isVisible) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    let VW = window.innerWidth, VH = window.innerHeight;
+    let ctx, staticLayer, animId = 0;
+    let stars = [], hangers = [], floaters = [], embers = [];
+    let moon = null, waterY = 0, minWH = 0;
+
+    // shared gust model — identical to Tanabata / Hydrangea / Kodomo
+    const wind = (t, phase) => Math.tanh(Math.sin(t/7 + (phase||0)) * 3.5);
+    const LANTERN = ['#e8503a','#ff9d3c','#ffc15e','#ffe0a8','#d8412f'];
+
+    function buildScene() {
+      waterY = VH * 0.60;
+      const starN = Math.min(120, Math.round((VW*VH)/13000));
+      stars = Array.from({ length: starN }, () => ({
+        x: Math.random()*VW, y: Math.random()*waterY*0.92,
+        r: 0.4+Math.random()*1.2, base: 0.25+Math.random()*0.5,
+        sp: 0.5+Math.random()*1.5, ph: Math.random()*Math.PI*2, warm: Math.random()<0.5 }));
+      moon = { x: VW*0.74, y: waterY*0.42, r: minWH*0.075, ph: Math.random()*Math.PI*2 };
+      hangers = [];
+      const baseY = VH*0.045, dip = VH*0.07;
+      const n = Math.max(7, Math.min(11, Math.round(VW/95)));
+      for (let i=0;i<n;i++){ const u=(i+0.5)/n, ax=u*VW, ay=baseY+dip*4*u*(1-u);
+        hangers.push({ ax, ay, str:minWH*(0.03+Math.random()*0.02), rw:minWH*(0.022+Math.random()*0.012),
+          rh:minWH*(0.032+Math.random()*0.016), col:LANTERN[i%LANTERN.length], ph:Math.random()*Math.PI*2, amp:0.06+Math.random()*0.06 }); }
+      floaters = [];
+      const fN = reduce ? 5 : Math.max(6, Math.min(10, Math.round(VW/140)));
+      for (let i=0;i<fN;i++){ const depth=Math.random();
+        floaters.push({ x:Math.random()*VW, y:waterY+(VH-waterY)*(0.12+depth*0.78), s:minWH*(0.018+depth*0.03),
+          vx:(0.10+Math.random()*0.22)*(Math.random()<0.5?1:-1), bob:Math.random()*Math.PI*2,
+          col:LANTERN[Math.floor(Math.random()*LANTERN.length)], depth }); }
+      floaters.sort((a,b)=>a.depth-b.depth);
+      const eN = reduce ? 12 : Math.min(30, Math.round(VW/34));
+      embers = Array.from({ length: eN }, () => ({ x:Math.random()*VW, y:VH*(0.3+Math.random()*0.7),
+        r:0.8+Math.random()*1.6, vy:0.12+Math.random()*0.34, drift:0.2+Math.random()*0.5,
+        ph:Math.random()*Math.PI*2, sp:0.7+Math.random()*1.5 }));
+    }
+
+    function buildStatic() {
+      staticLayer = document.createElement('canvas');
+      staticLayer.width = Math.round(VW*dpr); staticLayer.height = Math.round(VH*dpr);
+      const c = staticLayer.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
+      const sky = c.createLinearGradient(0,0,0,waterY);
+      sky.addColorStop(0.00,'#0a0a22'); sky.addColorStop(0.45,'#1c1330');
+      sky.addColorStop(0.80,'#33203c'); sky.addColorStop(1.00,'#4a2c3e');
+      c.fillStyle=sky; c.fillRect(0,0,VW,waterY);
+      c.globalCompositeOperation='lighter';
+      const halo=c.createRadialGradient(moon.x,moon.y,0,moon.x,moon.y,moon.r*6);
+      halo.addColorStop(0,'rgba(255,240,205,0.40)'); halo.addColorStop(0.4,'rgba(255,225,170,0.12)'); halo.addColorStop(1,'rgba(255,225,170,0)');
+      c.fillStyle=halo; c.beginPath(); c.arc(moon.x,moon.y,moon.r*6,0,Math.PI*2); c.fill();
+      c.globalCompositeOperation='source-over';
+      const disc=c.createRadialGradient(moon.x-moon.r*0.3,moon.y-moon.r*0.3,0,moon.x,moon.y,moon.r);
+      disc.addColorStop(0,'#fff7e4'); disc.addColorStop(1,'#f1d9a4');
+      c.fillStyle=disc; c.beginPath(); c.arc(moon.x,moon.y,moon.r,0,Math.PI*2); c.fill();
+      c.fillStyle='rgba(210,185,140,0.30)';
+      [[0.3,-0.2,0.18],[-0.25,0.15,0.22],[0.1,0.35,0.14]].forEach(m=>{ c.beginPath(); c.arc(moon.x+moon.r*m[0],moon.y+moon.r*m[1],moon.r*m[2],0,Math.PI*2); c.fill(); });
+      c.fillStyle='#150d22'; c.beginPath(); c.moveTo(0,waterY);
+      const peaks=7; for (let i=0;i<=peaks;i++){ const x=(i/peaks)*VW, h=waterY-(0.06+0.07*Math.abs(Math.sin(i*1.7+0.6)))*VH; c.lineTo(x,h); }
+      c.lineTo(VW,waterY); c.closePath(); c.fill();
+      c.globalCompositeOperation='lighter';
+      const fire=c.createRadialGradient(VW*0.30,waterY-VH*0.02,0,VW*0.30,waterY-VH*0.02,minWH*0.16);
+      fire.addColorStop(0,'rgba(255,140,60,0.22)'); fire.addColorStop(1,'rgba(255,140,60,0)');
+      c.fillStyle=fire; c.fillRect(0,0,VW,waterY);
+      c.globalCompositeOperation='source-over';
+      const water=c.createLinearGradient(0,waterY,0,VH);
+      water.addColorStop(0,'#291832'); water.addColorStop(0.5,'#16101f'); water.addColorStop(1,'#0c0816');
+      c.fillStyle=water; c.fillRect(0,waterY,VW,VH-waterY);
+      c.globalCompositeOperation='lighter';
+      const refl=c.createLinearGradient(0,waterY,0,VH);
+      refl.addColorStop(0,'rgba(255,235,180,0.16)'); refl.addColorStop(1,'rgba(255,235,180,0)');
+      c.fillStyle=refl; c.fillRect(moon.x-moon.r*0.9,waterY,moon.r*1.8,VH-waterY);
+      c.globalCompositeOperation='source-over';
+    }
+
+    function drawStars(t){
+      for (const s of stars){ const tw=reduce?s.base:s.base*(0.4+0.6*Math.sin(t*s.sp+s.ph));
+        ctx.fillStyle=(s.warm?'rgba(255,228,180,':'rgba(255,255,255,')+Math.max(tw,0).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+    }
+    function drawWaterShimmer(t){
+      ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,225,170,0.05)'; ctx.lineWidth=1;
+      for (let i=0;i<7;i++){ const yy=waterY+(VH-waterY)*(0.08+i*0.13); const off=reduce?0:Math.sin(t*0.8+i)*8;
+        ctx.beginPath(); ctx.moveTo(moon.x-moon.r*(1.1+i*0.25)+off,yy); ctx.lineTo(moon.x+moon.r*(1.1+i*0.25)+off,yy); ctx.stroke(); }
+      ctx.globalCompositeOperation='source-over';
+    }
+    function lanternBody(cx,cy,rw,rh,col){
+      ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rw*4); g.addColorStop(0,'rgba(255,190,110,0.5)'); g.addColorStop(1,'rgba(255,190,110,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,rw*4,0,Math.PI*2); ctx.fill();
+      ctx.globalCompositeOperation='source-over';
+      const bg=ctx.createRadialGradient(cx-rw*0.3,cy-rh*0.2,0,cx,cy,rh*1.3); bg.addColorStop(0,'#fff2cf'); bg.addColorStop(0.55,col); bg.addColorStop(1,'#7a1f17');
+      ctx.fillStyle=bg; ctx.beginPath(); ctx.ellipse(cx,cy,rw,rh,0,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(90,20,15,0.30)'; ctx.lineWidth=0.8;
+      for (let k=-2;k<=2;k++){ const yy=cy+(k/2.4)*rh; const w2=rw*Math.sqrt(Math.max(0,1-Math.pow((yy-cy)/rh,2)));
+        ctx.beginPath(); ctx.moveTo(cx-w2,yy); ctx.lineTo(cx+w2,yy); ctx.stroke(); }
+      ctx.fillStyle='#2a2018'; ctx.fillRect(cx-rw*0.32,cy-rh-2,rw*0.64,3); ctx.fillRect(cx-rw*0.18,cy+rh,rw*0.36,3);
+      ctx.strokeStyle='#b8893f'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx,cy+rh+3); ctx.lineTo(cx,cy+rh+rh*0.5); ctx.stroke();
+    }
+    function drawGarland(t){
+      ctx.strokeStyle='rgba(40,30,25,0.8)'; ctx.lineWidth=1.4; ctx.beginPath();
+      for (let i=0;i<=40;i++){ const u=i/40, x=u*VW, y=VH*0.045+VH*0.07*4*u*(1-u); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+      ctx.stroke();
+      for (const hgr of hangers){ const ang=(reduce?0:wind(t,hgr.ph)*hgr.amp)+Math.sin(t*0.9+hgr.ph)*0.03;
+        const cx=hgr.ax+Math.sin(ang)*hgr.str, cy=hgr.ay+Math.cos(ang)*hgr.str+hgr.rh;
+        ctx.strokeStyle='rgba(40,30,25,0.7)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(hgr.ax,hgr.ay); ctx.lineTo(cx,cy-hgr.rh); ctx.stroke();
+        lanternBody(cx,cy,hgr.rw,hgr.rh,hgr.col); }
+    }
+    function drawFloaters(t){
+      for (const f of floaters){ const by=f.y+(reduce?0:Math.sin(t*1.1+f.bob)*f.s*0.18);
+        ctx.globalCompositeOperation='lighter';
+        const rg=ctx.createLinearGradient(0,by,0,by+f.s*4); rg.addColorStop(0,'rgba(255,170,90,0.40)'); rg.addColorStop(1,'rgba(255,170,90,0)');
+        ctx.fillStyle=rg; ctx.fillRect(f.x-f.s*0.5,by+f.s*0.6,f.s,f.s*4);
+        const g=ctx.createRadialGradient(f.x,by,0,f.x,by,f.s*3); g.addColorStop(0,'rgba(255,180,100,0.55)'); g.addColorStop(1,'rgba(255,180,100,0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(f.x,by,f.s*3,0,Math.PI*2); ctx.fill();
+        ctx.globalCompositeOperation='source-over';
+        ctx.fillStyle='#1c1410'; ctx.fillRect(f.x-f.s*0.62,by+f.s*0.55,f.s*1.24,f.s*0.18);
+        const pg=ctx.createLinearGradient(0,by-f.s,0,by+f.s*0.6); pg.addColorStop(0,'#fff0c8'); pg.addColorStop(1,f.col);
+        ctx.fillStyle=pg; ctx.beginPath(); ctx.moveTo(f.x-f.s*0.42,by+f.s*0.55); ctx.lineTo(f.x-f.s*0.5,by-f.s*0.85); ctx.lineTo(f.x+f.s*0.5,by-f.s*0.85); ctx.lineTo(f.x+f.s*0.42,by+f.s*0.55); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle='rgba(60,30,20,0.6)'; ctx.lineWidth=0.8; ctx.stroke();
+        ctx.fillStyle='#2a2018'; ctx.fillRect(f.x-f.s*0.5,by-f.s*0.96,f.s,f.s*0.14);
+        if (!reduce){ f.x+=f.vx; if(f.x<-20)f.x=VW+20; if(f.x>VW+20)f.x=-20; } }
+    }
+    function drawEmbers(t){
+      ctx.globalCompositeOperation='lighter';
+      for (const e of embers){ const tw=0.4+0.6*Math.abs(Math.sin(t*e.sp+e.ph));
+        const g=ctx.createRadialGradient(e.x,e.y,0,e.x,e.y,e.r*4); g.addColorStop(0,'rgba(255,206,130,'+(0.85*tw).toFixed(3)+')'); g.addColorStop(1,'rgba(255,206,130,0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e.x,e.y,e.r*4,0,Math.PI*2); ctx.fill();
+        if (!reduce){ e.y-=e.vy; e.x+=Math.sin(t*0.7+e.ph)*e.drift*0.4; if(e.y<-12){ e.y=VH+12; e.x=Math.random()*VW; } } }
+      ctx.globalCompositeOperation='source-over';
+    }
+    function drawCentreDim(){
+      const g=ctx.createRadialGradient(VW*0.5,VH*0.46,0,VW*0.5,VH*0.46,minWH*0.8);
+      g.addColorStop(0,'rgba(10,8,28,0.30)'); g.addColorStop(0.55,'rgba(10,8,28,0.12)'); g.addColorStop(1,'rgba(10,8,28,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
+    }
+
+    const setup = () => {
+      VW = window.innerWidth; VH = window.innerHeight;
+      canvas.width = Math.round(VW*dpr); canvas.height = Math.round(VH*dpr);
+      canvas.style.width = VW+'px'; canvas.style.height = VH+'px';
+      ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+      minWH = Math.min(VW, VH);
+      buildScene(); buildStatic();
+    };
+    const frame = (ts) => {
+      const t = ts/1000;
+      ctx.clearRect(0,0,VW,VH);
+      ctx.drawImage(staticLayer, 0, 0, VW, VH);
+      drawStars(t); drawWaterShimmer(t); drawFloaters(t); drawCentreDim(); drawGarland(t); drawEmbers(t);
+      animId = requestAnimationFrame(frame);
+    };
+
+    setup();
+    window.addEventListener('resize', setup);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', setup); };
+  }, [isVisible]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed', inset: 0,
+        width: '100vw', height: '100vh',
+        display: 'block', pointerEvents: 'none',
+        zIndex,
+      }}
+    />
+  );
+}
+
 // ─── HYDRANGEA OVERLAY — rainy-dusk ajisai (紫陽花), wind-blown rain ──────────
 function HydrangeaOverlay({ isVisible=true, zIndex=0 }) {
   const canvasRef = useRef(null);
@@ -6415,6 +6592,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
       const _qday = _qd.getDate();
       const summerScene = sceneOverride
         || ((_qm === 6 && _qday >= 1 && _qday <= 7) ? 'tanabata'
+           : (_qm === 7 && _qday >= 13 && _qday <= 15) ? 'obon'
            : (((_qm === 5 && _qday >= 15) || _qm === 6) ? 'hydrangea' : 'firefly'));
   const label         = quoteData?.label?.toLowerCase() || '';
   const isBirthday    = label.includes('birthday');
@@ -6460,6 +6638,8 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
       {!hasSpecialBg && !isOtsukimi && isSummer && (
         summerScene === 'tanabata'
           ? <TanabataOverlay isVisible zIndex={0} />
+          : summerScene === 'obon'
+          ? <ObonOverlay isVisible zIndex={0} />
           : summerScene === 'hydrangea'
           ? <HydrangeaOverlay isVisible zIndex={0} />
           : <HotaruOverlay isVisible colorScheme="dark" zIndex={0} />
@@ -8459,6 +8639,7 @@ const OCCASION_DEMOS = [
   { label:"👘 Seijin no Hi",  quote:{ quote:"Today you cross the threshold — not because you are certain, but because you are ready to become someone who can grow certain.", label:"Seijin no Hi · Coming of Age Day", isSpecial:true } },
   { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
   { label:"🎋 Tanabata",    quote:{ quote:"Once a year the celestial lovers cross the river of stars to meet — a reminder that love, given time, always finds its way home.", label:"Tanabata · 七夕 Star Festival", isSpecial:true }, season:'summer', scene:'tanabata' },
+  { label:"🏮 Obon",        quote:{ quote:"We light these lanterns so the ones we love can find their way home — across distance, across years.", label:"Obon · お盆 Festival of Remembrance", isSpecial:true }, season:'summer', scene:'obon' },
   { label:"🎄 Christmas",   quote:{ quote:"Christmas is not a time nor a season, but a state of mind. To cherish peace and goodwill, to be plenteous in mercy, is to have the real spirit of Christmas.", label:"Christmas Day · Special Quote", isSpecial:true } },
   { label:"💍 Anniversary", quote:{ quote:"Love is not a feeling — it is a thousand daily choices, made softly, held firmly, year after year.", label:"Anniversary · Special Quote", isSpecial:true } },
   { label:"🌸 Mother's Day", quote:{ quote:"Everything I am began in the warmth of her presence — a love so constant it became the air I breathe.", label:"Mother's Day · Special Quote", isSpecial:true } },
