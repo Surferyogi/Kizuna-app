@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.07.06-15:21';
+const APP_VERSION = 'v2026.07.06-17:18';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -9256,7 +9256,7 @@ const mkBlank = () => ({
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
-function EForm({ form, set, workspace = null, currentUserId = null, onExtraFlights = () => {} }) {
+function EForm({ form, set, workspace = null, currentUserId = null, onExtraFlights = () => {}, onExtraAppts = () => {} }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   // Traveller options: current user + workspace members + Others
@@ -9284,6 +9284,66 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
   const scanInputRef = useRef(null);
   const [scanStatus, setScanStatus] = useState('');   // '' | 'reading' | 'done' | 'error'
   const [scanMsg, setScanMsg] = useState('');
+
+  // ── Appointment OCR — scan a screenshot and auto-fill (kizuna-appt-ocr Edge Function) ──
+  const scanApptInputRef = useRef(null);
+  const [apptScanStatus, setApptScanStatus] = useState('');   // '' | 'reading' | 'done' | 'error'
+  const [apptScanMsg, setApptScanMsg] = useState('');
+
+  const _apptToFormPatch = (a) => {
+    const patch = {
+      title: a.title || '',
+      date: a.date || '',
+      time: a.startTime || '',
+      endTime: a.endTime || '',
+      location: a.location || '',
+      notes: a.notes || '',
+    };
+    if (a.attendees) patch.attendees = String(a.attendees);
+    return patch;
+  };
+
+  const handleScanApptFile = async (file) => {
+    if (!file) return;
+    setApptScanStatus('reading'); setApptScanMsg('Reading screenshot…');
+    try {
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = () => rej(new Error('read failed'));
+        r.readAsDataURL(file);
+      });
+      const s = String(dataUrl);
+      const base64 = s.split(',')[1] || '';
+      const mediaType = (s.match(/^data:([^;]+);/) || [])[1] || file.type || 'image/png';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) { setApptScanStatus('error'); setApptScanMsg('Supabase not configured.'); return; }
+      const resp = await fetch(`${supabaseUrl}/functions/v1/kizuna-appt-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ imageBase64: base64, mediaType, todayISO: fd(new Date()) }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.error) throw new Error(data.error);
+      const appts = (data && Array.isArray(data.appointments)) ? data.appointments : [];
+      const patches = appts.map(_apptToFormPatch).filter(p => p.title || p.date);
+      if (patches.length === 0) { setApptScanStatus('error'); setApptScanMsg('No appointment details found — please fill in manually.'); return; }
+      const first = patches[0];
+      Object.keys(first).forEach(k => { if (first[k] !== undefined && first[k] !== '') set(k, first[k]); });
+      const rest = patches.slice(1);
+      onExtraAppts(rest);
+      setApptScanStatus('done');
+      setApptScanMsg(rest.length > 0
+        ? ('Filled appointment 1 of ' + patches.length + ' — review & save; the remaining ' + rest.length + ' will load next.')
+        : 'Appointment details filled in below — please review before saving.');
+    } catch (err) {
+      console.warn('Appointment OCR:', err.message);
+      setApptScanStatus('error'); setApptScanMsg('Could not read screenshot — please fill in manually.');
+    }
+  };
+
 
   const _ocrToFormPatch = (f) => {
     const up = (s) => (s == null ? '' : String(s)).toUpperCase().trim();
@@ -9426,6 +9486,24 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
   return (
     <div style={{ paddingTop:8 }}>
       {/* Title shown for all types EXCEPT flight — flight title is auto-generated */}
+      {form.type === 'meeting' && (<>
+        <input ref={scanApptInputRef} type="file" accept="image/*" style={{ display:'none' }}
+          onChange={e => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value=''; handleScanApptFile(f); }} />
+        <button type="button" onClick={() => scanApptInputRef.current && scanApptInputRef.current.click()}
+          disabled={apptScanStatus==='reading'}
+          style={{ width:'100%', padding:'12px 14px', marginBottom:14, borderRadius:BR.btn,
+            border:`1.5px dashed ${C.M}`, background:C.M+'0F', color:C.M,
+            fontFamily:'inherit', fontSize:15, fontWeight:700,
+            cursor: apptScanStatus==='reading' ? 'default' : 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          📷 {apptScanStatus==='reading' ? 'Reading…' : 'Scan from screenshot'}
+        </button>
+        {apptScanStatus && apptScanMsg && (
+          <p style={{ margin:'-2px 0 14px', fontSize:13,
+            color: apptScanStatus==='error' ? WARN : apptScanStatus==='done' ? SUCCESS : C.dim,
+            fontStyle:'italic' }}>{apptScanMsg}</p>
+        )}
+      </>)}
       {form.type !== 'flight' && form.type !== 'birthday' && (
         <FL label="Title">
           <FI form={form} set={set} field="title" placeholder={`${TL[form.type]} title`} autoFocus />
@@ -9691,6 +9769,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
   );
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
   const [pendingFlights, setPendingFlights] = useState([]);
+  const [pendingAppts, setPendingAppts] = useState([]);
   const canSave = form.type === 'flight'
     // Can save with flight number, OR with at least From+To+Date (for past/parent entries)
     ? (form.flightNum?.trim().length > 0) ||
@@ -9713,6 +9792,11 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
       const [nextFlight, ...restFlights] = pendingFlights;
       setPendingFlights(restFlights);
       setForm({ ...mkBlank(), type:'flight', ...nextFlight });
+    } else if (!isEdit && pendingAppts.length > 0) {
+      // ── OCR multi-appointment chaining: load the next detected appointment as its own entry ──
+      const [nextAppt, ...restAppts] = pendingAppts;
+      setPendingAppts(restAppts);
+      setForm({ ...mkBlank(), type:'meeting', ...nextAppt });
     } else {
       onClose();
     }
@@ -9802,7 +9886,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
               </div>
             </div>
           ) : (
-            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} onExtraFlights={setPendingFlights} />
+            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} onExtraFlights={setPendingFlights} onExtraAppts={setPendingAppts} />
           )}
         </div>
       </div>
