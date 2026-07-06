@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.06.28-18:24';
+const APP_VERSION = 'v2026.07.06-15:21';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -9256,7 +9256,7 @@ const mkBlank = () => ({
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
-function EForm({ form, set, workspace = null, currentUserId = null }) {
+function EForm({ form, set, workspace = null, currentUserId = null, onExtraFlights = () => {} }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   // Traveller options: current user + workspace members + Others
@@ -9279,6 +9279,79 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
   const [lookupStatus, setLookupStatus] = useState('');
   const [lookupData,   setLookupData]   = useState(null);
   const lastLookupKey  = useRef('');
+
+  // ── Flight OCR — scan a screenshot and auto-fill (kizuna-flight-ocr Edge Function) ──
+  const scanInputRef = useRef(null);
+  const [scanStatus, setScanStatus] = useState('');   // '' | 'reading' | 'done' | 'error'
+  const [scanMsg, setScanMsg] = useState('');
+
+  const _ocrToFormPatch = (f) => {
+    const up = (s) => (s == null ? '' : String(s)).toUpperCase().trim();
+    const depIata = up(f.depIata);
+    const arrIata = up(f.arrIata);
+    const dep = depIata ? AIRPORT_DB.find(a => a[0] === depIata) : null;
+    const arr = arrIata ? AIRPORT_DB.find(a => a[0] === arrIata) : null;
+    const parts = [];
+    if (f.aircraft)   parts.push(String(f.aircraft));
+    if (f.codeshare)  parts.push('Codeshare ' + up(f.codeshare));
+    if (f.bookingRef) parts.push('Booking ' + up(f.bookingRef));
+    return {
+      flightNum: (f.flightNum || '').replace(/\s+/g, '').toUpperCase(),
+      date: f.date || '',
+      depCity: depIata, depCountry: dep ? dep[3] : '', depCountryName: dep ? dep[4] : '',
+      arrCity: arrIata, arrCountry: arr ? arr[3] : '', arrCountryName: arr ? arr[4] : '',
+      time: f.depTime || '', endTime: f.arrTime || '',
+      terminal: f.depTerminal != null ? String(f.depTerminal) : '',
+      airline: f.airline || airlineFromCode(f.flightNum) || '',
+      notes: parts.join(' \u00b7 '),
+      title: (depIata && arrIata) ? (depIata + ' \u2192 ' + arrIata) : '',
+    };
+  };
+
+  const _applyPatchToForm = (p) => {
+    Object.keys(p).forEach(k => { if (p[k] !== undefined && p[k] !== '') set(k, p[k]); });
+  };
+
+  const handleScanFile = async (file) => {
+    if (!file) return;
+    setScanStatus('reading'); setScanMsg('Reading screenshot\u2026');
+    try {
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = () => rej(new Error('read failed'));
+        r.readAsDataURL(file);
+      });
+      const s = String(dataUrl);
+      const base64 = s.split(',')[1] || '';
+      const mediaType = (s.match(/^data:([^;]+);/) || [])[1] || file.type || 'image/png';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) { setScanStatus('error'); setScanMsg('Supabase not configured.'); return; }
+      const resp = await fetch(`${supabaseUrl}/functions/v1/kizuna-flight-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ imageBase64: base64, mediaType, todayISO: fd(new Date()) }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.error) throw new Error(data.error);
+      const flights = (data && Array.isArray(data.flights)) ? data.flights : [];
+      const patches = flights.map(_ocrToFormPatch).filter(p => p.flightNum || (p.depCity && p.arrCity));
+      if (patches.length === 0) { setScanStatus('error'); setScanMsg('No flight details found \u2014 please fill in manually.'); return; }
+      _applyPatchToForm(patches[0]);
+      const rest = patches.slice(1);
+      onExtraFlights(rest);
+      setScanStatus('done');
+      setScanMsg(rest.length > 0
+        ? ('Filled flight 1 of ' + patches.length + ' \u2014 review & save; the remaining ' + rest.length + ' will load next.')
+        : 'Flight details filled in below \u2014 please review before saving.');
+    } catch (err) {
+      console.warn('Flight OCR:', err.message);
+      setScanStatus('error'); setScanMsg('Could not read screenshot \u2014 please fill in manually.');
+    }
+  };
+
 
   // Apply lookup data — always overwrite with live data, user can edit after
   useEffect(() => {
@@ -9429,6 +9502,23 @@ function EForm({ form, set, workspace = null, currentUserId = null }) {
           })()}
         </FL>
 
+        {/* ── Scan from screenshot — OCR auto-fill (vision Edge Function) ── */}
+        <input ref={scanInputRef} type="file" accept="image/*" style={{ display:'none' }}
+          onChange={e => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value=''; handleScanFile(f); }} />
+        <button type="button" onClick={() => scanInputRef.current && scanInputRef.current.click()}
+          disabled={scanStatus==='reading'}
+          style={{ width:'100%', padding:'12px 14px', marginBottom:12, borderRadius:BR.btn,
+            border:`1.5px dashed ${C.rose}`, background:C.rose+'0F', color:C.rose,
+            fontFamily:'inherit', fontSize:15, fontWeight:700,
+            cursor: scanStatus==='reading' ? 'default' : 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          📷 {scanStatus==='reading' ? 'Reading…' : 'Scan from screenshot'}
+        </button>
+        {scanStatus && scanMsg && (
+          <p style={{ margin:'-4px 0 12px', fontSize:13,
+            color: scanStatus==='error' ? WARN : scanStatus==='done' ? SUCCESS : C.dim,
+            fontStyle:'italic' }}>{scanMsg}</p>
+        )}
         {/* ── Step 1: Search keys — triggers auto-fill ── */}
         <Row2>
           <FL label="Flight No. (optional)">
@@ -9600,6 +9690,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
     : { ...mkBlank(), ...(initialDate ? { date: initialDate } : {}) }
   );
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
+  const [pendingFlights, setPendingFlights] = useState([]);
   const canSave = form.type === 'flight'
     // Can save with flight number, OR with at least From+To+Date (for past/parent entries)
     ? (form.flightNum?.trim().length > 0) ||
@@ -9617,7 +9708,14 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
     if (payload.type === 'flight' && payload.arrCountry && onLocationRefresh) {
       setTimeout(onLocationRefresh, 500); // brief delay so entry is persisted first
     }
-    onClose();
+    // ── OCR multi-flight chaining: load the next detected flight as its own entry ──
+    if (!isEdit && pendingFlights.length > 0) {
+      const [nextFlight, ...restFlights] = pendingFlights;
+      setPendingFlights(restFlights);
+      setForm({ ...mkBlank(), type:'flight', ...nextFlight });
+    } else {
+      onClose();
+    }
   };
 
   const typeColor = TC[form.type] || C.rose;
@@ -9704,7 +9802,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
               </div>
             </div>
           ) : (
-            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} />
+            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} onExtraFlights={setPendingFlights} />
           )}
         </div>
       </div>
