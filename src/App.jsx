@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.07.06-17:18';
+const APP_VERSION = 'v2026.07.09-06:52';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -9256,7 +9256,7 @@ const mkBlank = () => ({
   terminal:'',gate:'',seat:'',visibility:'shared',repeat:'none',done:false
 });
 
-function EForm({ form, set, workspace = null, currentUserId = null, onExtraFlights = () => {}, onExtraAppts = () => {} }) {
+function EForm({ form, set, workspace = null, currentUserId = null, onExtraFlights = () => {}, onExtraAppts = () => {}, onExtraEntries = () => {} }) {
   const C = useContext(ThemeContext);
   const SH = getSH(C === C_DARK);
   // Traveller options: current user + workspace members + Others
@@ -9289,6 +9289,66 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
   const scanApptInputRef = useRef(null);
   const [apptScanStatus, setApptScanStatus] = useState('');   // '' | 'reading' | 'done' | 'error'
   const [apptScanMsg, setApptScanMsg] = useState('');
+
+  // Entry OCR (task / event / reminder) -- scan a screenshot and auto-fill (kizuna-entry-ocr Edge Function)
+  const scanEntryInputRef = useRef(null);
+  const [entryScanStatus, setEntryScanStatus] = useState('');   // '' | 'reading' | 'done' | 'error'
+  const [entryScanMsg, setEntryScanMsg] = useState('');
+
+  const _entryToFormPatch = (item, kind) => {
+    const p = {
+      title: item.title || '',
+      date: item.date || '',
+      time: item.startTime || '',
+      location: item.location || '',
+      notes: item.notes || '',
+    };
+    if (kind === 'event') p.endTime = item.endTime || '';
+    return p;
+  };
+
+  const handleScanEntryFile = async (kind, file) => {
+    if (!file) return;
+    setEntryScanStatus('reading'); setEntryScanMsg('Reading screenshot…');
+    try {
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = () => rej(new Error('read failed'));
+        r.readAsDataURL(file);
+      });
+      const s = String(dataUrl);
+      const base64 = s.split(',')[1] || '';
+      const mediaType = (s.match(/^data:([^;]+);/) || [])[1] || file.type || 'image/png';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) { setEntryScanStatus('error'); setEntryScanMsg('Supabase not configured.'); return; }
+      const resp = await fetch(`${supabaseUrl}/functions/v1/kizuna-entry-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ imageBase64: base64, mediaType, todayISO: fd(new Date()), kind }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.error) throw new Error(data.error);
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      const patches = items.map(it => _entryToFormPatch(it, kind)).filter(p => p.title || p.date);
+      if (patches.length === 0) { setEntryScanStatus('error'); setEntryScanMsg('No details found — please fill in manually.'); return; }
+      const first = patches[0];
+      Object.keys(first).forEach(k => { if (first[k] !== undefined && first[k] !== '') set(k, first[k]); });
+      const rest = patches.slice(1).map(p => ({ type: kind, ...p }));
+      onExtraEntries(rest);
+      setEntryScanStatus('done');
+      const noun = kind === 'task' ? 'task' : kind === 'event' ? 'event' : 'reminder';
+      setEntryScanMsg(rest.length > 0
+        ? ('Filled ' + noun + ' 1 of ' + patches.length + ' — review & save; the remaining ' + rest.length + ' will load next.')
+        : 'Details filled in below — please review before saving.');
+    } catch (err) {
+      console.warn('Entry OCR:', err.message);
+      setEntryScanStatus('error'); setEntryScanMsg('Could not read screenshot — please fill in manually.');
+    }
+  };
+
 
   const _apptToFormPatch = (a) => {
     const patch = {
@@ -9504,6 +9564,24 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
             fontStyle:'italic' }}>{apptScanMsg}</p>
         )}
       </>)}
+      {['task','event','reminder'].includes(form.type) && (<>
+        <input ref={scanEntryInputRef} type="file" accept="image/*" style={{ display:'none' }}
+          onChange={e => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value=''; handleScanEntryFile(form.type, f); }} />
+        <button type="button" onClick={() => scanEntryInputRef.current && scanEntryInputRef.current.click()}
+          disabled={entryScanStatus==='reading'}
+          style={{ width:'100%', padding:'12px 14px', marginBottom:14, borderRadius:BR.btn,
+            border:`1.5px dashed ${C.rose}`, background:C.rose+'0F', color:C.rose,
+            fontFamily:'inherit', fontSize:15, fontWeight:700,
+            cursor: entryScanStatus==='reading' ? 'default' : 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          📷 {entryScanStatus==='reading' ? 'Reading…' : 'Scan from screenshot'}
+        </button>
+        {entryScanStatus && entryScanMsg && (
+          <p style={{ margin:'-2px 0 14px', fontSize:13,
+            color: entryScanStatus==='error' ? WARN : entryScanStatus==='done' ? SUCCESS : C.dim,
+            fontStyle:'italic' }}>{entryScanMsg}</p>
+        )}
+      </>)}
       {form.type !== 'flight' && form.type !== 'birthday' && (
         <FL label="Title">
           <FI form={form} set={set} field="title" placeholder={`${TL[form.type]} title`} autoFocus />
@@ -9716,12 +9794,12 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
         <FL label="Due Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Time (optional)"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Location (optional)"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
-        <FL label="Tags"><FI form={form} set={set} field="tags" placeholder="Finance, Legal, M&A" /></FL>
+        <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Additional details…" /></FL>
       </>) : form.type === 'reminder' ? (<>
         <FL label="Date (optional)"><FI form={form} set={set} field="date" type="date" /></FL>
         <FL label="Time"><FI form={form} set={set} field="time" type="time" /></FL>
         <FL label="Location (optional)"><FI form={form} set={set} field="location" placeholder="Room, address, or virtual" /></FL>
-        <FL label="Message"><TA form={form} set={set} field="message" placeholder="Reminder details…" /></FL>
+        <FL label="Notes"><TA form={form} set={set} field="notes" placeholder="Reminder details…" /></FL>
       </>) : form.type === 'birthday' ? (<>
         <FL label="Occasion"><FI form={form} set={set} field="title" placeholder="e.g. Mum's Birthday, Wedding Anniversary" autoFocus /></FL>
         <FL label="Date"><FI form={form} set={set} field="date" type="date" /></FL>
@@ -9770,6 +9848,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
   const setF = useCallback((k, v) => setForm(p => ({ ...p, [k]:v })), []);
   const [pendingFlights, setPendingFlights] = useState([]);
   const [pendingAppts, setPendingAppts] = useState([]);
+  const [pendingEntries, setPendingEntries] = useState([]);
   const canSave = form.type === 'flight'
     // Can save with flight number, OR with at least From+To+Date (for past/parent entries)
     ? (form.flightNum?.trim().length > 0) ||
@@ -9797,6 +9876,11 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
       const [nextAppt, ...restAppts] = pendingAppts;
       setPendingAppts(restAppts);
       setForm({ ...mkBlank(), type:'meeting', ...nextAppt });
+    } else if (!isEdit && pendingEntries.length > 0) {
+      // OCR multi-entry chaining: load the next detected task/event/reminder as its own entry
+      const [nextEntry, ...restEntries] = pendingEntries;
+      setPendingEntries(restEntries);
+      setForm({ ...mkBlank(), ...nextEntry });
     } else {
       onClose();
     }
@@ -9886,7 +9970,7 @@ function AddModal({ onClose, onSave, editEntry = null, initialDate = null, works
               </div>
             </div>
           ) : (
-            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} onExtraFlights={setPendingFlights} onExtraAppts={setPendingAppts} />
+            <EForm form={form} set={setF} workspace={workspace} currentUserId={currentUserId} onExtraFlights={setPendingFlights} onExtraAppts={setPendingAppts} onExtraEntries={setPendingEntries} />
           )}
         </div>
       </div>
