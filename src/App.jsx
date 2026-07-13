@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.07.09-06:52';
+const APP_VERSION = 'v2026.07.13-23:46';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -9295,6 +9295,130 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
   const [entryScanStatus, setEntryScanStatus] = useState('');   // '' | 'reading' | 'done' | 'error'
   const [entryScanMsg, setEntryScanMsg] = useState('');
 
+  // Paste-text OCR: shared open/buffer state + textarea helper + per-form text handlers.
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+
+  const _pasteBox = (accent, onExtract, busy) => (
+    <div style={{ marginBottom:14 }}>
+      <textarea value={pasteText} onChange={e => setPasteText(e.target.value)} maxLength={20000}
+        placeholder="Paste text here, then tap Extract…" rows={5}
+        style={{ width:'100%', boxSizing:'border-box', padding:'10px 12px', borderRadius:BR.btn,
+          border:`1px solid ${accent}`, background:C.bg, color:C.text, fontFamily:'inherit',
+          fontSize:14, lineHeight:1.4, resize:'vertical', marginBottom:8, outline:'none' }} />
+      <button type="button" onClick={() => onExtract(pasteText)} disabled={busy || !pasteText.trim()}
+        style={{ width:'100%', padding:'11px 14px', borderRadius:BR.btn, border:'none',
+          background:accent, color:'#fff', fontFamily:'inherit', fontSize:15, fontWeight:700,
+          opacity:(busy || !pasteText.trim()) ? 0.5 : 1,
+          cursor:(busy || !pasteText.trim()) ? 'default' : 'pointer' }}>
+        {busy ? 'Reading…' : 'Extract'}
+      </button>
+    </div>
+  );
+
+  const handleScanFlightText = async (text) => {
+    const t = (text || '').trim();
+    if (!t) return;
+    setScanStatus('reading'); setScanMsg('Reading text…');
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) { setScanStatus('error'); setScanMsg('Supabase not configured.'); return; }
+      const resp = await fetch(`${supabaseUrl}/functions/v1/kizuna-flight-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ text: t, todayISO: fd(new Date()) }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.error) throw new Error(data.error);
+      const flights = (data && Array.isArray(data.flights)) ? data.flights : [];
+      const patches = flights.map(_ocrToFormPatch).filter(p => p.flightNum || (p.depCity && p.arrCity));
+      if (patches.length === 0) { setScanStatus('error'); setScanMsg('No flight details found — please fill in manually.'); return; }
+      _applyPatchToForm(patches[0]);
+      const rest = patches.slice(1);
+      onExtraFlights(rest);
+      setPasteOpen(false); setPasteText('');
+      setScanStatus('done');
+      setScanMsg(rest.length > 0
+        ? ('Filled flight 1 of ' + patches.length + ' — review & save; the remaining ' + rest.length + ' will load next.')
+        : 'Flight details filled in below — please review before saving.');
+    } catch (err) {
+      console.warn('Flight text:', err.message);
+      setScanStatus('error'); setScanMsg('Could not read text — please fill in manually.');
+    }
+  };
+
+  const handleScanApptText = async (text) => {
+    const t = (text || '').trim();
+    if (!t) return;
+    setApptScanStatus('reading'); setApptScanMsg('Reading text…');
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) { setApptScanStatus('error'); setApptScanMsg('Supabase not configured.'); return; }
+      const resp = await fetch(`${supabaseUrl}/functions/v1/kizuna-appt-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ text: t, todayISO: fd(new Date()) }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.error) throw new Error(data.error);
+      const appts = (data && Array.isArray(data.appointments)) ? data.appointments : [];
+      const patches = appts.map(_apptToFormPatch).filter(p => p.title || p.date);
+      if (patches.length === 0) { setApptScanStatus('error'); setApptScanMsg('No appointment details found — please fill in manually.'); return; }
+      const first = patches[0];
+      Object.keys(first).forEach(k => { if (first[k] !== undefined && first[k] !== '') set(k, first[k]); });
+      const rest = patches.slice(1);
+      onExtraAppts(rest);
+      setPasteOpen(false); setPasteText('');
+      setApptScanStatus('done');
+      setApptScanMsg(rest.length > 0
+        ? ('Filled appointment 1 of ' + patches.length + ' — review & save; the remaining ' + rest.length + ' will load next.')
+        : 'Appointment details filled in below — please review before saving.');
+    } catch (err) {
+      console.warn('Appointment text:', err.message);
+      setApptScanStatus('error'); setApptScanMsg('Could not read text — please fill in manually.');
+    }
+  };
+
+  const handleScanEntryText = async (kind, text) => {
+    const t = (text || '').trim();
+    if (!t) return;
+    setEntryScanStatus('reading'); setEntryScanMsg('Reading text…');
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) { setEntryScanStatus('error'); setEntryScanMsg('Supabase not configured.'); return; }
+      const resp = await fetch(`${supabaseUrl}/functions/v1/kizuna-entry-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ text: t, todayISO: fd(new Date()), kind }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data && data.error) throw new Error(data.error);
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      const patches = items.map(it => _entryToFormPatch(it, kind)).filter(p => p.title || p.date);
+      if (patches.length === 0) { setEntryScanStatus('error'); setEntryScanMsg('No details found — please fill in manually.'); return; }
+      const first = patches[0];
+      Object.keys(first).forEach(k => { if (first[k] !== undefined && first[k] !== '') set(k, first[k]); });
+      const rest = patches.slice(1).map(p => ({ type: kind, ...p }));
+      onExtraEntries(rest);
+      setPasteOpen(false); setPasteText('');
+      setEntryScanStatus('done');
+      const noun = kind === 'task' ? 'task' : kind === 'event' ? 'event' : 'reminder';
+      setEntryScanMsg(rest.length > 0
+        ? ('Filled ' + noun + ' 1 of ' + patches.length + ' — review & save; the remaining ' + rest.length + ' will load next.')
+        : 'Details filled in below — please review before saving.');
+    } catch (err) {
+      console.warn('Entry text:', err.message);
+      setEntryScanStatus('error'); setEntryScanMsg('Could not read text — please fill in manually.');
+    }
+  };
+
+
   const _entryToFormPatch = (item, kind) => {
     const p = {
       title: item.title || '',
@@ -9549,15 +9673,25 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
       {form.type === 'meeting' && (<>
         <input ref={scanApptInputRef} type="file" accept="image/*" style={{ display:'none' }}
           onChange={e => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value=''; handleScanApptFile(f); }} />
-        <button type="button" onClick={() => scanApptInputRef.current && scanApptInputRef.current.click()}
-          disabled={apptScanStatus==='reading'}
-          style={{ width:'100%', padding:'12px 14px', marginBottom:14, borderRadius:BR.btn,
-            border:`1.5px dashed ${C.M}`, background:C.M+'0F', color:C.M,
-            fontFamily:'inherit', fontSize:15, fontWeight:700,
-            cursor: apptScanStatus==='reading' ? 'default' : 'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-          📷 {apptScanStatus==='reading' ? 'Reading…' : 'Scan from screenshot'}
-        </button>
+        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+          <button type="button" onClick={() => { setPasteOpen(false); scanApptInputRef.current && scanApptInputRef.current.click(); }}
+            disabled={apptScanStatus==='reading'}
+            style={{ flex:1, padding:'12px 10px', borderRadius:BR.btn,
+              border:`1.5px dashed ${C.M}`, background:C.M+'0F', color:C.M,
+              fontFamily:'inherit', fontSize:15, fontWeight:700,
+              cursor: apptScanStatus==='reading' ? 'default' : 'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            📷 Screenshot
+          </button>
+          <button type="button" onClick={() => setPasteOpen(o => !o)}
+            style={{ flex:1, padding:'12px 10px', borderRadius:BR.btn,
+              border:`1.5px dashed ${C.M}`, background: pasteOpen ? C.M+'22' : C.M+'0F', color:C.M,
+              fontFamily:'inherit', fontSize:15, fontWeight:700, cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            📋 Text
+          </button>
+        </div>
+        {pasteOpen && _pasteBox(C.M, handleScanApptText, apptScanStatus==='reading')}
         {apptScanStatus && apptScanMsg && (
           <p style={{ margin:'-2px 0 14px', fontSize:13,
             color: apptScanStatus==='error' ? WARN : apptScanStatus==='done' ? SUCCESS : C.dim,
@@ -9567,15 +9701,25 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
       {['task','event','reminder'].includes(form.type) && (<>
         <input ref={scanEntryInputRef} type="file" accept="image/*" style={{ display:'none' }}
           onChange={e => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value=''; handleScanEntryFile(form.type, f); }} />
-        <button type="button" onClick={() => scanEntryInputRef.current && scanEntryInputRef.current.click()}
-          disabled={entryScanStatus==='reading'}
-          style={{ width:'100%', padding:'12px 14px', marginBottom:14, borderRadius:BR.btn,
-            border:`1.5px dashed ${C.rose}`, background:C.rose+'0F', color:C.rose,
-            fontFamily:'inherit', fontSize:15, fontWeight:700,
-            cursor: entryScanStatus==='reading' ? 'default' : 'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-          📷 {entryScanStatus==='reading' ? 'Reading…' : 'Scan from screenshot'}
-        </button>
+        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+          <button type="button" onClick={() => { setPasteOpen(false); scanEntryInputRef.current && scanEntryInputRef.current.click(); }}
+            disabled={entryScanStatus==='reading'}
+            style={{ flex:1, padding:'12px 10px', borderRadius:BR.btn,
+              border:`1.5px dashed ${C.rose}`, background:C.rose+'0F', color:C.rose,
+              fontFamily:'inherit', fontSize:15, fontWeight:700,
+              cursor: entryScanStatus==='reading' ? 'default' : 'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            📷 Screenshot
+          </button>
+          <button type="button" onClick={() => setPasteOpen(o => !o)}
+            style={{ flex:1, padding:'12px 10px', borderRadius:BR.btn,
+              border:`1.5px dashed ${C.rose}`, background: pasteOpen ? C.rose+'22' : C.rose+'0F', color:C.rose,
+              fontFamily:'inherit', fontSize:15, fontWeight:700, cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            📋 Text
+          </button>
+        </div>
+        {pasteOpen && _pasteBox(C.rose, (t) => handleScanEntryText(form.type, t), entryScanStatus==='reading')}
         {entryScanStatus && entryScanMsg && (
           <p style={{ margin:'-2px 0 14px', fontSize:13,
             color: entryScanStatus==='error' ? WARN : entryScanStatus==='done' ? SUCCESS : C.dim,
@@ -9661,15 +9805,25 @@ function EForm({ form, set, workspace = null, currentUserId = null, onExtraFligh
         {/* ── Scan from screenshot — OCR auto-fill (vision Edge Function) ── */}
         <input ref={scanInputRef} type="file" accept="image/*" style={{ display:'none' }}
           onChange={e => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value=''; handleScanFile(f); }} />
-        <button type="button" onClick={() => scanInputRef.current && scanInputRef.current.click()}
-          disabled={scanStatus==='reading'}
-          style={{ width:'100%', padding:'12px 14px', marginBottom:12, borderRadius:BR.btn,
-            border:`1.5px dashed ${C.rose}`, background:C.rose+'0F', color:C.rose,
-            fontFamily:'inherit', fontSize:15, fontWeight:700,
-            cursor: scanStatus==='reading' ? 'default' : 'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-          📷 {scanStatus==='reading' ? 'Reading…' : 'Scan from screenshot'}
-        </button>
+        <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+          <button type="button" onClick={() => { setPasteOpen(false); scanInputRef.current && scanInputRef.current.click(); }}
+            disabled={scanStatus==='reading'}
+            style={{ flex:1, padding:'12px 10px', borderRadius:BR.btn,
+              border:`1.5px dashed ${C.rose}`, background:C.rose+'0F', color:C.rose,
+              fontFamily:'inherit', fontSize:15, fontWeight:700,
+              cursor: scanStatus==='reading' ? 'default' : 'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            📷 Screenshot
+          </button>
+          <button type="button" onClick={() => setPasteOpen(o => !o)}
+            style={{ flex:1, padding:'12px 10px', borderRadius:BR.btn,
+              border:`1.5px dashed ${C.rose}`, background: pasteOpen ? C.rose+'22' : C.rose+'0F', color:C.rose,
+              fontFamily:'inherit', fontSize:15, fontWeight:700, cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            📋 Text
+          </button>
+        </div>
+        {pasteOpen && _pasteBox(C.rose, handleScanFlightText, scanStatus==='reading')}
         {scanStatus && scanMsg && (
           <p style={{ margin:'-4px 0 12px', fontSize:13,
             color: scanStatus==='error' ? WARN : scanStatus==='done' ? SUCCESS : C.dim,
