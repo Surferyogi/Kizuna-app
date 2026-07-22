@@ -590,7 +590,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.07.13-23:46';
+const APP_VERSION = 'v2026.07.22-23:19';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -2241,9 +2241,10 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
             const ds      = `${vm.y}-${p2(vm.m+1)}-${p2(day)}`;
             const isT     = ds===fd(new Date()), isSel = ds===selDate;
             const isPast  = new Date(ds+'T00:00:00') < new Date() && !isT;
-            const dots    = showFlights
-              ? [] // hide dots in flight mode — route labels replace them
-              : [...new Set(entries.filter(e=>e.date===ds).map(e=>TC[e.type]))].slice(0,3);
+            const dayTypes = showFlights
+              ? new Set() // hide type dots in flight mode — route labels replace them
+              : new Set(entries.filter(e =>
+                  e.date===ds && !e.cancelled && e.type!=='flight').map(e => e.type));
             const dayFlights  = flightsByDate[ds] || [];
             const hasFlight   = dayFlights.length > 0;
             const dayHolidays = HOLIDAYS_BY_DATE[ds] || [];
@@ -2300,6 +2301,18 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                       width:5, height:5, borderRadius:3,
                       background: HC[dayHolidays[0].country]||'#EF3340' }} />
                   )}
+                  {/* Entry-type dots — birthday TL · appt L · task BL · reminder R · event TC */}
+                  {!showFlights && !isSel && [
+                    ['birthday', { top:2,    left:2    }],
+                    ['meeting',  { top:13.5, left:0    }],
+                    ['task',     { bottom:2, left:2    }],
+                    ['reminder', { top:13.5, right:0   }],
+                    ['event',    { top:0,    left:13.5 }],
+                  ].map(([t, pos]) => dayTypes.has(t) ? (
+                    <div key={t} style={{ position:'absolute', ...pos,
+                      width:5, height:5, borderRadius:3,
+                      background: TC[t], boxShadow:`0 0 3px ${TC[t]}60` }} />
+                  ) : null)}
                 </div>
                 {/* Flight mode: show DEP→ARR route text */}
                 {showFlights && hasFlight ? (
@@ -2322,12 +2335,8 @@ function MonthView({ entries, selDate, setSelDate, vm, setVm, goToday, isToday, 
                     {countryFlag(locationMap[ds].country_code)}
                   </div>
                 ) : (
-                  /* Normal dots */
-                  <div style={{ display:'flex', justifyContent:'center', gap:3, marginTop:2, height:7 }}>
-                    {dots.map((col,j) => (
-                      <div key={j} style={{ width:7, height:7, borderRadius:4, background:col+'90' }} />
-                    ))}
-                  </div>
+                  /* Spacer — keeps cell height; type dots now live on the circle */
+                  <div style={{ height:7, marginTop:2 }} />
                 )}
               </button>
             );
