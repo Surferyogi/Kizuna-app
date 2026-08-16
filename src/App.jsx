@@ -11,7 +11,9 @@ const fd = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
 
 // ─── REPEAT EXPANSION ────────────────────────────────────────────
 // Generates virtual occurrences for repeating entries over the next 365 days.
-// Virtual entries have _virtual:true — shown in UI but cannot be edited/deleted.
+// Virtual entries have _virtual:true — edit/delete on a virtual occurrence
+// applies to the series from that date FORWARD (split / repeatUntil cap);
+// everything before the tapped date is preserved untouched.
 // Only entries with repeat !== 'none' are expanded.
 function expandRepeating(entries) {
   const today  = new Date(); today.setHours(0,0,0,0);
@@ -39,6 +41,8 @@ function expandRepeating(entries) {
     while (cursor <= cutoff && safety < 400) {
       safety++;
       const ds = fd(cursor);
+      // Series cap: set by "edit / end repeat from this date forward"
+      if (e.repeatUntil && ds > e.repeatUntil) break;
       // Skip the original entry's own date
       if (ds !== e.date) {
         result.push({
@@ -590,7 +594,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.07.22-23:19';
+const APP_VERSION = 'v2026.08.15-15:55';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -837,6 +841,9 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
   const isOwn = !e.userId || e.userId === currentUserId;
   // Admin can edit/delete any entry — own or others'
   const canEdit = isOwn || isAdmin;
+  // Virtual occurrence of a repeating series — owner/admin may act on it,
+  // scoped to "from this date forward" (never the past occurrences).
+  const isVirtualEditable = canEdit && e._virtual === true;
 
   // F12: flights are past when departure time has passed
   // Use arrival time if available for more accurate "landed" detection
@@ -1192,7 +1199,14 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
                   borderRadius:BR.input, padding:'5px 10px', cursor:'pointer',
                   flexShrink:0 }}>{showDetail ? '▲' : '▼'}</button>
             )}
-            {isReadOnly && (
+            {isVirtualEditable && (
+              <button onClick={openMenu}
+                style={{ marginLeft:'auto', fontSize:15, color:C.muted,
+                  background:'transparent', border:`1px solid ${C.border}`,
+                  borderRadius:BR.input, padding:'6px 13px', cursor:'pointer',
+                  letterSpacing:'0.12em', lineHeight:1, flexShrink:0 }}>···</button>
+            )}
+            {isReadOnly && !isVirtualEditable && (
               <span style={{ marginLeft:'auto', fontSize:11, color:C.muted,
                 fontStyle:'italic', flexShrink:0 }}>
                 {e._virtual ? '🔁 repeating' : 'view only'}
@@ -1200,6 +1214,13 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             )}
           </div>
         ) : !confirmDel ? (
+          e._virtual ? (
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+            <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit from this date</button>
+            <button onClick={handleDelReq} style={pill('#C46A1415',WARN,'#C46A1450')}>⏹ End repeat here</button>
+            <button onClick={closeMenu}    style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
+          </div>
+          ) : (
           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
             <button onClick={handleEdit}   style={pill(col+'18', dcol, col+'50')}>✎ Edit</button>
             <button onClick={ev => { ev.stopPropagation(); setOpen(false); canEdit && onCancel && onCancel(e.id, isAdmin); }}
@@ -1211,11 +1232,16 @@ function ECard({ e, onToggle, onCancel, onEdit, onDelete, currentUserId, readOnl
             <button onClick={handleDelReq} style={pill('#C46A1415',WARN,'#C46A1450')}>✕ Delete</button>
             <button onClick={closeMenu}    style={{ ...pill(C.elevated,C.muted,C.border), marginLeft:'auto', padding:'4px 10px' }}>×</button>
           </div>
+          )
         ) : (
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>Remove this entry?</span>
+            <span style={{ fontSize:15, color:C.dim, flex:1, fontStyle:'italic' }}>
+              {e._virtual
+                ? `End repeating from ${e.date} onward? Earlier dates stay.`
+                : 'Remove this entry?'}
+            </span>
             <button onClick={closeMenu}    style={pill(C.elevated,C.dim,C.border)}>Cancel</button>
-            <button onClick={handleDelOk}  style={pill('#A04E08','#fff','#A04E08')}>Remove</button>
+            <button onClick={handleDelOk}  style={pill('#A04E08','#fff','#A04E08')}>{e._virtual ? 'End repeat' : 'Remove'}</button>
           </div>
         )}
 
@@ -11772,7 +11798,53 @@ export default function App() {
     if (ownerUserId) dbUpsertEntry(ownerUserId, updated, user?.id);
   }, [logAudit, user]);
 
+  // ── Repeat-forward editing ─────────────────────────────────────
+  // splitCtxRef holds { originId, effectiveDate } while the user edits a
+  // VIRTUAL occurrence of a repeating series. Kept in a ref (never in the
+  // form) so _virtual/_originId flags can never be persisted into the DB.
+  const splitCtxRef = useRef(null);
+  const requestEdit = useCallback(e => {
+    if (e && e._virtual && e._originId) {
+      const origin = entriesRef.current.find(x => x.id === e._originId);
+      if (!origin) return; // origin gone (deleted elsewhere) — nothing to edit
+      splitCtxRef.current = { originId: origin.id, effectiveDate: e.date };
+      // Prefill from the ORIGIN entry (clean, no _virtual flags),
+      // dated at the tapped occurrence.
+      setEditingEntry({ ...origin, date: e.date });
+      return;
+    }
+    splitCtxRef.current = null;
+    setEditingEntry(e);
+  }, []);
+
   const updateEntry = useCallback(updated => {
+    // ── Series split: the edit applies from the tapped occurrence forward.
+    //    1) old series capped at effectiveDate − 1 (past preserved)
+    //    2) fresh entry (new UUID) carries the edited fields onward
+    if (splitCtxRef.current) {
+      const { originId, effectiveDate } = splitCtxRef.current;
+      splitCtxRef.current = null;
+      const origin = entriesRef.current.find(e => e.id === originId);
+      if (origin) {
+        const d = new Date(effectiveDate + 'T00:00:00');
+        d.setDate(d.getDate() - 1);
+        const capped = { ...origin, repeatUntil: fd(d) };
+        const ownerUserId = origin.userId || user?.id;
+        const fresh = { ...updated, id: crypto.randomUUID(), userId: ownerUserId,
+          done: false, doneAt: null, cancelled: false };
+        setEntries(prev => [...prev.map(x => x.id === originId ? capped : x), fresh]);
+        logAudit('updated', capped,
+          [{ field:'repeatUntil', from: origin.repeatUntil || null, to: capped.repeatUntil }]);
+        logAudit('created', fresh);
+        setEditingEntry(null);
+        if (ownerUserId) {
+          dbUpsertEntry(ownerUserId, capped, user?.id);
+          dbUpsertEntry(ownerUserId, fresh,  user?.id);
+        }
+        return;
+      }
+      // origin vanished mid-edit — fall through to the normal path (no-ops safely)
+    }
     const original = entriesRef.current.find(e => e.id === updated.id);
     if (!original) return;
     const TRACKED = ['title','date','time','endTime','location','attendees','notes',
@@ -11791,6 +11863,24 @@ export default function App() {
   }, [logAudit, user]);
 
   const deleteEntry = useCallback(id => {
+    // ── Virtual occurrence id ("<originId>_<YYYY-MM-DD>") → end the
+    //    series from that date forward instead of deleting anything.
+    const vm = typeof id === 'string' && id.match(/^(.+)_(\d{4}-\d{2}-\d{2})$/);
+    if (vm) {
+      const origin = entriesRef.current.find(e => e.id === vm[1]);
+      if (origin && origin.repeat && origin.repeat !== 'none') {
+        const d = new Date(vm[2] + 'T00:00:00');
+        d.setDate(d.getDate() - 1);
+        const capped = { ...origin, repeatUntil: fd(d) };
+        setEntries(prev => prev.map(e => e.id === origin.id ? capped : e));
+        logAudit('updated', capped,
+          [{ field:'repeatUntil', from: origin.repeatUntil || null, to: capped.repeatUntil }]);
+        const ownerUserId = origin.userId || user?.id;
+        if (ownerUserId) dbUpsertEntry(ownerUserId, capped, user?.id);
+        return;
+      }
+      // prefix isn't a live repeating entry — treat as a normal id below
+    }
     const current = entriesRef.current.find(e => e.id === id);
     if (!current) return;
     setEntries(prev => prev.filter(e => e.id !== id));
@@ -12051,12 +12141,12 @@ export default function App() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div style={{ flex:1, overflow:'hidden', position:'relative', background:C.bg }}>
-        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} onLocationSummary={() => setShowLocationSummary(true)} />}
-        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} showFlags={showCalFlags} locationMap={calLocationMap} />}
-        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={setEditingEntry} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
+        {tab==='home'     && <HomeTab     entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={requestEdit} onDelete={deleteEntry} userName={userName} currentUserId={user?.id} onAdd={() => { setAddDate(null); setShowAdd(true); }} syncStatus={syncStatus} flightSyncCount={flightSyncCount} isAdmin={isAdmin} isDark={isDark} onLocationSummary={() => setShowLocationSummary(true)} />}
+        {tab==='calendar' && <CalendarTab entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={requestEdit} onDelete={deleteEntry} currentUserId={user?.id} onAdd={date => { setAddDate(date||null); setShowAdd(true); }} isAdmin={isAdmin} onSyncFlights={syncAllFlights} flightSyncCount={flightSyncCount} isDark={isDark} showFlags={showCalFlags} locationMap={calLocationMap} />}
+        {tab==='search'   && <SearchTab   entries={expandedEntries} onToggle={toggleDone} onCancel={toggleCancel} onEdit={requestEdit} onDelete={deleteEntry} currentUserId={user?.id} isAdmin={isAdmin} />}
         {tab==='settings' && <SettingsTab onReset={resetData} userName={userName} onChangeName={() => { setNameReady(false); setNameInput(userName); }} onSignOut={signOut} workspace={workspace} workspaceLoaded={workspaceLoaded} setWorkspace={setWorkspace} userId={user?.id} isDark={isDark} themeMode={themeMode} setTheme={setTheme} isAdmin={isAdmin} setFestiveTheme={setFestiveTheme} setFestiveVisible={setFestiveVisible} />}
         {showAdd      && <AddModal onClose={() => { setShowAdd(false); setAddDate(null); }} onSave={addEntry} initialDate={addDate} workspace={workspace} currentUserId={user?.id} onLocationRefresh={() => loadUserLocations(user?.id)} />}
-        {editingEntry && <AddModal onClose={() => setEditingEntry(null)} onSave={updateEntry} editEntry={editingEntry} workspace={workspace} currentUserId={user?.id} onLocationRefresh={() => loadUserLocations(user?.id)} />}
+        {editingEntry && <AddModal onClose={() => { setEditingEntry(null); splitCtxRef.current = null; }} onSave={updateEntry} editEntry={editingEntry} workspace={workspace} currentUserId={user?.id} onLocationRefresh={() => loadUserLocations(user?.id)} />}
       </div>
 
       {/* ── Bottom nav bar ─────────────────────────────────────── */}
