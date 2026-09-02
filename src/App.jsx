@@ -594,7 +594,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.08.15-15:55';
+const APP_VERSION = 'v2026.09.03-03:31';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -2709,6 +2709,13 @@ const VARIABLE_FESTIVE = {
     '2025-10-06','2026-09-25','2027-10-15','2028-10-03','2029-09-22',
     '2030-10-11','2031-10-01','2032-09-19','2033-10-08','2034-09-27','2035-09-17',
   ],
+  // Dragon Boat Festival 端午節 — 5th day of 5th lunar month, 2026–2035.
+  // Sources: qppstudio.net, chinahighlights.com, travelchinaguide.com (2026);
+  // cross-checked with lunar-calendar computation. Visual also shows the day before.
+  dragonBoat: [
+    '2026-06-19','2027-06-09','2028-05-28','2029-06-16','2030-06-05',
+    '2031-06-24','2032-06-12','2033-06-01','2034-06-20','2035-06-10',
+  ],
   // Golden Week Apr 29 – May 5 (fixed window, no lookup needed)
   // Obon Aug 13–15 (fixed, no lookup needed)
 };
@@ -2778,12 +2785,23 @@ function detectSpecialDay(now = new Date()) {
   // ── Variable festive ─────────────────────────────────────────
   const isCNY        = VARIABLE_FESTIVE.cny.includes(ds);
   const isMidAutumn  = VARIABLE_FESTIVE.midAutumn.includes(ds);
+  const _tmr = new Date(yr, m - 1, d + 1);   // local calendar day after `now`
+  const _tmrDs = `${_tmr.getFullYear()}-${String(_tmr.getMonth()+1).padStart(2,'0')}-${String(_tmr.getDate()).padStart(2,'0')}`;
+  // Festival date relevant to today (today itself, or tomorrow for the eve)
+  const _dbDs = VARIABLE_FESTIVE.dragonBoat.includes(ds) ? ds
+              : VARIABLE_FESTIVE.dragonBoat.includes(_tmrDs) ? _tmrDs : null;
+  // Skip the festival entirely (day + eve) in years it lands on Sophia's birthday (e.g. 2029-06-16)
+  const _dbSkip = !!_dbDs && _dbDs.endsWith(`-${String(SOPHIA_BIRTH_MONTH).padStart(2,'0')}-${String(SOPHIA_BIRTH_DAY).padStart(2,'0')}`);
+  const isDragonBoat    = !_dbSkip && _dbDs === ds;
+  const isDragonBoatEve = !_dbSkip && _dbDs === _tmrDs;
   const isGoldenWeek = (m === 4 && d >= 29) || (m === 5 && d <= 5);
   const isObon       = m === 8 && d >= 13 && d <= 15;
 
   let festiveName = null;
   if (isMothersDay)   festiveName = "Mother's Day";
   else if (isFathersDay) festiveName = "Father's Day";
+  else if (isDragonBoat)    festiveName = 'Dragon Boat Festival';
+  else if (isDragonBoatEve) festiveName = 'Dragon Boat Festival Eve';
   else if (isCNY)     festiveName = 'Chinese New Year';
   else if (isMidAutumn) festiveName = 'Mid-Autumn Festival';
   else if (isGoldenWeek) festiveName = 'Golden Week';
@@ -2823,6 +2841,7 @@ const FAMOUS_BY_OCCASION = {
   cny:         ['Confucius','Laozi','Sun Tzu','Zhuangzi','Mencius','Rumi'],
   mid_autumn:  ['Matsuo Bashō','Du Fu','Li Bai','Khalil Gibran','Rumi','Pablo Neruda'],
   obon:        ['Matsuo Bashō','Daisetz Suzuki','Thich Nhat Hanh','Ryōkan','Zhuangzi'],
+  dragon_boat: ['Qu Yuan','Li Bai','Du Fu','Su Shi','Confucius','Laozi'],
   mothers_day: ['Maya Angelou','Toni Morrison','Virginia Woolf','Anne Lamott','Simone de Beauvoir','Rumi'],
   fathers_day: ['Nelson Mandela','Barack Obama','Mark Twain','Fyodor Dostoevsky','Khalil Gibran','Confucius'],
   birthday:    ['Dr Seuss','Ralph Waldo Emerson','Maya Angelou','Rumi','Albert Einstein','Audrey Hepburn'],
@@ -2894,6 +2913,7 @@ function buildQuotePrompt(day, themeIndex, slotHour = 0) {
       : festiveName === 'Chinese New Year' ? 'cny'
       : festiveName === 'Mid-Autumn Festival' ? 'mid_autumn'
       : festiveName === 'Obon' ? 'obon'
+      : festiveName.startsWith('Dragon Boat') ? 'dragon_boat'
       : festiveName === "Mother's Day" ? 'mothers_day'
       : festiveName === "Father's Day" ? 'fathers_day'
       : 'festive';
@@ -2901,7 +2921,10 @@ function buildQuotePrompt(day, themeIndex, slotHour = 0) {
       const person = pickFamousPerson(occasionKey, slotHour);
       return `Write a quote about the spirit and meaning of ${festiveName} in the voice and style of ${person}, inspired by their known philosophy, poetry, or writings. Keep it warm and universal. End with — ${person}.`;
     }
-    return `Write a warm family quote for ${festiveName}. The tone should be joyful, grounding, and focused on the meaning of the day for a close-knit family.`;
+    const festiveContext = occasionKey === 'dragon_boat'
+      ? ' (端午節 Duanwu — families wrap and share zongzi rice dumplings, watch dragon boat races, and remember the poet Qu Yuan)'
+      : '';
+    return `Write a warm family quote for ${festiveName}${festiveContext}. The tone should be joyful, grounding, and focused on the meaning of the day for a close-knit family.`;
   }
 
   // Standard theme
@@ -5954,6 +5977,534 @@ function OtsukimiBackground() {
   );
 }
 
+// ─── DRAGON BOAT FESTIVAL (端午節 · Duanwu) — golden-hour river race ──────────
+// Racing dragon boats with synchronised paddlers, drummer & steersman; sun-lit
+// water with glints/wake/splash; hanging zongzi bunch + calamus/mugwort bundle.
+// Shown on the festival day and the day before (see VARIABLE_FESTIVE.dragonBoat).
+function DragonBoatBackground() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = window.innerWidth || 390, H = window.innerHeight || 844;
+    let ctx, T = 0, lastNow = null, animId;
+    let skyLayer = null;
+
+    const hash = n => { const s = Math.sin(n) * 43758.5453; return s - Math.floor(s); };
+
+    // ── Static sky + hills pre-rendered once per resize ─────────────────────
+    const buildSky = () => {
+      const off = document.createElement('canvas');
+      off.width = Math.round(W * dpr); off.height = Math.round(H * dpr);
+      const c = off.getContext('2d');
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const HZ = H * 0.40;                      // horizon
+      // Golden-hour sky
+      const sky = c.createLinearGradient(0, 0, 0, HZ);
+      sky.addColorStop(0.00, '#1c0b1a');
+      sky.addColorStop(0.30, '#4a1a25');
+      sky.addColorStop(0.58, '#93341f');
+      sky.addColorStop(0.80, '#d8702c');
+      sky.addColorStop(1.00, '#f4b45c');
+      c.fillStyle = sky; c.fillRect(0, 0, W, HZ + 2);
+      // Sun + glow
+      const SX = W * 0.70, SY = HZ - H * 0.045, SR = Math.min(W, H) * 0.075;
+      const glow = c.createRadialGradient(SX, SY, SR * 0.4, SX, SY, SR * 5);
+      glow.addColorStop(0, 'rgba(255,214,140,0.85)');
+      glow.addColorStop(0.25, 'rgba(255,170,90,0.35)');
+      glow.addColorStop(1, 'rgba(255,140,60,0)');
+      c.fillStyle = glow; c.fillRect(0, 0, W, HZ + 2);
+      const sun = c.createRadialGradient(SX, SY, 0, SX, SY, SR);
+      sun.addColorStop(0, '#fff4d0'); sun.addColorStop(0.7, '#ffd98a'); sun.addColorStop(1, '#ffb45a');
+      c.fillStyle = sun; c.beginPath(); c.arc(SX, SY, SR, 0, Math.PI * 2); c.fill();
+      // Wispy clouds — warm under-lit streaks
+      for (let i = 0; i < 11; i++) {
+        const cx = hash(i * 7.1) * W, cy = HZ * (0.20 + hash(i * 3.3) * 0.58);
+        const cw = W * (0.16 + hash(i * 5.7) * 0.30), ch = 4 + hash(i * 9.9) * 8;
+        const lit = 0.35 + 0.45 * (cy / HZ);          // lower clouds catch more sun
+        for (let k = 0; k < 3; k++) {
+          const ox = (hash(i * 11.1 + k) - 0.5) * cw * 0.9, oy = (hash(i * 13.3 + k) - 0.5) * ch * 1.2;
+          const rw = cw * (0.45 + hash(i * 17.7 + k) * 0.45), rh = ch * (0.6 + hash(i * 19.9 + k) * 0.6);
+          c.save(); c.translate(cx + ox, cy + oy); c.scale(rw, rh);
+          const g = c.createRadialGradient(0, 0, 0, 0, 0, 1);
+          g.addColorStop(0,   `rgba(255,${Math.round(150 + 60 * lit)},${Math.round(90 + 60 * lit)},${(0.42 * lit + 0.18).toFixed(2)})`);
+          g.addColorStop(0.6, `rgba(210,${Math.round(90 + 50 * lit)},${Math.round(70 + 40 * lit)},${(0.22 * lit + 0.08).toFixed(2)})`);
+          g.addColorStop(1,   'rgba(120,40,50,0)');
+          c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, Math.PI * 2); c.fill(); c.restore();
+        }
+      }
+      // Distant hills — 3 layers, hazier the further
+      const hill = (yBase, amp, seed, col) => {
+        c.fillStyle = col; c.beginPath(); c.moveTo(0, HZ + 2);
+        for (let x = 0; x <= W; x += 6) {
+          const n = Math.sin(x * 0.011 + seed) * 0.5 + Math.sin(x * 0.027 + seed * 1.7) * 0.3 + Math.sin(x * 0.061 + seed * 2.9) * 0.2;
+          c.lineTo(x, yBase - amp * (n * 0.5 + 0.5));
+        }
+        c.lineTo(W, HZ + 2); c.closePath(); c.fill();
+      };
+      hill(HZ - H * 0.02, H * 0.085, 1.3, 'rgba(96,44,64,0.70)');
+      hill(HZ,            H * 0.060, 4.1, 'rgba(58,26,44,0.85)');
+      hill(HZ + 1,        H * 0.030, 7.7, 'rgba(34,14,28,0.95)');
+      // Pavilion silhouette on the right ridge
+      const px = W * 0.86, py = HZ - H * 0.028;
+      c.fillStyle = 'rgba(28,10,22,0.95)';
+      c.fillRect(px - 9, py - 14, 18, 14);
+      c.beginPath(); c.moveTo(px - 16, py - 14); c.quadraticCurveTo(px, py - 30, px + 16, py - 14);
+      c.quadraticCurveTo(px, py - 20, px - 16, py - 14); c.fill();
+      c.beginPath(); c.moveTo(px - 11, py - 24); c.quadraticCurveTo(px, py - 36, px + 11, py - 24);
+      c.quadraticCurveTo(px, py - 28, px - 11, py - 24); c.fill();
+      return { off, HZ, SX };
+    };
+
+    const setup = () => {
+      W = window.innerWidth || 390; H = window.innerHeight || 844;
+      canvas.width  = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      skyLayer = buildSky();
+    };
+    setup();
+
+    // ── Water glints ─────────────────────────────────────────────────────────
+    const GLINTS = Array.from({ length: 170 }, (_, i) => ({
+      u: hash(i * 3.1), v: hash(i * 5.3), w: 0.4 + hash(i * 7.7) * 0.9,
+      sp: 0.4 + hash(i * 9.1) * 1.4, ph: hash(i * 11.3) * Math.PI * 2,
+    }));
+
+    // ── Boats: far → near ────────────────────────────────────────────────────
+    const TEAMS = [
+      { hull:'#b4121c', hullDark:'#5c0810', trim:'#f2c14e', shirt:'#f5d24a', shirt2:'#e8a020' },
+      { hull:'#0f5c3a', hullDark:'#063020', trim:'#f2c14e', shirt:'#e8e8e8', shirt2:'#c8c8c8' },
+      { hull:'#123a7a', hullDark:'#081c40', trim:'#f2c14e', shirt:'#ff7a3c', shirt2:'#d85a20' },
+    ];
+    const BOATS = [
+      { lane:0.470, s:0.30, x0:0.62, half:0, v:0.050, ph:0.0, team:1, stroke:1.25 },
+      { lane:0.775, s:0.58, x0:0.30, half:0, v:0.100, ph:2.1, team:2, stroke:1.35 },
+      { lane:0.815, s:0.64, x0:0.30, half:1, v:0.104, ph:3.6, team:1, stroke:1.32 },
+      { lane:0.895, s:0.92, x0:0.50, half:0, v:0.145, ph:4.2, team:0, stroke:1.40 },
+      { lane:0.945, s:1.00, x0:0.50, half:1, v:0.150, ph:1.1, team:2, stroke:1.38 },
+    ];
+    const boatLen = s => Math.min(W * 0.92, 380) * s;
+    const placeBoats = () => BOATS.forEach(b => {
+      const L = boatLen(b.s), cyc = W + L * 1.1;
+      b.x = W * b.x0 - (b.half ? cyc * 0.5 : 0);
+    });
+    placeBoats();
+    const DROPS = [];
+    const WAKE  = [];
+
+    // Draw a whole dragon boat in local coords: origin at waterline centre, +x = bow
+    const drawBoat = (b, tm, reflection) => {
+      const L = boatLen(b.s), s = b.s;
+      const hullH = 14 * s;
+      const strokeT = T * b.stroke + b.ph;              // paddle cycle
+      const pitch = Math.sin(strokeT) * 0.012;
+      ctx.save();
+      ctx.rotate(-pitch);
+      // Hull scales/side
+      const hg = ctx.createLinearGradient(0, -hullH, 0, hullH * 0.6);
+      hg.addColorStop(0, tm.hull); hg.addColorStop(1, tm.hullDark);
+      ctx.fillStyle = hg;
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.50, -hullH * 0.9);
+      ctx.quadraticCurveTo(0, -hullH * 1.15, L * 0.50, -hullH * 0.9);
+      ctx.quadraticCurveTo(L * 0.44, hullH * 0.6, L * 0.30, hullH * 0.65);
+      ctx.lineTo(-L * 0.30, hullH * 0.65);
+      ctx.quadraticCurveTo(-L * 0.44, hullH * 0.6, -L * 0.50, -hullH * 0.9);
+      ctx.closePath(); ctx.fill();
+      // Gunwale trim
+      ctx.strokeStyle = tm.trim; ctx.lineWidth = Math.max(1, 1.6 * s);
+      ctx.beginPath(); ctx.moveTo(-L * 0.49, -hullH * 0.85);
+      ctx.quadraticCurveTo(0, -hullH * 1.1, L * 0.49, -hullH * 0.85); ctx.stroke();
+      // Scale pattern
+      if (s > 0.45) {
+        ctx.strokeStyle = 'rgba(255,220,120,0.28)'; ctx.lineWidth = 1;
+        const step = 9 * s;
+        for (let row = 0; row < 2; row++) {
+          const y = -hullH * 0.25 + row * step * 0.8;
+          for (let x = -L * 0.42 + (row % 2) * step * 0.5; x < L * 0.42; x += step) {
+            ctx.beginPath(); ctx.arc(x, y, step * 0.5, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+          }
+        }
+      }
+      // Dragon head at bow — S-curved neck, open jaw, horns, mane, whiskers
+      const bx = L * 0.50, by = -hullH * 0.9;
+      const hs = 30 * s;
+      ctx.save(); ctx.translate(bx, by);
+      const P = (x, y) => [x * hs, y * hs];
+      // neck
+      const ng = ctx.createLinearGradient(0, 0, 0, -hs * 1.2);
+      ng.addColorStop(0, tm.hullDark); ng.addColorStop(1, tm.hull);
+      ctx.fillStyle = ng;
+      ctx.beginPath(); ctx.moveTo(...P(-0.55, 0.25));
+      ctx.bezierCurveTo(...P(-0.05, -0.15), ...P(0.05, -0.55), ...P(0.35, -1.05));
+      ctx.lineTo(...P(0.85, -1.05));
+      ctx.bezierCurveTo(...P(0.55, -0.55), ...P(0.45, -0.25), ...P(0.30, 0.25));
+      ctx.closePath(); ctx.fill();
+      // neck scales
+      ctx.strokeStyle = 'rgba(255,220,120,0.35)'; ctx.lineWidth = Math.max(0.6, 0.9 * s);
+      for (let k = 0; k < 4; k++) {
+        ctx.beginPath(); ctx.arc(hs * (0.05 + k * 0.1), hs * (0.05 - k * 0.3), hs * 0.16, Math.PI * 0.1, Math.PI * 0.9); ctx.stroke();
+      }
+      // mane — green + gold spikes sweeping back
+      const spikes = [[-0.05, -1.05, -0.65, -1.15, '#2f8f4e'], [0.05, -1.25, -0.55, -1.55, '#f2c14e'], [0.15, -1.45, -0.35, -1.85, '#2f8f4e'], [0.30, -1.60, -0.05, -2.05, '#f2c14e'], [0.45, -1.70, 0.25, -2.10, '#2f8f4e']];
+      for (const [x0, y0, x1, y1, col] of spikes) {
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.moveTo(...P(x0 + 0.25, y0 + 0.05));
+        ctx.quadraticCurveTo(...P((x0 + x1) * 0.5 - 0.1, (y0 + y1) * 0.5 + 0.15), ...P(x1, y1));
+        ctx.quadraticCurveTo(...P((x0 + x1) * 0.5 + 0.1, (y0 + y1) * 0.5 - 0.05), ...P(x0 + 0.35, y0 - 0.1));
+        ctx.closePath(); ctx.fill();
+      }
+      // horns — antler-like, gold
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = Math.max(1, 2.6 * s); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(...P(0.55, -1.65)); ctx.quadraticCurveTo(...P(0.35, -2.15), ...P(0.05, -2.35)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(...P(0.40, -2.0)); ctx.lineTo(...P(0.25, -2.35)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(...P(0.80, -1.70)); ctx.quadraticCurveTo(...P(0.70, -2.25), ...P(0.45, -2.55)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(...P(0.72, -2.1)); ctx.lineTo(...P(0.62, -2.45)); ctx.stroke();
+      // skull + upper jaw
+      const headG = ctx.createLinearGradient(0, -hs * 1.85, 0, -hs * 0.9);
+      headG.addColorStop(0, '#ea4a30'); headG.addColorStop(0.6, '#c42418'); headG.addColorStop(1, '#8a1410');
+      ctx.fillStyle = headG;
+      ctx.beginPath(); ctx.moveTo(...P(0.30, -1.10));
+      ctx.bezierCurveTo(...P(0.25, -1.65), ...P(0.60, -1.90), ...P(1.05, -1.75));   // skull
+      ctx.bezierCurveTo(...P(1.35, -1.65), ...P(1.55, -1.55), ...P(1.65, -1.38));   // snout bridge
+      ctx.quadraticCurveTo(...P(1.72, -1.25), ...P(1.60, -1.15));                    // nose
+      ctx.lineTo(...P(0.95, -1.10));                                                  // upper jaw lower edge → mouth corner
+      ctx.closePath(); ctx.fill();
+      // lower jaw
+      ctx.fillStyle = '#9c1a12';
+      ctx.beginPath(); ctx.moveTo(...P(0.95, -1.10));
+      ctx.lineTo(...P(1.50, -0.82));
+      ctx.quadraticCurveTo(...P(1.20, -0.62), ...P(0.85, -0.72));
+      ctx.quadraticCurveTo(...P(0.65, -0.85), ...P(0.75, -1.05));
+      ctx.closePath(); ctx.fill();
+      // mouth interior
+      ctx.fillStyle = '#3a0608';
+      ctx.beginPath(); ctx.moveTo(...P(0.95, -1.10)); ctx.lineTo(...P(1.60, -1.15)); ctx.lineTo(...P(1.50, -0.82)); ctx.closePath(); ctx.fill();
+      // teeth
+      ctx.fillStyle = '#fff6e0';
+      [[1.15, -1.12], [1.33, -1.13], [1.48, -1.14]].forEach(([tx, ty]) => {
+        ctx.beginPath(); ctx.moveTo(...P(tx - 0.05, ty)); ctx.lineTo(...P(tx, ty + 0.16)); ctx.lineTo(...P(tx + 0.05, ty)); ctx.fill();
+      });
+      [[1.10, -0.98], [1.30, -0.90]].forEach(([tx, ty]) => {
+        ctx.beginPath(); ctx.moveTo(...P(tx - 0.05, ty)); ctx.lineTo(...P(tx, ty - 0.15)); ctx.lineTo(...P(tx + 0.05, ty)); ctx.fill();
+      });
+      // eye with gold brow
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(...P(0.88, -1.42), hs * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(...P(0.92, -1.42), hs * 0.075, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = Math.max(1, 2 * s);
+      ctx.beginPath(); ctx.arc(...P(0.88, -1.45), hs * 0.24, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      // nostril
+      ctx.fillStyle = '#3a0608'; ctx.beginPath(); ctx.arc(...P(1.55, -1.30), hs * 0.045, 0, Math.PI * 2); ctx.fill();
+      // whiskers
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = Math.max(0.8, 1.3 * s);
+      ctx.beginPath(); ctx.moveTo(...P(1.58, -1.22)); ctx.bezierCurveTo(...P(2.05, -1.30), ...P(2.15, -0.95), ...P(1.85, -0.75)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(...P(1.58, -1.22)); ctx.bezierCurveTo(...P(2.0, -1.45), ...P(2.3, -1.35), ...P(2.35, -1.60)); ctx.stroke();
+      // beard tuft
+      ctx.fillStyle = '#2f8f4e';
+      ctx.beginPath(); ctx.moveTo(...P(0.95, -0.72)); ctx.quadraticCurveTo(...P(0.85, -0.35), ...P(1.05, -0.15));
+      ctx.quadraticCurveTo(...P(1.12, -0.45), ...P(1.25, -0.68)); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      // Tail at stern
+      ctx.save(); ctx.translate(-L * 0.50, -hullH * 0.9);
+      const tg = ctx.createLinearGradient(0, 0, -hs * 0.8, -hs * 1.3);
+      tg.addColorStop(0, tm.hull); tg.addColorStop(1, '#2f8f4e');
+      ctx.fillStyle = tg;
+      ctx.beginPath(); ctx.moveTo(hs * 0.35, hs * 0.2);
+      ctx.quadraticCurveTo(-hs * 0.30, -hs * 0.35, -hs * 0.55, -hs * 1.15);
+      ctx.lineTo(-hs * 0.95, -hs * 1.35);
+      ctx.quadraticCurveTo(-hs * 0.45, -hs * 1.1, -hs * 0.80, -hs * 0.65);
+      ctx.lineTo(-hs * 0.15, -hs * 0.9);
+      ctx.quadraticCurveTo(-hs * 0.2, -hs * 0.3, hs * 0.1, hs * 0.25);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+
+      // Crew
+      const n = 10;
+      const x0 = -L * 0.34, x1 = L * 0.34;
+      const bodyH = 17 * s, headR = 4.2 * s;
+      const drawFigure = (x, shirt, lean, armAng, paddle, tilt) => {
+        ctx.save(); ctx.translate(x, -hullH * 0.95);
+        ctx.rotate(lean);
+        // torso
+        ctx.fillStyle = shirt;
+        ctx.beginPath();
+        ctx.moveTo(-5 * s, 0); ctx.lineTo(5 * s, 0);
+        ctx.lineTo(4 * s, -bodyH); ctx.lineTo(-4 * s, -bodyH); ctx.closePath(); ctx.fill();
+        // head
+        ctx.fillStyle = '#d9a071';
+        ctx.beginPath(); ctx.arc(0, -bodyH - headR * 0.9, headR, 0, Math.PI * 2); ctx.fill();
+        // cap / headband
+        ctx.fillStyle = tm.trim;
+        ctx.fillRect(-headR, -bodyH - headR * 1.5, headR * 2, headR * 0.6);
+        // arms + paddle
+        if (paddle) {
+          const shX = 3.5 * s, shY = -bodyH * 0.8;
+          const px = shX + Math.cos(armAng) * 11 * s, py = shY + Math.sin(armAng) * 11 * s;
+          ctx.strokeStyle = '#d9a071'; ctx.lineWidth = Math.max(1, 2.6 * s); ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(shX, shY); ctx.lineTo(px, py); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-shX, shY); ctx.lineTo(px - 4 * s, py + 5 * s); ctx.stroke();
+          // paddle shaft from upper hand down at tilt
+          const plen = 34 * s;
+          const ex = px + Math.cos(tilt) * plen, ey = py + Math.sin(tilt) * plen;
+          ctx.strokeStyle = '#6b3d1e'; ctx.lineWidth = Math.max(1, 2 * s);
+          ctx.beginPath(); ctx.moveTo(px - Math.cos(tilt) * 6 * s, py - Math.sin(tilt) * 6 * s); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.fillStyle = '#8a4b22';
+          ctx.save(); ctx.translate(ex, ey); ctx.rotate(tilt);
+          ctx.beginPath(); ctx.ellipse(0, 0, 7 * s, 3.2 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        ctx.restore();
+      };
+      for (let i = 0; i < n; i++) {
+        const x = x0 + (x1 - x0) * (i / (n - 1));
+        const jitter = (hash(i * 13.7 + b.team) - 0.5) * 0.25;
+        const ph = strokeT + jitter;
+        // stroke: reach forward (paddle up) → pull back (blade in water)
+        const c = Math.cos(ph);
+        const lean = -0.18 + 0.22 * c;                  // lean forward on catch
+        const armAng = 0.15 - 0.55 * c;                 // arm swings
+        const tilt = Math.PI * 0.62 + 0.55 * c;         // blade angle
+        drawFigure(x, i % 2 ? tm.shirt : tm.shirt2, lean, armAng, true, tilt);
+      }
+      // Drummer at bow facing crew, with drum
+      ctx.save(); ctx.translate(L * 0.42, -hullH * 0.95);
+      ctx.fillStyle = '#c8102e';
+      ctx.beginPath(); ctx.ellipse(0, -8 * s, 8 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e9d2a8';
+      ctx.beginPath(); ctx.ellipse(0, -13 * s, 8 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      const beat = Math.abs(Math.sin(strokeT * 2)) ;
+      drawFigure(L * 0.47, tm.trim, -0.35 + beat * 0.15, 0, false, 0);
+      // drum sticks
+      ctx.save(); ctx.translate(L * 0.44, -hullH * 0.95 - bodyH * 0.7);
+      ctx.strokeStyle = '#3a2410'; ctx.lineWidth = Math.max(1, 1.6 * s);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-9 * s, -6 * s + beat * 9 * s); ctx.stroke();
+      ctx.restore();
+      // Steersman at stern with long oar
+      drawFigure(-L * 0.40, tm.shirt, 0.1, 0, false, 0);
+      ctx.strokeStyle = '#6b3d1e'; ctx.lineWidth = Math.max(1, 2 * s);
+      ctx.beginPath(); ctx.moveTo(-L * 0.40, -hullH * 0.95 - bodyH * 0.7);
+      ctx.lineTo(-L * 0.53, hullH * 0.9 + 6 * s); ctx.stroke();
+      // Pennant on bow pole
+      ctx.strokeStyle = '#3a2410'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(L * 0.36, -hullH); ctx.lineTo(L * 0.36, -hullH - 34 * s); ctx.stroke();
+      const fl = Math.sin(T * 6 + b.ph) * 2 * s;
+      ctx.fillStyle = tm.hull;
+      ctx.beginPath(); ctx.moveTo(L * 0.36, -hullH - 34 * s);
+      ctx.quadraticCurveTo(L * 0.36 - 9 * s, -hullH - 30 * s + fl, L * 0.36 - 16 * s, -hullH - 26 * s - fl);
+      ctx.lineTo(L * 0.36, -hullH - 22 * s); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (reflection) return;
+      // Bow wave + foam
+      ctx.save(); ctx.translate(0, hullH * 0.55);
+      ctx.strokeStyle = 'rgba(255,240,220,0.65)'; ctx.lineWidth = Math.max(1, 2.2 * s); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(L * 0.44, 0);
+      ctx.quadraticCurveTo(L * 0.52, 4 * s, L * 0.60, 10 * s + Math.sin(T * 5) * 2 * s); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,240,220,0.35)';
+      ctx.beginPath(); ctx.moveTo(L * 0.40, 2 * s);
+      ctx.quadraticCurveTo(L * 0.50, 9 * s, L * 0.56, 16 * s); ctx.stroke();
+      ctx.restore();
+    };
+
+    const drawWater = (HZ, SX) => {
+      const wg = ctx.createLinearGradient(0, HZ, 0, H);
+      wg.addColorStop(0.00, '#f0a24a');
+      wg.addColorStop(0.10, '#c9652c');
+      wg.addColorStop(0.40, '#7a2c2c');
+      wg.addColorStop(1.00, '#2a1020');
+      ctx.fillStyle = wg; ctx.fillRect(0, HZ, W, H - HZ);
+      // Sun glitter path
+      ctx.save(); ctx.translate(SX, HZ); ctx.scale(W * 0.22, H * 0.34);
+      const path = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      path.addColorStop(0, 'rgba(255,232,180,0.55)'); path.addColorStop(0.45, 'rgba(255,210,140,0.22)'); path.addColorStop(1, 'rgba(255,200,120,0)');
+      ctx.fillStyle = path; ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      // Glints — horizontal streaks, perspective-sized
+      for (const g of GLINTS) {
+        const depth = g.v * g.v;                       // more near bottom
+        const y = HZ + depth * (H - HZ);
+        const drift = ((g.u + T * 0.004 * g.sp) % 1);
+        const x = drift * W;
+        const near = 0.3 + depth;
+        const len = (6 + g.w * 26) * near, th = Math.max(0.6, 1.2 * near);
+        const a = (0.10 + 0.32 * (0.5 + 0.5 * Math.sin(T * g.sp * 1.6 + g.ph))) * (1 - Math.abs(x - SX) / W * 0.6);
+        ctx.fillStyle = `rgba(255,225,170,${a.toFixed(3)})`;
+        ctx.beginPath(); ctx.ellipse(x, y, len, th, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    };
+
+    // ── Foreground: zongzi bunch (top-left) + calamus/mugwort (top-right) ────
+    const drawZongzi = (x, y, r, rot) => {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+      // three visible faces of a tetrahedron, lit from upper-left
+      const A = [0, -r * 1.05], B = [-r * 0.95, r * 0.55], C = [r * 0.95, r * 0.55], D = [0.18 * r, r * 0.05];
+      const face = (p, q, s2, c0, c1) => {
+        const g = ctx.createLinearGradient(p[0], p[1], s2[0], s2[1]);
+        g.addColorStop(0, c0); g.addColorStop(1, c1);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(...p); ctx.lineTo(...q); ctx.lineTo(...s2); ctx.closePath(); ctx.fill();
+      };
+      face(A, B, D, '#5c8a3a', '#2f5424');
+      face(A, D, C, '#8dbb52', '#4f8034');
+      face(B, C, D, '#264a20', '#16301a');
+      // leaf seam highlights
+      ctx.strokeStyle = 'rgba(210,235,160,0.45)'; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(D[0], D[1]); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.moveTo(B[0], B[1]); ctx.lineTo(D[0], D[1]); ctx.lineTo(C[0], C[1]); ctx.stroke();
+      // bamboo-leaf tail trailing from the bottom corner
+      ctx.fillStyle = '#7fae4a';
+      ctx.beginPath(); ctx.moveTo(C[0] * 0.85, C[1] * 0.9);
+      ctx.quadraticCurveTo(r * 1.25, r * 0.95, r * 1.35, r * 1.6);
+      ctx.quadraticCurveTo(r * 1.0, r * 1.05, C[0] * 0.55, C[1] * 1.02); ctx.fill();
+      // cotton tie wrapped twice around
+      ctx.strokeStyle = '#efe3c2'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-r * 0.58, -r * 0.02); ctx.quadraticCurveTo(r * 0.1, r * 0.22, r * 0.78, r * 0.12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r * 0.22, -r * 0.62); ctx.quadraticCurveTo(r * 0.05, r * 0.0, r * 0.32, r * 0.52); ctx.stroke();
+      ctx.restore();
+    };
+    const drawZongziBunch = () => {
+      const px = W * 0.12, py = -4;
+      const sw = Math.sin(T * 0.9) * 0.05;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(sw);
+      const r = Math.max(15, Math.min(W, H) * 0.05);
+      const items = [[-0.35, 3.0, 0.2], [0.6, 3.4, -0.25], [-0.95, 4.2, 0.5], [0.15, 4.6, -0.05], [1.0, 4.5, 0.3], [-0.3, 5.5, -0.35]];
+      // strings
+      ctx.strokeStyle = '#e8d9b0'; ctx.lineWidth = 1.2;
+      for (const it of items) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(it[0] * r, it[1] * r - r * 0.9); ctx.stroke(); }
+      for (const it of items) drawZongzi(it[0] * r, it[1] * r, r, it[2] + Math.sin(T * 1.3 + it[1]) * 0.04);
+      ctx.restore();
+    };
+    const drawCalamus = () => {
+      const px = W * 0.90, py = -2;
+      const sw = Math.sin(T * 0.7 + 1) * 0.035;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(sw);
+      const len = Math.max(80, H * 0.18);
+      const blades = [[-0.20, 1.00, '#3a7a33'], [-0.10, 0.92, '#4f9440'], [0.01, 1.06, '#2f6b2a'], [0.12, 0.90, '#5fa54b'], [0.22, 0.98, '#3e8236'], [-0.04, 0.80, '#77b35a'], [0.07, 0.72, '#6da34e']];
+      // mugwort sprigs behind the blades (grey-green, lobed)
+      ctx.fillStyle = '#7f9a7c';
+      for (let i = 0; i < 3; i++) {
+        const a = -0.30 + i * 0.28, bl = len * 0.48;
+        ctx.beginPath(); ctx.moveTo(0, len * 0.06);
+        for (let k = 0; k <= 8; k++) { const t = k / 8, w = Math.sin(t * Math.PI) * 6 * (k % 2 ? 1 : 0.55); ctx.lineTo(Math.sin(a) * bl * t + w, len * 0.06 + bl * t); }
+        for (let k = 8; k >= 0; k--) { const t = k / 8, w = Math.sin(t * Math.PI) * 6 * (k % 2 ? 1 : 0.55); ctx.lineTo(Math.sin(a) * bl * t - w, len * 0.06 + bl * t); }
+        ctx.closePath(); ctx.fill();
+      }
+      for (const [ang, l, col] of blades) {
+        const bl = len * l;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(Math.sin(ang) * bl * 0.6 + 6, bl * 0.55, Math.sin(ang) * bl * 1.1, bl);
+        ctx.quadraticCurveTo(Math.sin(ang) * bl * 0.55 - 6, bl * 0.55, 0, 0); ctx.fill();
+      }
+      // red ribbon tie
+      ctx.fillStyle = '#c8102e';
+      ctx.beginPath(); ctx.ellipse(0, 16, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-2, 20); ctx.lineTo(-10, 46); ctx.lineTo(-4, 44); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(2, 20); ctx.lineTo(9, 44); ctx.lineTo(4, 44); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    };
+
+    // ── Frame ────────────────────────────────────────────────────────────────
+    const frame = now => {
+      if (lastNow == null) lastNow = now;
+      const dt = Math.min(0.05, (now - lastNow) / 1000); lastNow = now;
+      T += dt;
+      const { off, HZ, SX } = skyLayer;
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(off, 0, 0, W, H);
+      drawWater(HZ, SX);
+
+      for (const b of BOATS) {
+        const L = boatLen(b.s);
+        b.x += b.v * W * dt;
+        if (b.x - L * 0.55 > W) b.x = -L * 0.55;
+        const y = H * b.lane + Math.sin(T * 1.7 + b.ph) * 1.5 * b.s;
+        const tm = TEAMS[b.team];
+        // Reflection (flipped, dim, wavy)
+        ctx.save(); ctx.translate(b.x, y + 4 * b.s); ctx.scale(1, -0.55);
+        ctx.globalAlpha = 0.28;
+        drawBoat(b, tm, true);
+        ctx.restore();
+        // Wake behind stern
+        WAKE.push({ x: b.x - L * 0.48, y: y + 6 * b.s, s: b.s, a: 0.5, w: 8 * b.s });
+        // Splash when blades bite
+        const ph = (T * b.stroke + b.ph) % (Math.PI * 2);
+        if (ph > 2.9 && ph < 3.3 && b.s > 0.4) {
+          for (let i = 0; i < 4; i++) {
+            DROPS.push({ x: b.x + (hash(T * 7 + i) - 0.5) * L * 0.7, y: y + 6 * b.s,
+              vx: (hash(T * 3 + i) - 0.3) * 40 * b.s, vy: -(60 + hash(T * 5 + i) * 90) * b.s,
+              r: (1 + hash(T * 9 + i) * 1.8) * b.s, life: 0.6 });
+          }
+        }
+        ctx.save(); ctx.translate(b.x, y);
+        drawBoat(b, tm, false);
+        ctx.restore();
+      }
+      // Wake trails
+      for (let i = WAKE.length - 1; i >= 0; i--) {
+        const k = WAKE[i]; k.a -= dt * 0.35; k.w += dt * 10 * k.s;
+        if (k.a <= 0) { WAKE.splice(i, 1); continue; }
+        ctx.fillStyle = `rgba(255,235,210,${(k.a * 0.5).toFixed(3)})`;
+        ctx.beginPath(); ctx.ellipse(k.x, k.y, k.w, Math.max(0.8, 1.6 * k.s), 0, 0, Math.PI * 2); ctx.fill();
+      }
+      if (WAKE.length > 240) WAKE.splice(0, WAKE.length - 240);
+      // Droplets
+      for (let i = DROPS.length - 1; i >= 0; i--) {
+        const d = DROPS[i]; d.life -= dt; d.vy += 300 * dt; d.x += d.vx * dt; d.y += d.vy * dt;
+        if (d.life <= 0) { DROPS.splice(i, 1); continue; }
+        ctx.fillStyle = `rgba(255,245,225,${(d.life * 1.2).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill();
+      }
+      // Foreground
+      drawZongziBunch();
+      drawCalamus();
+      // Soft vignette for depth
+      const vg = ctx.createRadialGradient(W * 0.5, H * 0.55, H * 0.35, W * 0.5, H * 0.55, H * 0.9);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(10,0,10,0.45)');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+      animId = requestAnimationFrame(frame);
+    };
+
+    const onResize = () => { setup(); placeBoats(); };
+    window.addEventListener('resize', onResize);
+    animId = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return (
+    <>
+      <canvas ref={canvasRef} style={{
+        position:'fixed', top:0, left:0,
+        width:'100vw', height:'100vh',
+        pointerEvents:'none', zIndex:0, background:'transparent',
+      }} />
+      {/* Text overlay — 端午節 */}
+      <div style={{
+        position:'fixed', top:'3.5%', left:0, width:'100%',
+        textAlign:'center', pointerEvents:'none', userSelect:'none',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:'4px',
+        zIndex:1,
+      }}>
+        <div style={{
+          fontSize:'2.4rem', letterSpacing:'0.5em', paddingLeft:'0.5em',
+          fontFamily:"'Hiragino Mincho ProN','Yu Mincho','Songti SC','MS Mincho',serif",
+          fontWeight:300, color:'rgba(255,220,120,0.92)',
+          textShadow:'0 2px 10px rgba(0,0,0,0.5)',
+        }}>端午節</div>
+        <div style={{
+          fontSize:'0.8rem', letterSpacing:'0.2em', paddingLeft:'0.2em',
+          fontFamily:"'Georgia',serif",
+          fontWeight:300, color:'rgba(255,220,120,0.7)',
+          textTransform:'uppercase',
+        }}>Dragon Boat Festival · 粽子</div>
+      </div>
+    </>
+  );
+}
+
 // ─── CHRISTMAS — winter night sky: blinking stars, north star, shooting stars ──
 function ChristmasBackground() {
   const canvasRef = useRef(null);
@@ -6638,7 +7189,9 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
   const isSeijin      = label.includes('seijin') || label.includes('coming of age');
   const isChristmas   = label.includes('christmas')
     || (new Date().getMonth() === 11 && new Date().getDate() === 25);
-  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay || isChristmas || isSeijin || isKodomo;
+  // Dragon Boat Festival (day + eve). Personal days (birthday/anniversary) keep their own scene.
+  const isDragonBoat  = (label.includes('dragon boat') || label.includes('duanwu')) && !isBirthday && !isAnniversary;
+  const hasSpecialBg  = isBirthday || isAnniversary || isMothersDay || isFathersDay || isChristmas || isSeijin || isKodomo || isDragonBoat;
   const isOtsukimi    = label.includes('otsukimi') || label.includes('mid-autumn');
 
   return (
@@ -6665,6 +7218,7 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
       {isSeijin     && <SeijinBackground />}
       {isOtsukimi    && <OtsukimiBackground />}
       {isChristmas   && <ChristmasBackground />}
+      {isDragonBoat  && <DragonBoatBackground />}
       {!isOtsukimi && !isChristmas && isMothersDay  && <MothersDayBackground />}
       {!isOtsukimi && !isChristmas && isFathersDay  && <FathersDayBackground />}
       {!isOtsukimi && !isChristmas && isAnniversary && !isBirthday && <AnniversaryBackground />}
@@ -6703,13 +7257,13 @@ function DailyQuoteScreen({ quoteData, loading, onDismiss, seasonOverride, scene
         </div>
         <h1 style={{ margin:0, fontSize:34, fontWeight:700,
           fontFamily:'Cormorant Garamond,serif',
-          color:(isSeijin||isOtsukimi||isChristmas||isSummer)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }}>
-          Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas||isSummer)?'#F5D060':C.rose }}>絆</span>
+          color:(isSeijin||isOtsukimi||isChristmas||isSummer||isDragonBoat)?'#DAA520':C.text, letterSpacing:'0.02em', lineHeight:1 }}>
+          Kizuna&thinsp;<span style={{ color:(isSeijin||isOtsukimi||isChristmas||isSummer||isDragonBoat)?'#F5D060':C.rose }}>絆</span>
         </h1>
         <p style={{ margin:'6px 0 0', fontSize:13,
           fontStyle:'italic', fontFamily:'Cormorant Garamond,serif',
           letterSpacing:'0.04em',
-          color:(isSeijin||isOtsukimi||isChristmas||isSummer)?'#C8A040':C.muted }}>
+          color:(isSeijin||isOtsukimi||isChristmas||isSummer||isDragonBoat)?'#C8A040':C.muted }}>
           Today's Reflection
         </p>
       </div>
@@ -8672,6 +9226,7 @@ function InviteModal({ onClose, workspaceId, invitedBy }) {
 const OCCASION_DEMOS = [
   { label:"🎏 Kodomo no Hi",  quote:{ quote:"Children do not need to be made to grow — they need space, wonder, and someone steady enough to catch them when they fall.", label:"Kodomo no Hi · Children's Day", isSpecial:true } },
   { label:"👘 Seijin no Hi",  quote:{ quote:"Today you cross the threshold — not because you are certain, but because you are ready to become someone who can grow certain.", label:"Seijin no Hi · Coming of Age Day", isSpecial:true } },
+  { label:"🐉 Dragon Boat", quote:{ quote:"Like paddlers in one boat, a family moves forward not by strength alone, but by the rhythm of hearts beating together.", label:"Dragon Boat Festival · 端午節", isSpecial:true } },
   { label:"🌕 Otsukimi",    quote:{ quote:"In the hush of mid-autumn we gather — to offer rice dumplings, to watch the moon, to remember that we are small and the sky is ancient.", label:"Otsukimi · Mid-Autumn Festival", isSpecial:true } },
   { label:"🎋 Tanabata",    quote:{ quote:"Once a year the celestial lovers cross the river of stars to meet — a reminder that love, given time, always finds its way home.", label:"Tanabata · 七夕 Star Festival", isSpecial:true }, season:'summer', scene:'tanabata' },
   { label:"🏮 Obon",        quote:{ quote:"We light these lanterns so the ones we love can find their way home — across distance, across years.", label:"Obon · お盆 Festival of Remembrance", isSpecial:true }, season:'summer', scene:'obon' },
