@@ -594,7 +594,7 @@ const BR = {
 // 14  : secondary info, metadata, button labels
 // 12  : uppercase section labels, timestamps, captions
 const SCHEMA_VERSION = 1;
-const APP_VERSION = 'v2026.09.03-03:31';
+const APP_VERSION = 'v2026.09.24-16:44';
 const APP_BUILD_DATE = 'May 23, 2026 · 5:00 PM';
 
 // Load own entries from Supabase — simple, reliable query
@@ -11366,7 +11366,7 @@ function buildCalendarLocationMap(userLocations, entries, userId) {
 
   const userFlights = entries
     .filter(e => {
-      if (e.type !== 'flight' || !e.date) return false;
+      if (e.type !== 'flight' || !e.date || e.cancelled) return false;
       if (!getArrCountry(e)) return false;
       // Check new travellers[] first, then fall back to legacy traveller string
       const entryOwner = e.userId || e.user_id;
